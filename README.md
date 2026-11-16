@@ -9,6 +9,7 @@ Audio plugins by HNL Design (effects and an instrument), built as VST3 for Windo
 | [HNL Tape Echo](plugins/hnl-tape-echo) | Tape echo with three playback heads and a spring reverb: saturating repeats, pitch bends, wow and flutter, self-oscillation, tempo sync |
 | [HNL Bus Compressor](plugins/hnl-bus-compressor) | Stereo bus compressor: glue for a mix or drum bus, with stepped ratio, attack and release, auto release, sidechain high-pass and parallel mix |
 | [HNL Leveller](plugins/hnl-leveller) | Levelling compressor for vocals and bass: a smooth opto type with a two-stage release and a fast FET type, with colour, sidechain high-pass and parallel mix |
+| [HNL Transient Shaper](plugins/hnl-transient-shaper) | Transient shaper for drums: attack and sustain of each hit up or down, whatever its level, with a detector that can listen to the lows, mids or highs only |
 | [HNL Channel Spacer](plugins/hnl-channel-spacer) | Makes room in one channel for another: turns down only the frequency ranges where the sidechain signal is playing, in 32 bands; also works as a sidechain ducker |
 | [HNL Digital Piano](plugins/hnl-digital-piano) | Instrument: five pianos in stereo (workstation, FM electric, 1980s stage, 1990s dance, concert grand), with doubling, reverb and an on-screen keyboard |
 
@@ -21,8 +22,10 @@ Audio plugins by HNL Design (effects and an instrument), built as VST3 for Windo
 | ![HNL Channel Spacer](plugins/hnl-channel-spacer/docs/preview.png) | ![HNL Digital Piano](plugins/hnl-digital-piano/docs/grand.png) |
 | **HNL Bus Compressor** | **HNL Leveller** |
 | ![HNL Bus Compressor](plugins/hnl-bus-compressor/docs/preview.png) | ![HNL Leveller](plugins/hnl-leveller/docs/preview.png) |
+| **HNL Transient Shaper** | |
+| ![HNL Transient Shaper](plugins/hnl-transient-shaper/docs/preview.png) | |
 
-*HNL Master as it runs in Reason; the other six rendered from the plugins' drawing code.*
+*HNL Master as it runs in Reason; the other seven rendered from the plugins' drawing code.*
 
 ## Layout
 

@@ -1,0 +1,51 @@
+// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|help|menu]
+#include <fstream>
+#include <string>
+
+#include "DistrhoUI.hpp"
+#include "../Params.hpp"
+
+int main(int argc, char** argv) {
+    const std::string mode = argc > 2 ? argv[2] : "default";
+    DISTRHO::UI* ui = DISTRHO::createUI();
+    if (mode != "default") {
+        ui->parameterChanged(kMeterBoost, 5.4f);
+        ui->parameterChanged(kMeterCut, 1.2f);
+        ui->parameterChanged(kMeterInL, -3.5f);
+        ui->parameterChanged(kMeterInR, -4.8f);
+        ui->parameterChanged(kMeterOutL, -5.6f);
+        ui->parameterChanged(kMeterOutR, -6.9f);
+    }
+    if (mode == "busy") {
+        ui->parameterChanged(kAttack, 50.0f);
+        ui->parameterChanged(kSustain, -20.0f);
+        ui->parameterChanged(kLength, 25.0f);
+        ui->parameterChanged(kFocus, 1.0f);
+        ui->parameterChanged(kOutput, -2.0f);
+    }
+    if (mode == "help") {
+        DISTRHO::MouseEvent click; // the ? button
+        click.pos.x = UI_BASE_WIDTH - 24;
+        click.pos.y = 26;
+        ui->onMouse(click);
+        DISTRHO::MouseEvent release = click;
+        release.press = false;
+        ui->onMouse(release);
+        DISTRHO::MotionEvent move; // the sustain knob
+        move.pos.x = 251;
+        move.pos.y = 372;
+        ui->onMotion(move);
+    }
+    if (mode == "menu") {
+        DISTRHO::MouseEvent click; // the preset name
+        click.pos.x = 350;
+        click.pos.y = 26;
+        ui->onMouse(click);
+    }
+    ui->onNanoDisplay();
+    std::ofstream out(argv[1]);
+    out << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" << ui->getWidth() << "\" height=\"" << ui->getHeight()
+        << "\" font-family=\"DejaVu Sans, Verdana, sans-serif\">\n" << ui->svg << "</svg>\n";
+    delete ui;
+    return 0;
+}
