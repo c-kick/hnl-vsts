@@ -1,33 +1,10 @@
-// Measurements of a workstation piano, written by tools/fit.cpp: do not edit by hand.
-// For every measured note: the noise of its attack, and its partials, each with a frequency early and late in the note
-// (as multiples of the note's own frequency), a starting phase, and its level in tenths of
-// a dB at the times of kTimeMs. No audio is stored here.
+// Measurements of a late-1980s workstation piano, written by tools/fit.cpp: do not edit by hand.
 #pragma once
 
-#include <cstdint>
+#include "PianoFit.hpp"
 
 namespace pianodata {
-
-constexpr int kTimes = 29;
-constexpr double kSwitchSeconds = 0.35;
-static const float kTimeMs[kTimes] = {0, 6, 12, 20, 30, 45, 60, 80, 100, 130, 160, 200, 250, 300, 400, 500, 650, 800, 1000, 1300, 1600, 2000, 2500, 3000, 4000, 5000, 6000, 8000, 10000};
-
-struct Partial {
-    float early, late, phase;
-    int16_t level[kTimes];
-};
-
-constexpr int kKnockBands = 5, kKnockFrames = 4;
-static const float kKnockHz[kKnockBands] = {50, 100, 200, 400, 800};
-static const float kKnockMs[kKnockFrames + 1] = {0, 30, 60, 120, 240};
-
-struct Note {
-    int midi;
-    float freq, seconds;
-    int count;
-    const Partial* partials;
-    int16_t knock[kKnockBands][kKnockFrames]; // noise level per band and frame, tenths of a dB
-};
+namespace workstation {
 
 static const Partial kNote12[] = {
     {1.01914f, 1.00378f, 2.707f, {-332,-332,-332,-332,-332,-332,-332,-332,-332,-358,-408,-411,-397,-412,-372,-381,-384,-375,-381,-382,-370,-382,-423,-451,-495,-545,-599,-693,-1200}},
@@ -1137,4 +1114,5 @@ static const Note kNotes[] = {
 };
 constexpr int kNoteCount = 16;
 
+} // namespace workstation
 } // namespace pianodata

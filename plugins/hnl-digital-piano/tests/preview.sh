@@ -6,5 +6,5 @@ ROOT=../..
 OUT=$ROOT/build/hnl-digital-piano-preview
 mkdir -p "$OUT"
 g++ -std=gnu++17 -O1 -I$ROOT/tools/ui-preview -I. -o "$OUT/preview" tests/preview.cpp PianoUI.cpp
-for mode in default busy fm help menu; do "$OUT/preview" "$OUT/$mode.svg" $mode; done
+for mode in default busy grand help menu; do "$OUT/preview" "$OUT/$mode.svg" $mode; done
 ls "$OUT"/*.svg

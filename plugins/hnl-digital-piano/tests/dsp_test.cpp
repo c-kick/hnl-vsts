@@ -421,9 +421,130 @@ static void testFm() {
     check(finite && seconds < 1.6, "FM: speed with all 64 voices", "%.1fx real time", 5.0 / seconds);
 }
 
+/** What every voice made of computed waves has to do. */
+static void testWaves(int voice, const char* name) {
+    const double fs = 48000;
+    const std::string tag = std::string(name) + ": ";
+    const std::clock_t t0 = std::clock();
+    { Piano warm; PianoParams q; q.voice = voice; warm.prepare(fs); warm.setParams(q); }
+    const double build = static_cast<double>(std::clock() - t0) / CLOCKS_PER_SEC;
+    check(build < 3.0, tag + "working out its waves", "%.0f ms", build * 1000);
+
+    PianoParams p = plain();
+    p.voice = voice;
+    double worst = 0, lastDb = 0, step = 0, least = 1, most = 0;
+    for (int note = 28; note <= 100; note += 3) {
+        const Take t = play(fs, p, note, 100, 0.8);
+        Buf mid(t.l.size());
+        for (size_t i = 0; i < mid.size(); ++i) mid[i] = 0.5f * (t.l[i] + t.r[i]);
+        const double off = centsOff(mid, fs, 0.45, noteFreq(note));
+        if (std::fabs(off) > std::fabs(worst)) worst = off;
+        const double db = linToDb(std::hypot(rms(t.l, fs, 0.0, 0.3), rms(t.r, fs, 0.0, 0.3)));
+        if (note > 28) step = std::max(step, std::fabs(db - lastDb));
+        lastDb = db;
+        double lr = 0, ll = 0, rr = 0;
+        for (size_t i = 0; i < t.l.size(); ++i) { lr += static_cast<double>(t.l[i]) * t.r[i]; ll += static_cast<double>(t.l[i]) * t.l[i]; rr += static_cast<double>(t.r[i]) * t.r[i]; }
+        least = std::min(least, lr / std::sqrt(ll * rr));
+        most = std::max(most, lr / std::sqrt(ll * rr));
+    }
+    check(std::fabs(worst) < 4.0, tag + "in tune", "worst %+.2f cents", worst);
+    check(step < 3.5, tag + "even level from key to key", "largest step %.2f dB", step);
+    check(least > 0.2 && most < 0.97, tag + "stereo on every key", "correlation %.2f to %.2f", least, most);
+
+    const Take a = play(fs, plain(), 60, 100, 0.4), b = play(fs, p, 60, 100, 0.4);
+    const double apart = linToDb(std::hypot(rms(b.l, fs, 0, 0.3), rms(b.r, fs, 0, 0.3)) / std::hypot(rms(a.l, fs, 0, 0.3), rms(a.r, fs, 0, 0.3)));
+    check(std::fabs(apart) < 4.0, tag + "as loud as the workstation voice", "%+.1f dB", apart);
+
+    const Take loud = play(fs, p, 60, 127, 0.5), soft = play(fs, p, 60, 40, 0.5);
+    const auto bright = [&](const Take& t) {
+        double hi = 0;
+        for (int k = 5; k <= 12; ++k) hi += tone(t.l, fs, 0.02, 0.3, k * noteFreq(60) * (1 + 2.0e-4 * k * k));
+        return linToDb(hi / tone(t.l, fs, 0.02, 0.3, noteFreq(60)));
+    };
+    check(rms(loud.l, fs, 0, 0.3) > 3 * rms(soft.l, fs, 0, 0.3) && bright(loud) > bright(soft) + 1, tag + "harder is louder and brighter", "%.1f dB louder, %.1f dB brighter",
+          linToDb(rms(loud.l, fs, 0, 0.3) / rms(soft.l, fs, 0, 0.3)), bright(loud) - bright(soft));
+
+    p.width = 0;
+    const Take mono = play(fs, p, 60, 100, 0.3);
+    double diff = 0;
+    for (size_t i = 0; i < mono.l.size(); ++i) diff = std::max(diff, static_cast<double>(std::fabs(mono.l[i] - mono.r[i])));
+    check(diff < 1e-6, tag + "width 0% is mono", "largest difference %.1e", diff);
+    p.width = 100;
+
+    // Held until it has run its course: no click, and the voice is freed.
+    double click = 0;
+    bool freed = true;
+    for (int note : {30, 60, 90}) {
+        Piano m;
+        m.prepare(fs);
+        m.setParams(p);
+        m.reset();
+        Take t{{}, {}, fs};
+        m.noteOn(note, 120);
+        run(m, t, 12.0);
+        freed = freed && m.activeVoices() == 0;
+        double top = 0, jump = 0;
+        for (size_t i = 1; i < t.l.size(); ++i) top = std::max(top, static_cast<double>(std::fabs(t.l[i])));
+        for (size_t i = static_cast<size_t>(0.3 * fs); i < t.l.size(); ++i) jump = std::max(jump, static_cast<double>(std::fabs(t.l[i] - t.l[i - 1])));
+        click = std::max(click, jump / top);
+    }
+    check(freed && click < 0.5, tag + "a held note dies away by itself, no click", "largest late step %.3f of the peak", click);
+}
+
+static void testGrand() {
+    const double fs = 48000;
+    PianoParams p = plain();
+    p.voice = kGrand;
+    p.velocity = 100;
+
+    // Two stages: a fast fade at first, a slow aftersound later.
+    const Take t = play(fs, p, 60, 110, 7.0);
+    const double early = linToDb(rms(t.l, fs, 0.1, 0.3) / rms(t.l, fs, 1.1, 1.3)), late = linToDb(rms(t.l, fs, 3.5, 3.7) / rms(t.l, fs, 5.5, 5.7)) / 2.0;
+    check(early > 1.6 * late && late > 0.5, "Grand: fades fast at first, then slowly", "%.1f dB/s, later %.1f dB/s", early, late);
+
+    // The hammer: a soft note is nearly all fundamental, a hard one is rich.
+    const auto upper = [&](int vel) {
+        const Take n = play(fs, p, 48, vel, 0.5);
+        double hi = 0;
+        for (int k = 8; k <= 20; ++k) hi += tone(n.l, fs, 0.02, 0.3, k * noteFreq(48) * std::sqrt(1 + 9.0e-5 * k * k));
+        return linToDb(hi / tone(n.l, fs, 0.02, 0.3, noteFreq(48)));
+    };
+    check(upper(127) > upper(30) + 12, "Grand: the hammer hardens with velocity", "upper partials %.1f dB hard, %.1f dB soft", upper(127), upper(30));
+
+    // Bass rings long, treble short.
+    const auto lasts = [&](int note) {
+        const Take n = play(fs, p, note, 100, 10.0);
+        const double start = rms(n.l, fs, 0.0, 0.1);
+        for (double at = 0.1; at < 9.8; at += 0.05)
+            if (rms(n.l, fs, at, at + 0.1) < 0.03 * start) return at;
+        return 10.0;
+    };
+    const double low = lasts(33), mid = lasts(60), high = lasts(93);
+    check(low >= mid && mid > 2 * high && high > 0.15, "Grand: bass rings long, treble short", "%.1f / %.1f / %.1f s to -30 dB", low, mid, high);
+
+    // Dampers: a middle key stops when let go, a top key has none and rings on.
+    const Take stopped = play(fs, p, 60, 100, 0.2, 0.6), ringing = play(fs, p, 96, 100, 0.2, 0.6);
+    const double a = linToDb(rms(stopped.l, fs, 0.6, 0.7) / rms(stopped.l, fs, 0.1, 0.2)), b = linToDb(rms(ringing.l, fs, 0.6, 0.7) / rms(ringing.l, fs, 0.1, 0.2));
+    check(a < -40 && b > -25, "Grand: dampers stop a middle key, not a top key", "%.1f dB, top key %.1f dB", a, b);
+
+    // The strings of a note move against each other: the level of a low partial wavers slowly.
+    const Take beat = play(fs, p, 64, 100, 6.0);
+    double lo = 1e9, hi = 0;
+    for (double at = 2.0; at < 5.5; at += 0.1) {
+        const double v = tone(beat.l, fs, at, at + 0.2, 2 * noteFreq(64) * std::sqrt((1 + 4 * 1.3e-4) / (1 + 1.3e-4))) * std::pow(10.0, at * 0.45);
+        lo = std::min(lo, v);
+        hi = std::max(hi, v);
+    }
+    check(linToDb(hi / lo) > 2.0, "Grand: slow beating in the aftersound", "second partial moves %.1f dB around its fade", linToDb(hi / lo));
+}
+
 int main() {
     testSpeed();
     testFm();
+    testWaves(kStage, "Stage");
+    testWaves(kDance, "Dance");
+    testWaves(kGrand, "Grand");
+    testGrand();
     testPitch();
     testLevels();
     testEnvelope();

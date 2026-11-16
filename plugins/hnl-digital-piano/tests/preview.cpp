@@ -17,9 +17,10 @@ int main(int argc, char** argv) {
         ui->parameterChanged(kReverb, 28.0f);
         ui->parameterChanged(kDecay, 60.0f);
     }
-    if (mode == "fm") {
-        ui->parameterChanged(kVoice, 1.0f);
-        ui->parameterChanged(kReverb, 20.0f);
+    if (mode == "grand") {
+        ui->parameterChanged(kVoice, 4.0f);
+        ui->parameterChanged(kVelocity, 100.0f);
+        ui->parameterChanged(kReverb, 22.0f);
         ui->parameterChanged(kMeterOutL, -12.5f);
         ui->parameterChanged(kMeterOutR, -11.8f);
         ui->parameterChanged(kMeterVoices, 4.0f);

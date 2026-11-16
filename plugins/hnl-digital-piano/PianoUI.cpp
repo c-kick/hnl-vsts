@@ -49,8 +49,8 @@ const int kKnobCount = sizeof(kKnobs) / sizeof(kKnobs[0]);
 
 struct Selector { uint32_t id; Rect box; const char* label; const char* const* names; int count; };
 const Selector kSelectors[] = {
-    {kVoice, {24, 208, 260, 26}, "VOICE", kVoiceNames, kVoiceChoices},
-    {kOctave, {300, 208, 200, 26}, "OCTAVE", kOctaveNames, 5},
+    {kVoice, {24, 208, 520, 26}, "VOICE", kVoiceNames, kVoiceChoices},
+    {kOctave, {596, 208, 200, 26}, "OCTAVE", kOctaveNames, 5},
 };
 
 // The keyboard on screen: C2 to C7, 36 white keys.
@@ -142,7 +142,6 @@ protected:
         for (const Knob& k : kKnobs) drawKnob(k);
         drawOutput();
         for (const Selector& sel : kSelectors) drawSelector(sel);
-        label("SUSTAIN PEDAL: CC 64  /  PITCH BEND: 2 SEMITONES", kSwitchPanel.x + kSwitchPanel.w - 16, 221, 9, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
         drawKeyboard();
 
         presetBar_.drawMenu(*this, kTheme, presets::kCount, preset_, [](int i) { return presets::kAll[i].name; });

@@ -1,19 +1,20 @@
-// Fits the piano to reference recordings: measures, for every recorded note,
-// its partials (frequency, starting phase, and level over time) and writes
-// them as dsp/PianoData.hpp. The recordings themselves are not part of this
-// repository and no audio from them ends up in the plugin: only these
-// measurements, from which the engine computes its own waves.
+// Fits a piano voice to reference recordings: measures, for every recorded note,
+// the noise of its attack and its partials (frequency, starting phase, and level
+// over time) and writes them as a data file for dsp/. The recordings themselves are
+// not part of this repository and no audio from them ends up in the plugin: only
+// these measurements, from which the engine computes its own waves.
 //
 //   g++ -O2 -o fit tools/fit.cpp
-//   ./fit <folder with one mono 16-bit WAV per note> <prefix> > dsp/PianoData.hpp
+//   ./fit <folder> <file pattern> <first> <last> <step> <name> > dsp/<Name>Data.hpp
 //
-// The files are expected as <prefix>C0.wav, <prefix>F#0.wav, <prefix>C1.wav ...
-// named by the pitch that sounds, with C4 as middle C (MIDI 60): a note every
-// six semitones from C0 (MIDI 12).
+// One mono 16-bit WAV per note, named by the pattern with the MIDI number of the
+// pitch that sounds, for example "piano_%d.wav" with 24 96 6 for a note every six
+// semitones from MIDI 24 to 96. <name> becomes the namespace of the data.
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -108,21 +109,17 @@ static double peakFreq(const std::vector<double>& x, double fs, long a, long n, 
 }
 
 int main(int argc, char** argv) {
-    if (argc < 3) { std::fprintf(stderr, "usage: fit <folder> <prefix>\n"); return 2; }
-    static const char* const kNames[2] = {"C", "F#"};
-    std::printf("// Measurements of a workstation piano, written by tools/fit.cpp: do not edit by hand.\n");
-    std::printf("// For every measured note: the noise of its attack, and its partials, each with a frequency early and late in the note\n");
-    std::printf("// (as multiples of the note's own frequency), a starting phase, and its level in tenths of\n");
-    std::printf("// a dB at the times of kTimeMs. No audio is stored here.\n#pragma once\n\n#include <cstdint>\n\nnamespace pianodata {\n\n");
-    std::printf("constexpr int kTimes = %d;\nconstexpr double kSwitchSeconds = %.2f;\nstatic const float kTimeMs[kTimes] = {", kTimes, kSwitch);
-    for (int j = 0; j < kTimes; ++j) std::printf("%s%.0f", j ? ", " : "", kTimesMs[j]);
-    std::printf("};\n\nstruct Partial {\n    float early, late, phase;\n    int16_t level[kTimes];\n};\n\nconstexpr int kKnockBands = %d, kKnockFrames = %d;\nstatic const float kKnockHz[kKnockBands] = {50, 100, 200, 400, 800};\nstatic const float kKnockMs[kKnockFrames + 1] = {0, 30, 60, 120, 240};\n\n", kKnockBands, kKnockFrames);
-    std::printf("struct Note {\n    int midi;\n    float freq, seconds;\n    int count;\n    const Partial* partials;\n    int16_t knock[kKnockBands][kKnockFrames]; // noise level per band and frame, tenths of a dB\n};\n\n");
+    if (argc < 7) { std::fprintf(stderr, "usage: fit <folder> <file pattern> <first> <last> <step> <name>\n"); return 2; }
+    const int first = std::atoi(argv[3]), lastNote = std::atoi(argv[4]), stride = std::atoi(argv[5]);
+    std::printf("// Measurements of a piano, written by tools/fit.cpp: do not edit by hand.\n#pragma once\n\n#include \"PianoFit.hpp\"\n\n");
+    std::printf("namespace pianodata {\nnamespace %s {\n\n", argv[6]);
 
     std::string notes;
     int count = 0;
-    for (int midi = 12; midi <= 102; midi += 6) {
-        const std::string path = std::string(argv[1]) + "/" + argv[2] + kNames[(midi / 6) % 2] + std::to_string(midi / 12 - 1) + ".wav";
+    for (int midi = first; midi <= lastNote; midi += stride) {
+        char file[512];
+        std::snprintf(file, sizeof file, argv[2], midi);
+        const std::string path = std::string(argv[1]) + "/" + file;
         std::vector<double> x;
         double fs = 44100;
         if (!load(path, x, fs)) { std::fprintf(stderr, "skipping %s\n", path.c_str()); continue; }
@@ -149,7 +146,8 @@ int main(int argc, char** argv) {
         std::string rows;
         int kept = 0;
         double lastRatio = 1.0, slope = 0.0;
-        for (int k = 1; k * f1 * lastRatio < 14500.0 && k <= 900; ++k) {
+        const double top = std::min(14500.0, 0.46 * fs);
+        for (int k = 1; k * f1 * lastRatio < top && k <= 900; ++k) {
             // Follow the stretch of the partials upward from the previous one.
             const double guess = k * f1 * (lastRatio + slope);
             double le, ll = 0;
@@ -212,6 +210,6 @@ int main(int argc, char** argv) {
         ++count;
         std::fprintf(stderr, "note %3d  %8.2f Hz (%+5.1f cents)  %5.2f s  %3d partials\n", midi, f1, 1200 * std::log2(f1 / nominal), seconds, kept);
     }
-    std::printf("static const Note kNotes[] = {\n%s};\nconstexpr int kNoteCount = %d;\n\n} // namespace pianodata\n", notes.c_str(), count);
+    std::printf("static const Note kNotes[] = {\n%s};\nconstexpr int kNoteCount = %d;\n\n} // namespace %s\n} // namespace pianodata\n", notes.c_str(), count, argv[6]);
     return 0;
 }

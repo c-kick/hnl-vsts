@@ -57,6 +57,45 @@ static const PresetValue kFmDry[] = {
     {kVoice, 1}, {kReverb, 0}, {kWidth, 60}, {kRelease, 300},
 };
 
+// The 1980s stage piano (voice 2).
+static const PresetValue kStagePiano[] = {
+    {kVoice, 2}, {kVelocity, 100}, {kRelease, 400}, {kReverb, 18},
+};
+static const PresetValue kStageBallad[] = {
+    {kVoice, 2}, {kVelocity, 100}, {kDetune, 4}, {kRelease, 900}, {kReverb, 42},
+};
+static const PresetValue kStageBright[] = {
+    {kVoice, 2}, {kVelocity, 60}, {kTone, 30}, {kRelease, 300}, {kReverb, 12},
+};
+
+// The 1990s dance piano (voice 3).
+static const PresetValue kDancePiano[] = {
+    {kVoice, 3}, {kRelease, 350}, {kReverb, 15},
+};
+static const PresetValue kDanceStabs[] = {
+    {kVoice, 3}, {kVelocity, 40}, {kDecay, 55}, {kRelease, 250}, {kReverb, 30},
+};
+static const PresetValue kDanceWide[] = {
+    {kVoice, 3}, {kDetune, 7}, {kRelease, 500}, {kReverb, 25},
+};
+
+// The modelled grand (voice 4).
+static const PresetValue kGrandPiano[] = {
+    {kVoice, 4}, {kVelocity, 100}, {kRelease, 350}, {kReverb, 22},
+};
+static const PresetValue kGrandHall[] = {
+    {kVoice, 4}, {kVelocity, 100}, {kRelease, 450}, {kReverb, 55},
+};
+static const PresetValue kGrandMellow[] = {
+    {kVoice, 4}, {kVelocity, 100}, {kTone, -25}, {kRelease, 500}, {kReverb, 30},
+};
+static const PresetValue kGrandDry[] = {
+    {kVoice, 4}, {kVelocity, 100}, {kRelease, 300}, {kReverb, 0},
+};
+static const PresetValue kGrandPop[] = {
+    {kVoice, 4}, {kVelocity, 65}, {kTone, 20}, {kRelease, 300}, {kReverb, 12},
+};
+
 static const Preset kAll[] = {
     {"Default", nullptr, 0},
     HNL_PRESET("House Stabs", kHouseStabs),
@@ -74,6 +113,17 @@ static const Preset kAll[] = {
     HNL_PRESET("FM Bright Tines", kFmBrightTines),
     HNL_PRESET("FM Soft and Slow", kFmSoftPad),
     HNL_PRESET("FM Dry", kFmDry),
+    HNL_PRESET("Stage Piano", kStagePiano),
+    HNL_PRESET("Stage Ballad", kStageBallad),
+    HNL_PRESET("Stage Bright", kStageBright),
+    HNL_PRESET("Dance Piano", kDancePiano),
+    HNL_PRESET("Dance Stabs", kDanceStabs),
+    HNL_PRESET("Dance Wide", kDanceWide),
+    HNL_PRESET("Grand Piano", kGrandPiano),
+    HNL_PRESET("Grand in a Hall", kGrandHall),
+    HNL_PRESET("Grand Mellow", kGrandMellow),
+    HNL_PRESET("Grand Dry", kGrandDry),
+    HNL_PRESET("Grand Pop", kGrandPop),
 };
 
 static const int kCount = static_cast<int>(sizeof(kAll) / sizeof(kAll[0]));

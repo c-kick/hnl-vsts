@@ -49,6 +49,7 @@ template <class C> void triangle(C& c, float x0, float y0, float x1, float y1, f
 class PresetBar {
 public:
     static constexpr float kWidth = 222, kHeight = 24, kRow = 22;
+    static constexpr int kMaxRows = 16; // a longer list continues in a further column
     enum { kNotMine = -2, kHandled = -1 }; // mouseDown results below zero
 
     PresetBar(float x, float y) : prev_{x, y, 22, kHeight}, name_{x + 26, y, 170, kHeight}, next_{x + 200, y, 22, kHeight} {}
@@ -113,24 +114,29 @@ public:
         c.strokeWidth(1);
         c.stroke();
         for (int i = 0; i < count; ++i) {
-            const float y = m.y + 4 + i * kRow;
+            const float x = m.x + (i / kMaxRows) * name_.w, y = m.y + 4 + (i % kMaxRows) * kRow;
             if (i == hover_) {
                 c.beginPath();
-                c.roundedRect(m.x + 4, y, m.w - 8, kRow, 3);
+                c.roundedRect(x + 4, y, name_.w - 8, kRow, 3);
                 c.fillColor(rgb(t.track));
                 c.fill();
             }
-            label(c, name(i), m.x + 12, y + kRow * 0.5f, 11, rgb(i == current ? t.accent : t.text), C::ALIGN_LEFT | C::ALIGN_MIDDLE);
+            label(c, name(i), x + 12, y + kRow * 0.5f, 11, rgb(i == current ? t.accent : t.text), C::ALIGN_LEFT | C::ALIGN_MIDDLE);
         }
     }
 
 private:
-    Box menuBox(int count) const { return {name_.x, name_.y + name_.h + 2, name_.w, count * kRow + 8}; }
+    Box menuBox(int count) const {
+        const int rows = count < kMaxRows ? count : kMaxRows, columns = (count + kMaxRows - 1) / kMaxRows;
+        return {name_.x, name_.y + name_.h + 2, name_.w * columns, rows * kRow + 8};
+    }
     int rowAt(float x, float y, int count) const {
         const Box m = menuBox(count);
         if (!m.contains(x, y)) return -1;
-        const int row = static_cast<int>((y - m.y - 4) / kRow);
-        return row < 0 || row >= count ? -1 : row;
+        const int row = static_cast<int>((y - m.y - 4) / kRow), column = static_cast<int>((x - m.x) / name_.w);
+        if (row < 0 || row >= kMaxRows) return -1;
+        const int index = column * kMaxRows + row;
+        return index < 0 || index >= count ? -1 : index;
     }
 
     Box prev_, name_, next_;

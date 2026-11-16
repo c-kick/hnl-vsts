@@ -19,7 +19,7 @@ enum ParamId : uint32_t {
 enum ParamKind { kLinear, kLog, kToggle, kChoice, kMeter };
 
 static const char* const kOctaveNames[] = {"-2", "-1", "0", "+1", "+2"};
-static const char* const kVoiceNames[] = {"Workstation", "FM Electric"};
+static const char* const kVoiceNames[] = {"Workstation", "FM Electric", "Stage 80s", "Dance 90s", "Grand"};
 constexpr int kVoiceChoices = sizeof(kVoiceNames) / sizeof(kVoiceNames[0]);
 
 struct ParamInfo {
