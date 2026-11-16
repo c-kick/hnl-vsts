@@ -6,6 +6,7 @@ Audio plugins by HNL Design, built as VST3 for Windows (tested in Reason 12.5+).
 | --- | --- |
 | [HNL Master](plugins/hnl-master) | Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets |
 | [HNL Tape Master](plugins/hnl-tape-master) | Two-track mastering tape machine: saturation, tape compression, head response by speed, formula and head width, wow, flutter, hiss |
+| [HNL Tape Echo](plugins/hnl-tape-echo) | Tape echo with three playback heads and a spring reverb: saturating repeats, pitch bends, wow and flutter, self-oscillation, tempo sync |
 
 ![HNL Master](plugins/hnl-master/docs/in-use.png)
 

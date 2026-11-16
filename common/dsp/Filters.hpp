@@ -1,4 +1,5 @@
-// Building blocks shared by all plugins: biquads and their designs,
+// Building blocks shared by all plugins: biquads and their designs, a
+// first-order shelf with an exact inverse,
 // Linkwitz-Riley crossover, delay, halfband oversampling and a true-peak
 // estimator. Header-only, no dependencies.
 #pragma once
@@ -68,6 +69,27 @@ struct Biquad {
         const double y = b0 * x + z1;
         z1 = b1 * x - a1 * y + z2;
         z2 = b2 * x - a2 * y;
+        return y;
+    }
+};
+
+/** First-order filter; used as a high shelf and as its exact inverse. */
+struct Shelf1 {
+    double b0 = 1, b1 = 0, a1 = 0, z = 0;
+
+    /** Unity at DC, gainDb at the top, half the gain (in dB) at fc. */
+    void setHighShelf(double fs, double fc, double gainDb) {
+        const double g = std::sqrt(dbToLin(gainDb));
+        const double kz = std::tan(kPi * std::min(fc / g, 0.45 * fs) / fs), kp = std::tan(kPi * std::min(fc * g, 0.45 * fs) / fs);
+        b0 = kp * (kz + 1) / (kz * (kp + 1));
+        b1 = kp * (kz - 1) / (kz * (kp + 1));
+        a1 = (kp - 1) / (kp + 1);
+    }
+    void setInverseOf(const Shelf1& s) { b0 = 1.0 / s.b0; b1 = s.a1 / s.b0; a1 = s.b1 / s.b0; }
+    void reset() { z = 0; }
+    inline double process(double x) {
+        const double y = b0 * x + z;
+        z = b1 * x - a1 * y;
         return y;
     }
 };
