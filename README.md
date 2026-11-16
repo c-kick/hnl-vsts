@@ -25,8 +25,6 @@ Audio plugins by HNL Design (effects and an instrument), built as VST3 for Windo
 | **HNL Transient Shaper** | |
 | ![HNL Transient Shaper](plugins/hnl-transient-shaper/docs/preview.png) | |
 
-*HNL Master as it runs in Reason; the other seven rendered from the plugins' drawing code.*
-
 ## Layout
 
 - `plugins/<name>/`: one folder per plugin. Audio engine in `dsp/` (header-only C++17, no dependencies), the DPF
