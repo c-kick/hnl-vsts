@@ -11,6 +11,12 @@ Audio plugins by HNL Design (effects and an instrument), built as VST3 for Windo
 
 ![HNL Master](plugins/hnl-master/docs/in-use.png)
 
+| HNL Tape Master | HNL Tape Echo | HNL Digital Piano |
+| --- | --- | --- |
+| ![HNL Tape Master](plugins/hnl-tape-master/docs/preview.png) | ![HNL Tape Echo](plugins/hnl-tape-echo/docs/preview.png) | ![HNL Digital Piano](plugins/hnl-digital-piano/docs/grand.png) |
+
+*HNL Master as it runs in Reason; the other three rendered from the plugins' drawing code.*
+
 ## Layout
 
 - `plugins/<name>/`: one folder per plugin. Audio engine in `dsp/` (header-only C++17, no dependencies), the DPF

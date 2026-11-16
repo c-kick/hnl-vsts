@@ -5,6 +5,10 @@ and playing it back.
 
 ![HNL Tape Master](docs/preview.png)
 
+| Help tips | Presets |
+| --- | --- |
+| ![Help tip on Calibration](docs/help.png) | ![Preset menu](docs/menu.png) |
+
 *Rendered from the plugin's drawing code; not yet a screenshot from a host.*
 
 ## What it does
