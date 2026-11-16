@@ -6,7 +6,7 @@ A list to pick from, not a plan. Nothing here is started unless it says so.
 
 - **Bus compressor:** built as `plugins/hnl-bus-compressor`. Could still gain an external sidechain input (as
   in HNL Channel Spacer) and an optional saturating gain stage.
-- **Levelling compressor:** opto or FET style, for vocals and bass.
+- **Levelling compressor:** built as `plugins/hnl-leveller`, with an opto and a FET type.
 - **Transient shaper** for drums.
 - **De-esser.**
 - **Gate/expander.**
