@@ -5,6 +5,7 @@ Audio plugins by HNL Design, built as VST3 for Windows (tested in Reason 12.5+).
 | Plugin | What it is |
 | --- | --- |
 | [HNL Master](plugins/hnl-master) | Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets |
+| [HNL Tape Master](plugins/hnl-tape-master) | Two-track mastering tape machine: saturation, tape compression, head response by speed, formula and head width, wow, flutter, hiss |
 
 ![HNL Master](plugins/hnl-master/docs/in-use.png)
 
@@ -12,6 +13,7 @@ Audio plugins by HNL Design, built as VST3 for Windows (tested in Reason 12.5+).
 
 - `plugins/<name>/`: one folder per plugin. Audio engine in `dsp/` (header-only C++17, no dependencies), the DPF
   plugin and its NanoVG UI next to it, and offline tests in `tests/`.
+- `common/dsp/`: building blocks shared by the plugins (filters, oversampling, true-peak detection).
 - `dpf/`: the [DISTRHO Plugin Framework](https://github.com/DISTRHO/DPF), as a git submodule.
 - `toolchain/`: wrappers that run zig as the Windows cross-compiler.
 - `tools/ui-preview/`: a stand-in for DPF's drawing API that writes a plugin UI as SVG, to check a layout on a
