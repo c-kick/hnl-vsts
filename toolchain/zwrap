@@ -1,0 +1,16 @@
+#!/bin/sh
+# Runs zig as a Windows cross-compiler. Called through the zcc / zc++ symlinks.
+# Drops the GCC-only flags that DPF's makefiles pass for MinGW builds.
+ZIG=${ZIG:-$HOME/.local/opt/zig-x86_64-linux-0.17.1/zig}
+case "$(basename "$0")" in
+    zc++) mode=c++ ;;
+    *) mode=cc ;;
+esac
+for arg do
+    shift
+    case "$arg" in
+        -posix|-static-libgcc|-static-libstdc++|-fno-gnu-unique|-mtune=generic|-mfpmath=sse) ;;
+        *) set -- "$@" "$arg" ;;
+    esac
+done
+exec "$ZIG" "$mode" -target x86_64-windows-gnu "$@"

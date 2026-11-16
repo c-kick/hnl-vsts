@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /home/klaas/.local/opt/zig-x86_64-linux-0.17.1/zig ar "$@"
