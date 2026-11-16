@@ -6,6 +6,8 @@ Audio plugins by HNL Design, built as VST3 for Windows (tested in Reason 12.5+).
 | --- | --- |
 | [HNL Master](plugins/hnl-master) | Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets |
 
+![HNL Master](plugins/hnl-master/docs/in-use.png)
+
 ## Layout
 
 - `plugins/<name>/`: one folder per plugin. Audio engine in `dsp/` (header-only C++17, no dependencies), the DPF
