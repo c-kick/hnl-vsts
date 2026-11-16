@@ -2,6 +2,8 @@
 
 Audio plugins by HNL Design (effects and an instrument), built as VST3 for Windows (tested in Reason 12.5+).
 
+## Effects
+
 | Plugin | What it is |
 | --- | --- |
 | [HNL Master](plugins/hnl-master) | Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets |
@@ -11,19 +13,26 @@ Audio plugins by HNL Design (effects and an instrument), built as VST3 for Windo
 | [HNL Leveller](plugins/hnl-leveller) | Levelling compressor for vocals and bass: a smooth opto type with a two-stage release and a fast FET type, with colour, sidechain high-pass and parallel mix |
 | [HNL Transient Shaper](plugins/hnl-transient-shaper) | Transient shaper for drums: attack and sustain of each hit up or down, whatever its level, with a detector that can listen to the lows, mids or highs only |
 | [HNL Channel Spacer](plugins/hnl-channel-spacer) | Makes room in one channel for another: turns down only the frequency ranges where the sidechain signal is playing, in 32 bands; also works as a sidechain ducker |
-| [HNL Digital Piano](plugins/hnl-digital-piano) | Instrument: five pianos in stereo (workstation, FM electric, 1980s stage, 1990s dance, concert grand), with doubling, reverb and an on-screen keyboard |
 
-![HNL Master](plugins/hnl-master/docs/in-use.png)
-
-| HNL Tape Master | HNL Tape Echo |
+| HNL Master | HNL Tape Master |
 | --- | --- |
-| ![HNL Tape Master](plugins/hnl-tape-master/docs/preview.png) | ![HNL Tape Echo](plugins/hnl-tape-echo/docs/preview.png) |
-| **HNL Channel Spacer** | **HNL Digital Piano** |
-| ![HNL Channel Spacer](plugins/hnl-channel-spacer/docs/preview.png) | ![HNL Digital Piano](plugins/hnl-digital-piano/docs/grand.png) |
-| **HNL Bus Compressor** | **HNL Leveller** |
-| ![HNL Bus Compressor](plugins/hnl-bus-compressor/docs/preview.png) | ![HNL Leveller](plugins/hnl-leveller/docs/preview.png) |
-| **HNL Transient Shaper** | |
-| ![HNL Transient Shaper](plugins/hnl-transient-shaper/docs/preview.png) | |
+| ![HNL Master](plugins/hnl-master/docs/preview.png) | ![HNL Tape Master](plugins/hnl-tape-master/docs/preview.png) |
+| **HNL Tape Echo** | **HNL Bus Compressor** |
+| ![HNL Tape Echo](plugins/hnl-tape-echo/docs/preview.png) | ![HNL Bus Compressor](plugins/hnl-bus-compressor/docs/preview.png) |
+| **HNL Leveller** | **HNL Transient Shaper** |
+| ![HNL Leveller](plugins/hnl-leveller/docs/preview.png) | ![HNL Transient Shaper](plugins/hnl-transient-shaper/docs/preview.png) |
+| **HNL Channel Spacer** | |
+| ![HNL Channel Spacer](plugins/hnl-channel-spacer/docs/preview.png) | |
+
+## Instruments
+
+| Plugin | What it is |
+| --- | --- |
+| [HNL Digital Piano](plugins/hnl-digital-piano) | Five pianos in stereo (workstation, FM electric, 1980s stage, 1990s dance, concert grand), with doubling, reverb and an on-screen keyboard |
+
+| HNL Digital Piano |
+| --- |
+| ![HNL Digital Piano](plugins/hnl-digital-piano/docs/grand.png) |
 
 ## Layout
 

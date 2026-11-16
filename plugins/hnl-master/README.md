@@ -2,7 +2,13 @@
 
 A mastering chain in one plugin, for the master bus.
 
-![HNL Master in Reason with the Room Ambience preset](docs/in-use.png)
+![HNL Master](docs/preview.png)
+
+| Help tips | Presets |
+| --- | --- |
+| ![Help tip](docs/help.png) | ![Preset menu](docs/menu.png) |
+
+*Rendered from the plugin's drawing code.*
 
 Signal flow, left to right:
 

@@ -1,6 +1,7 @@
-// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|all|closed|menu|help]
+// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|all|limiter|closed|menu|help]
 //   default  as a new instance opens      busy    meters moving, a preset edited
 //   all      every stage switched on      closed  every stage switched off
+//   limiter  only the limiter switched on
 //   menu     the preset list open       help    help on, mouse on a knob
 #include <cstring>
 #include <fstream>
@@ -26,6 +27,8 @@ int main(int argc, char** argv) {
         ui->parameterChanged(kEqMidGain, -2.0f);
         ui->parameterChanged(kExcMode, 0.0f);
     }
+    if (mode == "limiter")
+        for (uint32_t id : {kCompOn, kEqOn, kExcOn, kWideOn, kRevOn}) ui->parameterChanged(id, 0.0f);
     if (mode == "menu") {
         DISTRHO::MouseEvent click;
         click.pos.x = 200; // the preset name
