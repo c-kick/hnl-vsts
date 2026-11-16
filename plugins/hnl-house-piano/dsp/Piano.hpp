@@ -38,7 +38,7 @@ struct PianoParams {
     double tone = 0.0;      // -100 dark .. +100 open
     double velocity = 70.0; // percent: how much playing harder adds level and brightness
     double decay = 100.0;   // percent of the natural decay time
-    double release = 150.0; // ms to fall 60 dB after the key is let go
+    double release = 600.0; // ms to fall 60 dB after the key is let go
     double detune = 0.0;    // cents; above 0 every note sounds twice, one up and one down
     double width = 100.0;   // percent: 0 mono, 100 the full stereo recording; also spreads the keys and doubled notes
     double reverb = 15.0;   // percent
@@ -361,9 +361,9 @@ private:
         v.lpCoef = 1.0 - std::exp(-2.0 * kPi * std::clamp(cutoff, 150.0, 0.45 * fs_) / fs_);
 
         // The natural decay: long in the bass, short in the treble.
-        const double seconds = 2.2 * std::pow(2.0, -(v.note - 60) / 18.0) * std::clamp(p_.decay, 10.0, 1000.0) / 100.0;
+        const double seconds = 3.0 * std::pow(2.0, -(v.note - 60) / 24.0) * std::clamp(p_.decay, 10.0, 1000.0) / 100.0;
         v.decay = std::exp(-1.0 / (seconds * fs_));
-        v.release = std::exp(-6.908 / (0.001 * std::clamp(p_.release, 5.0, 5000.0) * fs_)); // 60 dB down in that time
+        v.release = std::exp(-6.908 / (0.001 * std::clamp(p_.release, 5.0, 10000.0) * fs_)); // 60 dB down in that time
 
         // Width narrows the recording towards mono; the keys lie low to high from left to right,
         // as the player hears them, and a doubled note has its two halves apart.

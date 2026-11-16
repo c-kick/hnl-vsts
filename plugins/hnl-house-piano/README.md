@@ -37,7 +37,7 @@ and low keys sit a little to the left and high keys to the right. Summed to mono
 | Tone | Closes or opens the filter on every note: darker and rounder to the left, wide open to the right. |
 | Velocity | How much playing harder adds level and brightness. At 0% every note is the same, for programmed stabs. |
 | Decay | How long a held note rings: 100% is natural (long in the bass, short in the treble). |
-| Release | How long a note takes to fall 60 dB after the key is let go. |
+| Release | How long a note rings on after the key is let go: the time to fall 60 dB, 50 ms to 5 s (default 600 ms). |
 | Detune | Above 0, every note sounds twice, one sharp and one flat, spread left and right. Uses two voices per note. |
 | Width | 100% is the full stereo image; 0% is mono. |
 | Reverb | A touch of room. |

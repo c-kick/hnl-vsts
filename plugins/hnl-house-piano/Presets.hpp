@@ -10,10 +10,10 @@ using hnl::Preset;
 using hnl::PresetValue;
 
 static const PresetValue kHouseStabs[] = {
-    {kTone, 25}, {kVelocity, 45}, {kDecay, 60}, {kRelease, 90}, {kReverb, 28},
+    {kTone, 25}, {kVelocity, 45}, {kDecay, 60}, {kRelease, 300}, {kReverb, 28},
 };
 static const PresetValue kDryAndTight[] = {
-    {kReverb, 0}, {kDecay, 70}, {kRelease, 80}, {kWidth, 70},
+    {kReverb, 0}, {kDecay, 70}, {kRelease, 200}, {kWidth, 70},
 };
 static const PresetValue kDoubled[] = {
     {kDetune, 6}, {kReverb, 22},
@@ -22,19 +22,19 @@ static const PresetValue kHonkyTonk[] = {
     {kDetune, 18}, {kTone, 15}, {kReverb, 8}, {kVelocity, 55},
 };
 static const PresetValue kBallad[] = {
-    {kTone, -30}, {kVelocity, 90}, {kDecay, 160}, {kRelease, 350}, {kReverb, 40},
+    {kTone, -30}, {kVelocity, 90}, {kDecay, 160}, {kRelease, 1000}, {kReverb, 40},
 };
 static const PresetValue kDarkAndLong[] = {
-    {kTone, -60}, {kDecay, 300}, {kRelease, 600}, {kReverb, 50}, {kDetune, 4},
+    {kTone, -60}, {kDecay, 300}, {kRelease, 1800}, {kReverb, 50}, {kDetune, 4},
 };
 static const PresetValue kPluck[] = {
-    {kDecay, 25}, {kRelease, 60}, {kTone, 30}, {kVelocity, 50}, {kReverb, 20},
+    {kDecay, 25}, {kRelease, 150}, {kTone, 30}, {kVelocity, 50}, {kReverb, 20},
 };
 static const PresetValue kBassPiano[] = {
     {kOctave, 1}, {kTone, -10}, {kDecay, 80}, {kWidth, 40}, {kReverb, 5},
 };
 static const PresetValue kHighBells[] = {
-    {kOctave, 3}, {kDecay, 250}, {kRelease, 900}, {kDetune, 5}, {kReverb, 45},
+    {kOctave, 3}, {kDecay, 250}, {kRelease, 2500}, {kDetune, 5}, {kReverb, 45},
 };
 static const PresetValue kMonoClassic[] = {
     {kWidth, 0}, {kReverb, 0}, {kVelocity, 60},

@@ -79,13 +79,13 @@ int main() {
 
     MidiEvent off = midi(0, 0x80, 60, 0);
     plugin.run(nullptr, out, 512, &off, 1);
-    for (int block = 0; block < 60; ++block) plugin.run(nullptr, out, 512, nullptr, 0);
+    for (int block = 0; block < 150; ++block) plugin.run(nullptr, out, 512, nullptr, 0);
     check(plugin.getParameterValue(kMeterVoices) == 0.0f, "note off ends the voice", plugin.getParameterValue(kMeterVoices));
 
     // Note on with velocity 0 counts as note off; running status of several events in one block.
     MidiEvent many[4] = {midi(0, 0x90, 48, 100), midi(10, 0x90, 52, 100), midi(20, 0x90, 55, 100), midi(400, 0x90, 52, 0)};
     plugin.run(nullptr, out, 512, many, 4);
-    for (int block = 0; block < 60; ++block) plugin.run(nullptr, out, 512, nullptr, 0);
+    for (int block = 0; block < 150; ++block) plugin.run(nullptr, out, 512, nullptr, 0);
     check(plugin.getParameterValue(kMeterVoices) == 2.0f, "three notes on, one off by velocity 0", plugin.getParameterValue(kMeterVoices));
     MidiEvent stop = midi(0, 0xb0, 123, 0);
     plugin.run(nullptr, out, 512, &stop, 1);

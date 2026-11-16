@@ -174,12 +174,17 @@ static void testEnvelope() {
         return linToDb(rms(t.l, fs, 1.0, 1.2) / rms(t.l, fs, 2.0, 2.2));
     };
     const double low = fall(36, 100), mid = fall(60, 100), high = fall(84, 100);
-    check(low < mid && mid < high && std::fabs(mid - 8.69 / 2.2) < 0.5, "held note fades: bass slowest", "%.1f / %.1f / %.1f dB per second", low, mid, high);
+    check(low < mid && mid < high && std::fabs(mid - 8.69 / 3.0) < 0.5, "held note fades: bass slowest", "%.1f / %.1f / %.1f dB per second", low, mid, high);
     check(std::fabs(fall(60, 50) - 2 * mid) < 0.5, "decay 50%: twice as fast", "%.1f dB per second", fall(60, 50));
 
     // Let go: gone after the release time.
     PianoParams p = plain();
+    p.release = 150;
     Take t = play(fs, p, 60, 100, 0.5, 0.5);
+    p.release = 600;
+    const Take slow = play(fs, p, 60, 100, 0.5, 0.5);
+    check(std::fabs(linToDb(rms(slow.l, fs, 0.79, 0.81) / rms(slow.l, fs, 0.49, 0.5)) + 30) < 5, "default release: 30 dB down after 300 ms", "%.1f dB",
+          linToDb(rms(slow.l, fs, 0.79, 0.81) / rms(slow.l, fs, 0.49, 0.5)));
     const double before = rms(t.l, fs, 0.45, 0.5), at = rms(t.l, fs, 0.5 + 0.15, 0.5 + 0.16), later = rms(t.l, fs, 0.9, 1.0);
     check(std::fabs(linToDb(at / before) + 60) < 8 && later == 0.0, "release 150 ms: 60 dB down, then silent", "%.1f dB, later %.1e", linToDb(at / before), later);
 
@@ -195,8 +200,8 @@ static void testEnvelope() {
     run(m, t, 0.7);
     const double held = rms(t.l, fs, 0.8, 1.0);
     m.controller(64, 0);
-    run(m, t, 1.0);
-    check(held > 0.01 && rms(t.l, fs, 1.8, 2.0) == 0.0 && m.activeVoices() == 0, "sustain pedal holds, then lets go", "held %.1f dB", linToDb(held));
+    run(m, t, 2.0);
+    check(held > 0.01 && rms(t.l, fs, 2.8, 3.0) == 0.0 && m.activeVoices() == 0, "sustain pedal holds, then lets go", "held %.1f dB", linToDb(held));
 
     // The loop: a note held for a long time stays smooth, with no click where it repeats.
     double worst = 0;
