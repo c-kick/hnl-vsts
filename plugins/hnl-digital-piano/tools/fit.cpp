@@ -124,19 +124,61 @@ int main(int argc, char** argv) {
         double fs = 44100;
         if (!load(path, x, fs)) { std::fprintf(stderr, "skipping %s\n", path.c_str()); continue; }
         const long N = static_cast<long>(x.size());
+        const double nominal = 440.0 * std::pow(2.0, (midi - 69) / 12.0);
         double peak = 0;
         for (double v : x) peak = std::max(peak, std::fabs(v));
+        // The start of the note: where it first reaches a tenth of the peak, less a few milliseconds
+        // for the rise. A lower mark would be set off by the noise of a quiet recording.
         long on = 0;
+        while (on < N && std::fabs(x[on]) < 0.1 * peak) ++on;
+        on = std::max(0L, on - static_cast<long>(0.004 * fs));
         while (on < N && std::fabs(x[on]) < 0.01 * peak) ++on;
+        {
+            // In a quiet recording a stray click can be the loudest thing there is. So also listen for the
+            // note's own pitch: where its first three partials come up is where the note is.
+            const long hop = static_cast<long>(0.01 * fs), span = std::max(static_cast<long>(0.04 * fs), static_cast<long>(4 * fs / nominal));
+            std::vector<double> heard;
+            double most = 0;
+            for (long a = 0; a + span < N; a += hop) {
+                double sum = 0;
+                for (int k = 1; k <= 3; ++k) sum += component(x, fs, a, span, k * nominal, a);
+                heard.push_back(sum);
+                most = std::max(most, sum);
+            }
+            size_t first = 0;
+            while (first < heard.size() && heard[first] < 0.35 * most) ++first;
+            const long byPitch = static_cast<long>(first) * hop + span / 2 - static_cast<long>(0.01 * fs);
+            if (std::labs(byPitch - on) > static_cast<long>(0.08 * fs) + span / 2) {
+                on = std::max(0L, byPitch);
+                std::fprintf(stderr, "note %3d: start taken from its pitch\n", midi);
+            }
+            // The peak that levels are given against: that of the note itself.
+            peak = 1e-9;
+            for (long i = on; i < std::min(N, on + static_cast<long>(0.5 * fs)); ++i) peak = std::max(peak, std::fabs(x[i]));
+        }
         long end = N; // where the note has died away
         while (end > on + 1 && std::fabs(x[end - 1]) < 0.0005 * peak) --end;
-        const double seconds = (end - on) / fs, nominal = 440.0 * std::pow(2.0, (midi - 69) / 12.0);
+        // With some silence before the note, the noise of the recording can be measured there, and
+        // kept out of the result.
+        const long quiet = on - static_cast<long>(0.02 * fs);
+        double seconds = 0.2;
 
         // The note's own frequency, from its fundamental once things have settled.
         double level;
         const long settle = on + std::min(static_cast<long>(0.3 * fs), (end - on) / 3);
         const long longWin = std::min(std::max(static_cast<long>(0.3 * fs), static_cast<long>(16 * fs / nominal)), end - settle);
-        const double f1 = peakFreq(x, fs, settle, longWin, nominal, 0.03 * nominal, &level);
+        double f1 = peakFreq(x, fs, settle, longWin, nominal, 0.03 * nominal, &level);
+        if (nominal < 200.0) {
+            // A low note's fundamental is weak, and rumble can outweigh it. Its first six partials together
+            // say where it is: take the pitch whose multiples carry the most.
+            double best = -1;
+            for (int i = -80; i <= 80; ++i) {
+                const double f = nominal * (1.0 + 0.0005 * i);
+                double sum = 0;
+                for (int k = 1; k <= 6; ++k) sum += component(x, fs, settle, longWin, k * f, settle);
+                if (sum > best) { best = sum; f1 = f; }
+            }
+        }
         const double period = fs / f1;
 
         const long earlyWin = std::min(std::max(static_cast<long>(0.12 * fs), static_cast<long>(10 * period)), end - on);
@@ -151,12 +193,15 @@ int main(int argc, char** argv) {
             // Follow the stretch of the partials upward from the previous one.
             const double guess = k * f1 * (lastRatio + slope);
             double le, ll = 0;
-            double fe = peakFreq(x, fs, on + static_cast<long>(0.004 * fs), earlyWin, guess, 0.3 * f1, &le);
-            const bool heard = le > peak * 1e-4;
+            double fe = peakFreq(x, fs, on + static_cast<long>(0.004 * fs), earlyWin, guess, std::min(0.3, 0.05 + 0.02 * k) * f1, &le);
+            const long win0 = static_cast<long>(std::clamp(4.0 * period, 0.012 * fs, 0.2 * fs));
+            const double floorAmp = quiet > 2 * win0 ? std::max(component(x, fs, quiet - win0, win0, fe, on), component(x, fs, quiet - 2 * win0, win0, fe, on)) : 0.0;
+            const double floorDb = floorAmp > 0.0 ? 20 * std::log10(floorAmp / peak + 1e-9) : -200.0;
+            const bool heard = le > peak * 1e-4 && le > 4.0 * floorAmp;
             if (!heard) fe = guess;
             double fl = fe;
             if (lateAt + lateWin < end) {
-                const double cand = peakFreq(x, fs, lateAt, lateWin, fe, 0.2 * f1, &ll);
+                const double cand = peakFreq(x, fs, lateAt, lateWin, fe, std::min(0.2, 0.04 + 0.015 * k) * f1, &ll);
                 if (ll > peak * 2e-4) fl = cand;
             }
             if (heard) {
@@ -168,6 +213,7 @@ int main(int argc, char** argv) {
             }
 
             int16_t db[kTimes];
+            double level[kTimes];
             double top = -200, phase = 0;
             for (int j = 0; j < kTimes; ++j) {
                 const double t = kTimesMs[j] / 1000.0;
@@ -180,10 +226,26 @@ int main(int argc, char** argv) {
                     if (j == 0) phase = p;
                     v = std::max(-120.0, 20 * std::log10(amp / peak + 1e-9));
                 }
-                db[j] = static_cast<int16_t>(std::lround(v * 10));
+                level[j] = v;
                 top = std::max(top, v);
             }
-            if (top < -72) continue; // never audible
+            if (top < -72 || top < floorDb + 12) continue; // never audible, or never clear of the noise
+            // Once a partial has sunk into the noise it cannot be followed any further: let it carry on
+            // fading at the rate it had, instead of taking the noise for the partial.
+            int sunk = -1;
+            for (int j = 2; j < kTimes && sunk < 0; ++j)
+                if (kTimesMs[j] >= 100 && level[j] < floorDb + 10 && level[j - 1] < floorDb + 13) sunk = j - 1;
+            if (sunk >= 0) {
+                int from = sunk;
+                while (from > 0 && (kTimesMs[sunk] - kTimesMs[from] < 300 || from > sunk - 2)) --from;
+                const double span = (kTimesMs[sunk] - kTimesMs[from]) / 1000.0;
+                const double rate = std::min(-6.0, span > 0 ? (level[sunk] - level[from]) / span : -6.0); // dB per second
+                for (int j = sunk + 1; j < kTimes; ++j) level[j] = std::max(-120.0, level[sunk] + rate * (kTimesMs[j] - kTimesMs[sunk]) / 1000.0);
+            }
+            for (int j = 0; j < kTimes; ++j) {
+                db[j] = static_cast<int16_t>(std::lround(level[j] * 10));
+                if (level[j] > -95) seconds = std::max(seconds, kTimesMs[j] / 1000.0);
+            }
             char line[1024];
             int at = std::snprintf(line, sizeof line, "    {%.5ff, %.5ff, %.3ff, {", fe / f1, fl / f1, phase);
             for (int j = 0; j < kTimes; ++j) at += std::snprintf(line + at, sizeof line - at, "%s%d", j ? "," : "", db[j]);
@@ -200,15 +262,17 @@ int main(int argc, char** argv) {
                 const long a = on + static_cast<long>(kKnockMs[j] * 0.001 * fs), n = static_cast<long>((kKnockMs[j + 1] - kKnockMs[j]) * 0.001 * fs);
                 double v = -120;
                 if (kKnockHz[b] <= 0.4 * f1 && a + n < end) v = std::max(-120.0, 20 * std::log10(bandLevel(x, fs, a, n, kKnockHz[b]) / peak + 1e-9));
+                // A knock is only a knock when it stands clear of the noise before the note.
+                if (quiet > n && v > -120 && v < 20 * std::log10(bandLevel(x, fs, quiet - n, n, kKnockHz[b]) / peak + 1e-9) + 8) v = -120;
                 knock += (j ? "," : "") + std::to_string(std::lround(v * 10));
             }
             knock += "}";
         }
         char line[512];
-        std::snprintf(line, sizeof line, "    {%d, %.4ff, %.3ff, %d, kNote%d, {%s}},\n", midi, f1, seconds, kept, midi, knock.c_str());
+        std::snprintf(line, sizeof line, "    {%d, %.4ff, %.3ff, %d, kNote%d, {%s}},\n", midi, f1, std::min((end - on) / fs, seconds + 0.3), kept, midi, knock.c_str());
         notes += line;
         ++count;
-        std::fprintf(stderr, "note %3d  %8.2f Hz (%+5.1f cents)  %5.2f s  %3d partials\n", midi, f1, 1200 * std::log2(f1 / nominal), seconds, kept);
+        std::fprintf(stderr, "note %3d  starts %.3f s  %8.2f Hz (%+5.1f cents)  %5.2f s  %3d partials\n", midi, on / fs, f1, 1200 * std::log2(f1 / nominal), std::min((end - on) / fs, seconds + 0.3), kept);
     }
     std::printf("static const Note kNotes[] = {\n%s};\nconstexpr int kNoteCount = %d;\n\n} // namespace %s\n} // namespace pianodata\n", notes.c_str(), count, argv[6]);
     return 0;

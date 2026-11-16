@@ -20,12 +20,12 @@ public:
 protected:
     const char* getLabel() const override { return "HNLDigitalPiano"; }
     const char* getDescription() const override {
-        return "Digital pianos in stereo: workstation, FM electric, 1980s stage, 1990s dance, and a modelled grand.";
+        return "Digital pianos in stereo: workstation, FM electric, 1980s stage, 1990s dance, and a concert grand.";
     }
     const char* getMaker() const override { return "HNL Design"; }
     const char* getHomePage() const override { return "https://hnldesign.nl"; }
     const char* getLicense() const override { return "ISC"; }
-    uint32_t getVersion() const override { return d_version(0, 5, 0); }
+    uint32_t getVersion() const override { return d_version(0, 6, 0); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override {
         port.groupId = kPortGroupStereo;

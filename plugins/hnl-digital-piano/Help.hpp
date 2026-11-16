@@ -17,7 +17,7 @@ inline const char* forParam(uint32_t id) {
     case kReverb: return "A touch of room around the piano.";
     case kTune: return "Fine tuning, up to a semitone either way. Presets leave it alone.";
     case kOctave: return "Moves the whole keyboard up or down by octaves.";
-    case kVoice: return "The piano that plays. Workstation: the hard sampled piano of late-1980s keyboards, the piano of house records. FM Electric: the glassy, bell-like electric piano of FM synthesizers. Stage 80s: the rounded stage piano of the 1980s. Dance 90s: the thin, cutting piano of 1990s dance records. Grand: a modelled concert grand. The first time a voice is chosen it takes a moment to work out its sound.";
+    case kVoice: return "The piano that plays. Workstation: the hard sampled piano of late-1980s keyboards, the piano of house records. FM Electric: the glassy, bell-like electric piano of FM synthesizers. Stage 80s: the rounded stage piano of the 1980s. Dance 90s: the thin, cutting piano of 1990s dance records. Grand: a concert grand. The first time a voice is chosen it takes a moment to work out its sound.";
     default: return "";
     }
 }

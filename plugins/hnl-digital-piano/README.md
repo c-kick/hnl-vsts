@@ -1,7 +1,7 @@
 # HNL Digital Piano
 
 An instrument with five pianos, each as its own voice, all in stereo: the digital pianos of the 1980s and
-1990s, and a modelled grand.
+1990s, and a concert grand.
 
 ![HNL Digital Piano](docs/preview.png)
 
@@ -19,7 +19,7 @@ An instrument with five pianos, each as its own voice, all in stereo: the digita
 | FM Electric | The glassy electric piano of 1980s FM synthesizers: a bell on the attack, a body that barks when played hard, a slow shimmer from side to side. | Computed with FM synthesis. An FM patch of its own in that style; not compared with a reference. |
 | Stage 80s | The rounded, slightly artificial stage piano of the mid 1980s. Its tone changes a lot with touch. | Fitted to single notes at four velocities, a note every six keys, rendered with an emulator of the original sound engine. Within about 1.5 dB of them. |
 | Dance 90s | The thin, cutting piano of 1990s dance records. | Worked out from three recorded chords around middle C, the only reference there was. Chords it plays are within about 2.5 dB of those; the rest of the keyboard is extrapolated and the attack is blurred. The weakest of the fitted voices. |
-| Grand | A concert grand. | A model of how a piano makes its sound; no recordings involved. |
+| Grand | A concert grand, from soft to loud. | Fitted to single notes of a real grand played soft, medium and loud, every third key, from the University of Iowa Musical Instrument Samples. Within about 1.7 dB of the medium and loud notes. |
 
 Switching voice affects new notes; notes already sounding keep theirs. The first time a voice is chosen, the
 plugin works out its waves, which takes a moment (around a second) and can interrupt the sound once.
@@ -46,24 +46,22 @@ shimmer from side to side, and it disappears completely in mono, so nothing canc
 
 ### Grand
 
-Written from the physics, in `dsp/GrandModel.hpp`:
+Fitted to the piano recordings of the [University of Iowa Musical Instrument Samples](https://theremin.music.uiowa.edu/MIS.html),
+which are free to use: single notes at three dynamics, of which every third key was measured. The three
+dynamics became three sets of waves; in between, a filter does the rest.
 
-- **Stiff strings:** the partials lie above the exact harmonics, a little in the middle, more in the bass and
-  much more at the top.
-- **The hammer:** it strikes about an eighth of the way along the string, and its felt is soft at low speed
-  and hard at high speed. A hard blow puts far more energy into the upper partials (about 17 dB more than a
-  soft one, an octave below middle C). Three hammer strengths are computed, with a filter in between.
-- **Two or three strings per note:** never tuned exactly alike. They give a loud, fast-fading start and a
-  quiet, long-lasting aftersound that beats slowly. One string in the low bass, two above, three from the
-  tenor up.
-- **Decay:** higher partials die sooner than lower ones, high notes sooner than low notes.
-- **Soundboard:** weak for the lowest fundamentals, a broad warmth and presence, and a fine pattern of
-  stronger and weaker spots that gives every key its own colour.
-- **Hammer knock**, and **dampers** that are slow on the bass strings, quick in the treble and absent on the
-  top keys, which ring on.
+- Those are recordings in a room, with its noise. The fitting follows each partial only until it sinks into
+  that noise and lets it fade on from there, so the noise itself is not part of the sound.
+- The soft notes high up hardly rise above the noise; from about two octaves above middle C, soft playing uses
+  the medium notes with a darker filter. The very lowest and highest keys borrow from their neighbours.
+- A real note fades fast at first (about 20 dB in the first second at middle C) and then lingers quietly for a
+  long time. That comes straight from the measurements.
+- Added on top: dampers that are slow on the bass strings, quick in the treble and absent on the top keys,
+  which ring on.
 
-It has one wave per four keys. Not modelled: strings ringing in sympathy with the pedal down, the noise of the
-pedal and the keys coming back up, and the change of tone when a note is struck again while still sounding.
+Not there: strings ringing in sympathy with the pedal down, the noise of pedal and keys, and the change of tone
+when a note is struck again while it still sounds. A first version of this voice was a model written from the
+physics alone; it did not sound convincing and was replaced.
 
 ## Controls
 

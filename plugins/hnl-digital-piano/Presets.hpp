@@ -79,7 +79,7 @@ static const PresetValue kDanceWide[] = {
     {kVoice, 3}, {kDetune, 7}, {kRelease, 500}, {kReverb, 25},
 };
 
-// The modelled grand (voice 4).
+// The grand (voice 4).
 static const PresetValue kGrandPiano[] = {
     {kVoice, 4}, {kVelocity, 100}, {kRelease, 350}, {kReverb, 22},
 };

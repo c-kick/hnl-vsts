@@ -19,6 +19,12 @@
 // partials at somewhat different levels and phases, more so higher up, so
 // the bass stays in the middle and the upper part of the tone spreads out.
 //
+// GRAND
+//
+// A concert grand, fitted in the same way to recordings of single notes played
+// soft, medium and loud, with three sets of waves accordingly. Its dampers are
+// slow on the heavy bass strings, quick in the treble and absent on the top keys.
+//
 // FM ELECTRIC
 //
 // The glassy electric piano of 1980s FM synthesizers, computed as those did
@@ -42,7 +48,9 @@
 #include <mutex>
 
 #include "DanceData.hpp"
-#include "GrandModel.hpp"
+#include "GrandData127.hpp"
+#include "GrandData40.hpp"
+#include "GrandData85.hpp"
 #include "StageData127.hpp"
 #include "StageData32.hpp"
 #include "StageData64.hpp"
@@ -93,9 +101,10 @@ struct Wave {
 
 class WaveSet {
 public:
-    /** One wave for each of the notes, up to the key topRoot, stored at `rate`. */
-    WaveSet(const pianodata::Note* notes, int count, int topRoot, double rate) {
-        for (int i = 0; i < count && notes[i].midi <= topRoot; ++i) {
+    /** One wave for each of the notes from the key lowRoot to topRoot, stored at `rate`. */
+    WaveSet(const pianodata::Note* notes, int count, int lowRoot, int topRoot, double rate) {
+        for (int i = 0; i < count; ++i) {
+            if (notes[i].midi < lowRoot || notes[i].midi > topRoot) continue;
             waves_.emplace_back();
             build(waves_.back(), notes[i], rate);
         }
@@ -120,7 +129,9 @@ private:
         std::vector<float> sides[2];
         w.root = note.midi;
         w.rate = rate;
-        w.freq = note.freq * (note.count > 0 ? note.partials[0].late : 1.0f); // what the ear takes as the pitch
+        // What the ear takes as the pitch: the fundamental where it settles, when the first partial listed is the fundamental.
+        const double first = note.count > 0 ? note.partials[0].late : 1.0;
+        w.freq = note.freq * (first > 0.98 && first < 1.02 ? first : 1.0);
         w.length = static_cast<int>(std::min<double>(note.seconds, kTimeMs[kTimes - 1] * 0.001) * rate);
         for (auto& d : sides) d.assign(static_cast<size_t>(w.length) + 4, 0.0f);
         uint32_t rng = 0x9e3779b9u + static_cast<uint32_t>(note.midi) * 2654435761u;
@@ -242,12 +253,17 @@ private:
 struct Bank {
     std::vector<std::unique_ptr<WaveSet>> layers; // softest first
     std::vector<int> velocity;                    // the velocity each layer was measured at
+    std::vector<int> top;                         // the highest key each layer has a wave for
 
-    /** The layer measured at or just above this velocity, so a note is never brighter than it should be. */
-    int layerFor(int vel) const {
-        for (size_t i = 0; i < velocity.size(); ++i)
-            if (vel <= velocity[i]) return static_cast<int>(i);
-        return static_cast<int>(velocity.size()) - 1;
+    /**
+     * The layer measured at or just above this velocity, so a note is never brighter than it should be.
+     * Where that layer has no wave near the key, the next louder one stands in.
+     */
+    int layerFor(int vel, int note) const {
+        const int last = static_cast<int>(velocity.size()) - 1;
+        for (int i = 0; i < last; ++i)
+            if (vel <= velocity[i] && note <= top[i] + 3) return i;
+        return last;
     }
 
     /** Built the first time a voice is asked for: it takes a moment. Shared by every instance. */
@@ -258,9 +274,10 @@ struct Bank {
         std::unique_ptr<Bank>& b = banks[voice];
         if (!b) {
             b = std::make_unique<Bank>();
-            const auto add = [&](const pianodata::Note* notes, int count, int top, double rate, int vel) {
-                b->layers.push_back(std::make_unique<WaveSet>(notes, count, top, rate));
+            const auto add = [&](const pianodata::Note* notes, int count, int top, double rate, int vel, int low = 0) {
+                b->layers.push_back(std::make_unique<WaveSet>(notes, count, low, top, rate));
                 b->velocity.push_back(vel);
+                b->top.push_back(top);
             };
             using namespace pianodata;
             if (voice == kStage) {
@@ -269,10 +286,12 @@ struct Bank {
                 add(stage96::kNotes, stage96::kNoteCount, 127, 20000.0, 96);
                 add(stage127::kNotes, stage127::kNoteCount, 127, 20000.0, 127);
             } else if (voice == kGrand) {
-                for (int vel : {45, 90, 127}) {
-                    const GrandTables tables = makeGrand(vel / 127.0);
-                    add(tables.notes.data(), static_cast<int>(tables.notes.size()), 127, 32000.0, vel);
-                }
+                // Soft, medium and loud. The measurements of the very lowest and highest keys are not to be
+                // trusted (rumble, and hardly any note above the noise), so their neighbours stand in.
+                // Soft notes high up hardly rise above the noise of the recording: there the medium ones stand in.
+                add(grand40::kNotes, grand40::kNoteCount, 78, 32000.0, 40, 27);
+                add(grand85::kNotes, grand85::kNoteCount, 99, 32000.0, 85, 27);
+                add(grand127::kNotes, grand127::kNoteCount, 99, 32000.0, 127, 27);
             } else if (voice == kDance) {
                 add(dance::kNotes, dance::kNoteCount, 127, 32000.0, 127);
             } else {
@@ -341,7 +360,7 @@ public:
             v.sustained = false;
             if (!fm) {
                 const Bank& bank = Bank::get(p_.voice);
-                const int layer = bank.layerFor(velocity);
+                const int layer = bank.layerFor(velocity, note);
                 v.wave = &bank.layers[layer]->forNote(note);
                 v.layerVelocity = bank.velocity[layer] / 127.0;
             }
