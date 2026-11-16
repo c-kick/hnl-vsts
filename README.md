@@ -7,15 +7,18 @@ Audio plugins by HNL Design (effects and an instrument), built as VST3 for Windo
 | [HNL Master](plugins/hnl-master) | Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets |
 | [HNL Tape Master](plugins/hnl-tape-master) | Two-track mastering tape machine: saturation, tape compression, head response by speed, formula and head width, wow, flutter, hiss |
 | [HNL Tape Echo](plugins/hnl-tape-echo) | Tape echo with three playback heads and a spring reverb: saturating repeats, pitch bends, wow and flutter, self-oscillation, tempo sync |
+| [HNL Channel Spacer](plugins/hnl-channel-spacer) | Makes room in one channel for another: turns down only the frequency ranges where the sidechain signal is playing, in 32 bands; also works as a sidechain ducker |
 | [HNL Digital Piano](plugins/hnl-digital-piano) | Instrument: five pianos in stereo (workstation, FM electric, 1980s stage, 1990s dance, concert grand), with doubling, reverb and an on-screen keyboard |
 
 ![HNL Master](plugins/hnl-master/docs/in-use.png)
 
-| HNL Tape Master | HNL Tape Echo | HNL Digital Piano |
-| --- | --- | --- |
-| ![HNL Tape Master](plugins/hnl-tape-master/docs/preview.png) | ![HNL Tape Echo](plugins/hnl-tape-echo/docs/preview.png) | ![HNL Digital Piano](plugins/hnl-digital-piano/docs/grand.png) |
+| HNL Tape Master | HNL Tape Echo |
+| --- | --- |
+| ![HNL Tape Master](plugins/hnl-tape-master/docs/preview.png) | ![HNL Tape Echo](plugins/hnl-tape-echo/docs/preview.png) |
+| **HNL Channel Spacer** | **HNL Digital Piano** |
+| ![HNL Channel Spacer](plugins/hnl-channel-spacer/docs/preview.png) | ![HNL Digital Piano](plugins/hnl-digital-piano/docs/grand.png) |
 
-*HNL Master as it runs in Reason; the other three rendered from the plugins' drawing code.*
+*HNL Master as it runs in Reason; the other four rendered from the plugins' drawing code.*
 
 ## Layout
 
