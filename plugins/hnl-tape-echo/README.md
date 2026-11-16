@@ -30,7 +30,7 @@ by itself when you push it.
 | Dry signal | On for use as an insert. Off for a send: echo and reverb only. |
 | Input | Level onto the tape, -12 to +24 dB. Higher drives the tape harder. The level meter reads 0 where the tape starts to saturate clearly (a sine at -12 dBFS with Input at 0). |
 | Time | Head 1, from 40 to 400 ms; head 3 reaches 1.2 s. |
-| Intensity | How much of the echo is recorded again. One head sustains by itself from about 62%; three heads from about 36%. |
+| Intensity | How much of the echo is recorded again. One head starts to sustain by itself somewhere past 60%; three heads do so below 50%. |
 | Echo | Echo level. At 100% the first repeat is as loud as the input. |
 | Reverb | Spring reverb level. The springs are driven by the input and decay in about 2 seconds. |
 | Bass, Treble | Tone of the echo, ±10 dB around 200 Hz and from 2.5 kHz. They sit inside the repeat loop, so each repeat gets them again. |
@@ -44,8 +44,8 @@ control to read what it does.
 Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to
 its default. The plugin adds no latency.
 
-A howling echo is loud. It stays within a few dB of full scale, but put a limiter after it if you plan to play
-with Intensity.
+A howling echo is loud. The tape holds it back, but Echo, Bass and Treble come after the tape: put a limiter
+behind the plugin if you plan to play with Intensity.
 
 ## About the model
 
