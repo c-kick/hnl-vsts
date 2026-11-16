@@ -2,29 +2,11 @@
 // stereo widener and reverb. None of them adds latency.
 #pragma once
 
-#include "Filters.hpp"
+#include "../../../common/dsp/Filters.hpp"
 
-namespace hm {
+namespace hnl {
 
 // -------------------------------------------------------------- equaliser
-
-/** Peaking filter (Audio EQ Cookbook). */
-inline BiquadCoeffs designPeak(double fs, double fc, double q, double gainDb) {
-    const double A = std::pow(10.0, gainDb / 40.0), w = 2.0 * kPi * clampFreq(fs, fc) / fs;
-    const double c = std::cos(w), alpha = std::sin(w) / (2.0 * q), a0 = 1.0 + alpha / A;
-    return {(1 + alpha * A) / a0, -2 * c / a0, (1 - alpha * A) / a0, -2 * c / a0, (1 - alpha / A) / a0};
-}
-
-/** Low (high = false) or high shelf with a Butterworth-like slope. */
-inline BiquadCoeffs designShelf(double fs, double fc, double gainDb, bool high) {
-    const double A = std::pow(10.0, gainDb / 40.0), w = 2.0 * kPi * clampFreq(fs, fc) / fs;
-    const double c = (high ? -1.0 : 1.0) * std::cos(w);
-    const double sq = 2.0 * std::sqrt(A) * std::sin(w) / (2.0 * 0.7071067811865476);
-    const double a0 = (A + 1) + (A - 1) * c + sq, sign = high ? -1.0 : 1.0;
-    return {A * ((A + 1) - (A - 1) * c + sq) / a0, sign * 2 * A * ((A - 1) - (A + 1) * c) / a0,
-            A * ((A + 1) - (A - 1) * c - sq) / a0, sign * -2 * ((A - 1) + (A + 1) * c) / a0,
-            ((A + 1) + (A - 1) * c - sq) / a0};
-}
 
 /**
  * Low shelf, peak and high shelf in series. Settings glide to their targets
@@ -187,4 +169,4 @@ private:
     Biquad lowCut_[2];
 };
 
-} // namespace hm
+} // namespace hnl

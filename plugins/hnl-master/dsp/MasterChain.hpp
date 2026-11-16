@@ -12,7 +12,7 @@
 #include <immintrin.h>
 #endif
 
-namespace hm {
+namespace hnl {
 
 struct BandParams {
     double threshold = -20.0; // dB
@@ -266,4 +266,4 @@ private:
     std::atomic<bool> resetLoudness_{false};
 };
 
-} // namespace hm
+} // namespace hnl

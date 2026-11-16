@@ -1,4 +1,4 @@
-// HNL Master: plugin side. Wraps hm::MasterChain for DPF.
+// HNL Master: plugin side. Wraps hnl::MasterChain for DPF.
 #include <atomic>
 #include <cstring>
 
@@ -117,7 +117,7 @@ private:
         float v[kInputParamCount];
         for (uint32_t i = 0; i < kInputParamCount; ++i) v[i] = values_[i].load(std::memory_order_relaxed);
 
-        hm::Params p;
+        hnl::Params p;
         p.inputGain = v[kInputGain];
         p.compOn = v[kCompOn] > 0.5f;
         p.xoverLow = v[kXoverLow];
@@ -181,7 +181,7 @@ private:
 
     static float toDb(float lin) { return lin > 1e-5f ? 20.0f * std::log10(lin) : -100.0f; }
 
-    hm::MasterChain chain_;
+    hnl::MasterChain chain_;
     double sampleRate_ = 48000.0;
     std::atomic<float> values_[kInputParamCount];
     std::atomic<bool> dirty_{true}, resetMeters_{false};

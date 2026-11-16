@@ -7,7 +7,7 @@
 
 #include "../dsp/MasterChain.hpp"
 
-using namespace hm;
+using namespace hnl;
 
 static int failures = 0;
 

@@ -2,9 +2,9 @@
 // true-peak limiter and a BS.1770 loudness meter.
 #pragma once
 
-#include "Filters.hpp"
+#include "../../../common/dsp/Filters.hpp"
 
-namespace hm {
+namespace hnl {
 
 // ------------------------------------------------------- compressor band
 
@@ -316,4 +316,4 @@ private:
     double acc_ = 0.0;
 };
 
-} // namespace hm
+} // namespace hnl

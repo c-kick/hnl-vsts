@@ -1,5 +1,6 @@
-// Basic building blocks: biquads, Linkwitz-Riley crossover, delay, halfband
-// oversampling and a true-peak estimator. Header-only, no dependencies.
+// Building blocks shared by all plugins: biquads and their designs,
+// Linkwitz-Riley crossover, delay, halfband oversampling and a true-peak
+// estimator. Header-only, no dependencies.
 #pragma once
 
 #include <algorithm>
@@ -7,7 +8,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace hm {
+namespace hnl {
 
 constexpr double kPi = 3.14159265358979323846;
 
@@ -37,6 +38,24 @@ inline BiquadCoeffs designHighpass(double fs, double fc, double q) {
     const double w = 2.0 * kPi * clampFreq(fs, fc) / fs;
     const double c = std::cos(w), alpha = std::sin(w) / (2.0 * q), a0 = 1.0 + alpha;
     return {(1 + c) * 0.5 / a0, -(1 + c) / a0, (1 + c) * 0.5 / a0, -2 * c / a0, (1 - alpha) / a0};
+}
+
+/** Peaking filter (Audio EQ Cookbook). */
+inline BiquadCoeffs designPeak(double fs, double fc, double q, double gainDb) {
+    const double A = std::pow(10.0, gainDb / 40.0), w = 2.0 * kPi * clampFreq(fs, fc) / fs;
+    const double c = std::cos(w), alpha = std::sin(w) / (2.0 * q), a0 = 1.0 + alpha / A;
+    return {(1 + alpha * A) / a0, -2 * c / a0, (1 - alpha * A) / a0, -2 * c / a0, (1 - alpha / A) / a0};
+}
+
+/** Low (high = false) or high shelf with a Butterworth-like slope. */
+inline BiquadCoeffs designShelf(double fs, double fc, double gainDb, bool high) {
+    const double A = std::pow(10.0, gainDb / 40.0), w = 2.0 * kPi * clampFreq(fs, fc) / fs;
+    const double c = (high ? -1.0 : 1.0) * std::cos(w);
+    const double sq = 2.0 * std::sqrt(A) * std::sin(w) / (2.0 * 0.7071067811865476);
+    const double a0 = (A + 1) + (A - 1) * c + sq, sign = high ? -1.0 : 1.0;
+    return {A * ((A + 1) - (A - 1) * c + sq) / a0, sign * 2 * A * ((A - 1) - (A + 1) * c) / a0,
+            A * ((A + 1) - (A - 1) * c - sq) / a0, sign * -2 * ((A - 1) + (A + 1) * c) / a0,
+            ((A + 1) + (A - 1) * c - sq) / a0};
 }
 
 /** Transposed direct form II biquad. */
@@ -247,4 +266,4 @@ private:
     std::vector<double> h_, hist_;
 };
 
-} // namespace hm
+} // namespace hnl
