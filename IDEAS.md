@@ -4,8 +4,8 @@ A list to pick from, not a plan. Nothing here is started unless it says so.
 
 ## Dynamics
 
-- **Bus compressor:** VCA-style "glue" for the mix or drum bus, with auto-release, sidechain high-pass and a
-  mix knob. HNL Master's compressor is multiband and aimed at mastering; this fills a different job.
+- **Bus compressor:** built as `plugins/hnl-bus-compressor`. Could still gain an external sidechain input (as
+  in HNL Channel Spacer) and an optional saturating gain stage.
 - **Levelling compressor:** opto or FET style, for vocals and bass.
 - **Transient shaper** for drums.
 - **De-esser.**
