@@ -20,6 +20,9 @@ Signal flow, left to right:
 Twelve presets are in the menu next to the name. A `*` after the preset name means a control was changed since it
 was chosen.
 
+The **?** button next to the presets switches help on: rest the mouse on any control or meter to read what it
+does.
+
 ## Compact by design
 
 A stage that is switched off collapses to its title bar, and the window shrinks to fit.

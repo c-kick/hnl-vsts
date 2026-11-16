@@ -1,7 +1,7 @@
-// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|all|closed|menu]
+// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|all|closed|menu|help]
 //   default  as a new instance opens      busy    meters moving, a preset edited
 //   all      every stage switched on      closed  every stage switched off
-//   menu     the preset list open
+//   menu     the preset list open       help    help on, mouse on a knob
 #include <cstring>
 #include <fstream>
 #include <string>
@@ -28,12 +28,25 @@ int main(int argc, char** argv) {
     }
     if (mode == "menu") {
         DISTRHO::MouseEvent click;
-        click.pos.x = 200;
+        click.pos.x = 200; // the preset name
         click.pos.y = 26;
         ui->onMouse(click);
         DISTRHO::MotionEvent move;
         move.pos.x = 220;
         move.pos.y = 118;
+        ui->onMotion(move);
+    }
+    if (mode == "help") {
+        DISTRHO::MouseEvent click; // the ? button
+        click.pos.x = 394;
+        click.pos.y = 26;
+        ui->onMouse(click);
+        DISTRHO::MouseEvent release = click;
+        release.press = false;
+        ui->onMouse(release);
+        DISTRHO::MotionEvent move; // the limiter's gain knob
+        move.pos.x = 644;
+        move.pos.y = 394;
         ui->onMotion(move);
     }
     ui->onNanoDisplay();

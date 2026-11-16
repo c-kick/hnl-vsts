@@ -11,6 +11,8 @@
 
 #include "DistrhoUI.hpp"
 
+#include "../../common/ui/Widgets.hpp"
+#include "Help.hpp"
 #include "Params.hpp"
 #include "Presets.hpp"
 
@@ -69,8 +71,8 @@ struct Control {
 };
 
 const float kBandWidth = 162.0f;
-const Rect kPrev = {150, 14, 22, 24}, kName = {176, 14, 170, 24}, kNext = {350, 14, 22, 24};
-const float kMenuRow = 22;
+const float kPresetX = 150, kHeaderY = 14;
+const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x262a33, 0x3a404c, kText, kDim, kAmber};
 const Rect kModeBox = {12, 36, 188, 22}; // exciter character, relative to its module
 const Rect kResetBox = {20, 448, 142, 28};
 
@@ -81,6 +83,7 @@ public:
     MasterUI() : UI(UI_BASE_WIDTH, UI_BASE_HEIGHT, false) {
         for (uint32_t i = 0; i < kParamCount; ++i) values_[i] = kParams[i].def;
         loadSharedResources();
+        help_.setButton(kPresetX + hnl::ui::PresetBar::kWidth + 22, kHeaderY + 12);
 
         knob(kInputGain, kModInput, 42, 448, 19, "GAIN");
 
@@ -158,7 +161,10 @@ protected:
         fill();
 
         label("HNL MASTER", 16, 27, 18, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
-        drawPresetBar();
+        std::string presetText = presetName_;
+        if (presetModified()) presetText += " *";
+        presetBar_.drawBar(*this, kTheme, presetText.c_str());
+        help_.drawButton(*this, kTheme);
 
         for (int m = 0; m < kModCount; ++m) drawModule(static_cast<Module>(m));
 
@@ -173,7 +179,8 @@ protected:
             else if (open(c.module)) drawKnob(c);
         }
 
-        if (menuOpen_) drawPresetMenu();
+        presetBar_.drawMenu(*this, kTheme, presets::kCount, preset_, [](int i) { return presets::kAll[i].name; });
+        if (!presetBar_.isOpen() && drag_ < 0) help_.drawTip(*this, kTheme, width_, kHeight);
     }
 
     // -------------------------------------------------------- interaction
@@ -190,22 +197,17 @@ protected:
             return true;
         }
 
-        if (menuOpen_) {
-            const int row = menuRowAt(x, y);
-            menuOpen_ = false;
-            if (row >= 0) applyPreset(row);
+        const int picked = presetBar_.mouseDown(x, y, preset_, presets::kCount);
+        if (picked != hnl::ui::PresetBar::kNotMine) {
+            help_.hide();
+            if (picked >= 0) applyPreset(picked);
             repaint();
             return true;
         }
-        if (kName.contains(x, y)) {
-            menuOpen_ = true;
-            hover_ = preset_;
+        if (help_.buttonHit(x, y)) {
+            help_.on = !help_.on;
+            help_.motion(x, y);
             repaint();
-            return true;
-        }
-        if (kPrev.contains(x, y) || kNext.contains(x, y)) {
-            const int step = kNext.contains(x, y) ? 1 : -1;
-            applyPreset(((preset_ < 0 ? 0 : preset_ + step) + presets::kCount) % presets::kCount);
             return true;
         }
 
@@ -244,12 +246,14 @@ protected:
     bool onMotion(const MotionEvent& ev) override {
         const float s = static_cast<float>(getScaleFactor());
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
-        if (menuOpen_) {
-            const int row = menuRowAt(x, y);
-            if (row != hover_) { hover_ = row; repaint(); }
+        if (presetBar_.isOpen()) {
+            if (presetBar_.motion(x, y, presets::kCount)) repaint();
             return true;
         }
-        if (drag_ < 0) return false;
+        if (drag_ < 0) {
+            if (help_.motion(x, y)) repaint();
+            return false;
+        }
         const float range = (ev.mod & kModifierShift) ? 1200.0f : 200.0f;
         dragNorm_ += (dragY_ - y) / range;
         dragNorm_ = dragNorm_ < 0.0f ? 0.0f : (dragNorm_ > 1.0f ? 1.0f : dragNorm_);
@@ -259,7 +263,7 @@ protected:
     }
 
     bool onScroll(const ScrollEvent& ev) override {
-        if (menuOpen_ || drag_ >= 0) return false;
+        if (presetBar_.isOpen() || drag_ >= 0) return false;
         const float s = static_cast<float>(getScaleFactor());
         const int hit = controlAt(static_cast<float>(ev.pos.getX()) / s, static_cast<float>(ev.pos.getY()) / s);
         if (hit < 0 || controls_[hit].toggle) return false;
@@ -310,6 +314,35 @@ private:
         const double s = getScaleFactor();
         const uint w = static_cast<uint>(std::lround(width_ * s)), h = static_cast<uint>(std::lround(kHeight * s));
         if (getWidth() != w || getHeight() != h) setSize(w, h);
+        placeHelp();
+    }
+
+    /** Tells the help tips where everything is. Wide areas first, single controls on top. */
+    void placeHelp() {
+        using hnl::ui::Box;
+        help_.clear();
+        help_.add(help_.buttonBox(), "HELP", help::kHelp);
+        help_.add(presetBar_.nameBox(), "PRESETS", help::kPresets);
+        const Rect& in = rects_[kModInput];
+        help_.add({in.x + 16, in.y + 34, 56, 372}, "INPUT LEVEL", help::kInputMeter);
+        const Rect& out = rects_[kModOutput];
+        help_.add({out.x + 14, out.y + 34, 60, 402}, "OUTPUT LEVEL", help::kOutputMeter);
+        help_.add({out.x + 84, out.y + 40, 96, 210}, "LOUDNESS", help::kLoudness);
+        help_.add({out.x + 84, out.y + 264, 96, 64}, "TRUE PEAK", help::kTruePeak);
+        help_.add({out.x + kResetBox.x, out.y + kResetBox.y, kResetBox.w, kResetBox.h}, "RESET METERS", help::kReset);
+        if (open(kModComp)) {
+            const Rect& p = rects_[kModComp];
+            for (int b = 0; b < 3; ++b) help_.add({p.x + b * kBandWidth + 70, p.y + 380, 86, 104}, "GAIN REDUCTION", help::kGainReduction);
+        }
+        if (open(kModLim)) help_.add({rects_[kModLim].x + 8, rects_[kModLim].y + 110, kColumnW - 16, 24}, "GAIN REDUCTION", help::kGainReduction);
+        if (open(kModExc)) {
+            const Rect& p = rects_[kModExc];
+            help_.add({p.x + kModeBox.x, p.y + kModeBox.y, kModeBox.w, kModeBox.h}, "EXCITER MODE", help::forParam(kExcMode));
+        }
+        for (const Control& c : controls_) {
+            if (c.toggle) help_.add({cx(c) - 16, cy(c) - 9, 32, 18}, kParams[c.id].name, help::forParam(c.id));
+            else if (open(c.module)) help_.add({cx(c) - c.r - 12, cy(c) - c.r - 18, 2 * c.r + 24, 2 * c.r + 38}, kParams[c.id].name, help::forParam(c.id));
+        }
     }
 
     bool inModule(Module m, const Rect& box, float x, float y) const {
@@ -367,69 +400,6 @@ private:
             if (std::fabs(values_[id] - presets::value(preset_, id)) > tolerance) return true;
         }
         return false;
-    }
-
-    Rect menuRect() const { return {kName.x, kName.y + kName.h + 2, kName.w, presets::kCount * kMenuRow + 8}; }
-
-    int menuRowAt(float x, float y) const {
-        const Rect m = menuRect();
-        if (!m.contains(x, y)) return -1;
-        const int row = static_cast<int>((y - m.y - 4) / kMenuRow);
-        return row < 0 || row >= presets::kCount ? -1 : row;
-    }
-
-    void triangle(float x0, float y0, float x1, float y1, float x2, float y2, const Color& colour) {
-        beginPath();
-        moveTo(x0, y0);
-        lineTo(x1, y1);
-        lineTo(x2, y2);
-        closePath();
-        fillColor(colour);
-        fill();
-    }
-
-    void drawPresetBar() {
-        for (const Rect* r : {&kPrev, &kName, &kNext}) {
-            beginPath();
-            roundedRect(r->x, r->y, r->w, r->h, 4);
-            fillColor(rgb(r == &kName ? kPanel : kTrack));
-            fill();
-        }
-        beginPath();
-        roundedRect(kName.x, kName.y, kName.w, kName.h, 4);
-        strokeColor(rgb(kPanelEdge));
-        strokeWidth(1);
-        stroke();
-
-        const float my = kPrev.y + kPrev.h * 0.5f;
-        triangle(kPrev.x + 14, my - 5, kPrev.x + 14, my + 5, kPrev.x + 8, my, rgb(kText));
-        triangle(kNext.x + 8, my - 5, kNext.x + 8, my + 5, kNext.x + 14, my, rgb(kText));
-        triangle(kName.x + kName.w - 18, my - 2, kName.x + kName.w - 10, my - 2, kName.x + kName.w - 14, my + 3, rgb(kDim));
-
-        std::string text = presetName_;
-        if (presetModified()) text += " *";
-        label(text.c_str(), kName.x + 10, my, 11, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
-    }
-
-    void drawPresetMenu() {
-        const Rect m = menuRect();
-        beginPath();
-        roundedRect(m.x, m.y, m.w, m.h, 4);
-        fillColor(rgb(0x262a33));
-        fill();
-        strokeColor(rgb(0x3a404c));
-        strokeWidth(1);
-        stroke();
-        for (int i = 0; i < presets::kCount; ++i) {
-            const float y = m.y + 4 + i * kMenuRow;
-            if (i == hover_) {
-                beginPath();
-                roundedRect(m.x + 4, y, m.w - 8, kMenuRow, 3);
-                fillColor(rgb(kTrack));
-                fill();
-            }
-            label(presets::kAll[i].name, m.x + 12, y + kMenuRow * 0.5f, 11, rgb(i == preset_ ? kAmber : kText), ALIGN_LEFT | ALIGN_MIDDLE);
-        }
     }
 
     // ------------------------------------------------------------ modules
@@ -677,9 +647,10 @@ private:
     uint lastClickTime_ = 0;
     float dragY_ = 0.0f, dragNorm_ = 0.0f;
 
-    int preset_ = 0, hover_ = -1;
+    int preset_ = 0;
     std::string presetName_ = "Default";
-    bool menuOpen_ = false;
+    hnl::ui::PresetBar presetBar_{kPresetX, kHeaderY};
+    hnl::ui::HelpTips help_;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MasterUI)
 };

@@ -8,6 +8,7 @@ enum ParamId : uint32_t {
     kRecord, kReproduce, kLink,
     kSpeed, kFormula, kHead, kPath,
     kBias, kWow, kFlutter, kNoise,
+    kCalibration, // added in 0.2.0
     // New parameters go here, at the end of the inputs: hosts store automation by index.
     kInputParamCount,
 
@@ -46,6 +47,7 @@ static const ParamInfo kParams[kParamCount] = {
     {"Wow", "wow", "%", 0.f, 100.f, 10.f, kLinear, nullptr},
     {"Flutter", "flutter", "%", 0.f, 100.f, 10.f, kLinear, nullptr},
     {"Noise", "noise", "%", 0.f, 100.f, 0.f, kLinear, nullptr},
+    {"Calibration", "calibration", "dBFS", -24.f, -6.f, -12.f, kLinear, nullptr},
 
     {"VU Left", "meter_vu_l", "dB", -60.f, 12.f, -60.f, kMeter, nullptr},
     {"VU Right", "meter_vu_r", "dB", -60.f, 12.f, -60.f, kMeter, nullptr},

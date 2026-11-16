@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 #include "DistrhoPluginInfo.h"
 
@@ -40,7 +41,7 @@ enum { kModifierShift = 1, kModifierControl = 2 };
 
 class UI {
 public:
-    enum { ALIGN_LEFT = 1, ALIGN_CENTER = 2, ALIGN_RIGHT = 4, ALIGN_MIDDLE = 16 };
+    enum { ALIGN_LEFT = 1, ALIGN_CENTER = 2, ALIGN_RIGHT = 4, ALIGN_TOP = 8, ALIGN_MIDDLE = 16 };
     enum Winding { CCW = 1, CW = 2 };
     enum LineCap { BUTT, ROUND };
 
@@ -105,8 +106,19 @@ public:
         char head[160];
         std::snprintf(head, sizeof(head), "<text x=\"%.2f\" y=\"%.2f\" font-size=\"%.2f\" text-anchor=\"%s\" ", x, y, size_,
                       (align_ & ALIGN_CENTER) ? "middle" : (align_ & ALIGN_RIGHT) ? "end" : "start");
-        svg += std::string(head) + "dominant-baseline=\"central\" fill=\"" + fill_ + "\">" + escape(s) + "</text>\n";
+        svg += std::string(head) + "dominant-baseline=\"" + ((align_ & ALIGN_TOP) ? "text-before-edge" : "central") + "\" fill=\"" + fill_ +
+               "\">" + escape(s) + "</text>\n";
         return x;
+    }
+    // Wrapped text. Real NanoVG measures the font; this estimates the width of a character.
+    void textLineHeight(float h) { lineHeight_ = h; }
+    void textBoxBounds(float x, float y, float width, const char* s, const char*, float bounds[4]) {
+        bounds[0] = x; bounds[1] = y; bounds[2] = x + width;
+        bounds[3] = y + wrap(s, width).size() * size_ * lineHeight_;
+    }
+    void textBox(float x, float y, float width, const char* s, const char*) {
+        float line = y;
+        for (const std::string& row : wrap(s, width)) { text(x, line, row.c_str(), nullptr); line += size_ * lineHeight_; }
     }
 
 private:
@@ -115,6 +127,21 @@ private:
         for (; *s; ++s) out += *s == '&' ? "&amp;" : *s == '<' ? "&lt;" : std::string(1, *s);
         return out;
     }
+    std::vector<std::string> wrap(const std::string& s, float width) const {
+        const size_t max = static_cast<size_t>(width / (0.56f * size_));
+        std::vector<std::string> rows(1);
+        size_t i = 0;
+        while (i < s.size()) {
+            size_t j = s.find(' ', i);
+            if (j == std::string::npos) j = s.size();
+            const std::string word = s.substr(i, j - i);
+            if (!rows.back().empty() && rows.back().size() + 1 + word.size() > max) rows.emplace_back();
+            rows.back() += (rows.back().empty() ? "" : " ") + word;
+            i = j + 1;
+        }
+        return rows;
+    }
+    float lineHeight_ = 1.2f;
     uint w_, h_;
     template <typename... A> void add(const char* fmt, A... a) {
         char s[200];

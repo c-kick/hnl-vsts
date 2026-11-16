@@ -2,12 +2,16 @@
 // UI_BASE_WIDTH x UI_BASE_HEIGHT design space, scaled by the host's UI scale.
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
 #include "DistrhoUI.hpp"
 
+#include "../../common/ui/Widgets.hpp"
+#include "Help.hpp"
 #include "Params.hpp"
+#include "Presets.hpp"
 
 START_NAMESPACE_DISTRHO
 
@@ -37,8 +41,9 @@ const Rect kFaces[2] = {{24, 68, 250, 138}, {286, 68, 250, 138}};
 
 struct Knob { uint32_t id; float x, y, r; const char* label; };
 const Knob kKnobs[] = {
-    {kRecord, 84, 372, 22, "RECORD"}, {kReproduce, 236, 372, 22, "REPRODUCE"}, {kBias, 400, 372, 22, "BIAS"},
-    {kWow, 540, 372, 22, "WOW"}, {kFlutter, 646, 372, 22, "FLUTTER"}, {kNoise, 752, 372, 22, "NOISE"},
+    {kRecord, 84, 372, 22, "RECORD"}, {kReproduce, 236, 372, 22, "REPRODUCE"},
+    {kCalibration, 384, 372, 22, "CALIBRATION"}, {kBias, 478, 372, 22, "BIAS"},
+    {kWow, 592, 372, 22, "WOW"}, {kFlutter, 676, 372, 22, "FLUTTER"}, {kNoise, 760, 372, 22, "NOISE"},
 };
 const int kKnobCount = sizeof(kKnobs) / sizeof(kKnobs[0]);
 
@@ -49,6 +54,8 @@ const Selector kSelectors[] = {
 };
 
 const float kLinkX = 160, kLinkY = 372;
+const float kPresetX = 204, kHeaderY = 14;
+const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x2b2825, 0x45403a, kText, kDim, kCopper};
 
 std::string upper(const char* s) {
     std::string out(s);
@@ -65,12 +72,34 @@ public:
         loadSharedResources();
         const double s = getScaleFactor();
         if (s != 1.0) setSize(static_cast<uint>(std::lround(UI_BASE_WIDTH * s)), static_cast<uint>(std::lround(UI_BASE_HEIGHT * s)));
+
+        // Help: wide areas first, single controls on top.
+        using hnl::ui::Box;
+        help_.setButton(UI_BASE_WIDTH - 24, kHeaderY + 12);
+        help_.add(help_.buttonBox(), "HELP", help::kHelp);
+        help_.add(presetBar_.nameBox(), "PRESETS", help::kPresets);
+        for (const Rect& f : kFaces) help_.add({f.x, f.y, f.w, f.h}, "VU METER", help::kVu);
+        help_.add({kOutPanel.x, kOutPanel.y, kOutPanel.w, kOutPanel.h}, "OUTPUT", help::kOutput);
+        for (const Selector& sel : kSelectors)
+            help_.add({sel.box.x, sel.box.y - 20, sel.box.w, sel.box.h + 20}, kParams[sel.id].name, help::forParam(sel.id));
+        help_.add({kLinkX - 22, kLinkY - 28, 44, 40}, kParams[kLink].name, help::forParam(kLink));
+        for (const Knob& k : kKnobs)
+            help_.add({k.x - k.r - 12, k.y - k.r - 20, 2 * k.r + 24, 2 * k.r + 42}, kParams[k.id].name, help::forParam(k.id));
     }
 
 protected:
     void parameterChanged(uint32_t index, float value) override {
         if (index >= kParamCount || values_[index] == value) return;
         values_[index] = value;
+        repaint();
+    }
+
+    void stateChanged(const char* key, const char* value) override {
+        if (std::strcmp(key, "preset") != 0) return;
+        presetName_ = value;
+        preset_ = -1;
+        for (int i = 0; i < presets::kCount; ++i)
+            if (presetName_ == presets::kAll[i].name) preset_ = i;
         repaint();
     }
 
@@ -87,7 +116,10 @@ protected:
         fill();
 
         label("HNL TAPE MASTER", 16, 27, 18, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
-        label("two-track mastering tape", 204, 28, 11, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        std::string presetText = presetName_;
+        if (presetModified()) presetText += " *";
+        presetBar_.drawBar(*this, kTheme, presetText.c_str());
+        help_.drawButton(*this, kTheme);
 
         for (const Rect* p : {&kMeterPanel, &kOutPanel, &kTapePanel, &kKnobPanel}) panel(*p);
 
@@ -97,7 +129,7 @@ protected:
 
         for (const Selector& sel : kSelectors) drawSelector(sel);
 
-        for (float x : {322.0f, 476.0f}) {
+        for (float x : {322.0f, 536.0f}) {
             beginPath();
             moveTo(x, kKnobPanel.y + 16);
             lineTo(x, kKnobPanel.y + kKnobPanel.h - 16);
@@ -107,6 +139,9 @@ protected:
         }
         for (const Knob& k : kKnobs) drawKnob(k);
         drawLink();
+
+        presetBar_.drawMenu(*this, kTheme, presets::kCount, preset_, [](int i) { return presets::kAll[i].name; });
+        if (!presetBar_.isOpen() && drag_ < 0) help_.drawTip(*this, kTheme, UI_BASE_WIDTH, UI_BASE_HEIGHT);
     }
 
     // -------------------------------------------------------- interaction
@@ -120,6 +155,20 @@ protected:
             if (drag_ < 0) return false;
             editParameter(kKnobs[drag_].id, false);
             drag_ = -1;
+            return true;
+        }
+
+        const int picked = presetBar_.mouseDown(x, y, preset_, presets::kCount);
+        if (picked != hnl::ui::PresetBar::kNotMine) {
+            help_.hide();
+            if (picked >= 0) applyPreset(picked);
+            repaint();
+            return true;
+        }
+        if (help_.buttonHit(x, y)) {
+            help_.on = !help_.on;
+            help_.motion(x, y);
+            repaint();
             return true;
         }
 
@@ -153,9 +202,16 @@ protected:
     }
 
     bool onMotion(const MotionEvent& ev) override {
-        if (drag_ < 0) return false;
         const float s = static_cast<float>(getScaleFactor());
-        const float y = static_cast<float>(ev.pos.getY()) / s;
+        const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
+        if (presetBar_.isOpen()) {
+            if (presetBar_.motion(x, y, presets::kCount)) repaint();
+            return true;
+        }
+        if (drag_ < 0) {
+            if (help_.motion(x, y)) repaint();
+            return false;
+        }
         const float range = (ev.mod & kModifierShift) ? 1200.0f : 200.0f;
         dragNorm_ += (dragY_ - y) / range;
         dragNorm_ = dragNorm_ < 0.0f ? 0.0f : (dragNorm_ > 1.0f ? 1.0f : dragNorm_);
@@ -165,7 +221,7 @@ protected:
     }
 
     bool onScroll(const ScrollEvent& ev) override {
-        if (drag_ >= 0) return false;
+        if (presetBar_.isOpen() || drag_ >= 0) return false;
         const float s = static_cast<float>(getScaleFactor());
         const int hit = knobAt(static_cast<float>(ev.pos.getX()) / s, static_cast<float>(ev.pos.getY()) / s);
         if (hit < 0) return false;
@@ -189,6 +245,33 @@ private:
         setParameterValue(id, value);
         if (gesture) editParameter(id, false);
         repaint();
+    }
+
+    // ------------------------------------------------------------ presets
+
+    void applyPreset(int index) {
+        preset_ = index;
+        presetName_ = presets::kAll[index].name;
+        for (uint32_t id = 0; id < kInputParamCount; ++id) {
+            const float v = presets::value(index, id);
+            if (!presets::inPreset(id) || values_[id] == v) continue;
+            editParameter(id, true);
+            values_[id] = v;
+            setParameterValue(id, v);
+            editParameter(id, false);
+        }
+        setState("preset", presetName_.c_str());
+        repaint();
+    }
+
+    /** True when a control was moved since the preset was chosen. */
+    bool presetModified() const {
+        if (preset_ < 0) return false;
+        for (uint32_t id = 0; id < kInputParamCount; ++id) {
+            const float tolerance = 1e-4f * (kParams[id].max - kParams[id].min);
+            if (presets::inPreset(id) && std::fabs(values_[id] - presets::value(preset_, id)) > tolerance) return true;
+        }
+        return false;
     }
 
     void label(const char* text, float x, float y, float size, const Color& colour, int align) {
@@ -412,7 +495,8 @@ private:
         label(k.label, k.x, k.y - k.r - 14, 9, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
         char text[32];
         const float v = values_[k.id];
-        if (p.unit[0] == 'd') std::snprintf(text, sizeof(text), "%+.1f dB", v);
+        if (k.id == kCalibration) std::snprintf(text, sizeof(text), "%.1f dBFS", v);
+        else if (p.unit[0] == 'd') std::snprintf(text, sizeof(text), "%+.1f dB", v);
         else if (k.id == kBias) std::snprintf(text, sizeof(text), "%+.0f %%", v);
         else if (k.id == kNoise && v < 0.5f) std::snprintf(text, sizeof(text), "OFF");
         else std::snprintf(text, sizeof(text), "%.0f %%", v);
@@ -423,6 +507,11 @@ private:
     int drag_ = -1, lastClick_ = -1;
     uint lastClickTime_ = 0;
     float dragY_ = 0.0f, dragNorm_ = 0.0f;
+
+    int preset_ = 0;
+    std::string presetName_ = "Default";
+    hnl::ui::PresetBar presetBar_{kPresetX, kHeaderY};
+    hnl::ui::HelpTips help_;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TapeUI)
 };

@@ -25,7 +25,7 @@ protected:
     const char* getMaker() const override { return "HNL Design"; }
     const char* getHomePage() const override { return "https://hnldesign.nl"; }
     const char* getLicense() const override { return "ISC"; }
-    uint32_t getVersion() const override { return d_version(0, 2, 0); }
+    uint32_t getVersion() const override { return d_version(0, 3, 0); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override {
         port.groupId = kPortGroupStereo;

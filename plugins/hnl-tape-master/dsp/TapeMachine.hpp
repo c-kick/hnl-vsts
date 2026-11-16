@@ -13,7 +13,8 @@
 // measured from a particular machine, and the saturation is a memoryless
 // curve between pre- and de-emphasis, not a hysteresis simulation.
 //
-// Levels: a sine at kReferenceDb dBFS reads 0 VU.
+// Levels: a sine at the calibration level (kReferenceDb dBFS unless changed)
+// reads 0 VU, and everything the tape does is relative to that.
 #pragma once
 
 #include <atomic>
@@ -27,7 +28,7 @@
 
 namespace hnl {
 
-constexpr double kReferenceDb = -18.0;
+constexpr double kReferenceDb = -12.0;
 
 enum TapeSpeed { kSpeed7, kSpeed15, kSpeed30, kSpeedCount };
 enum TapeFormula { kVintage, kClassic, kModern, kHighOutput, kFormulaCount };
@@ -46,6 +47,7 @@ struct TapeParams {
     double wow = 10.0;    // percent; 10 is a well-kept machine
     double flutter = 10.0; // percent
     double noise = 0.0;   // percent; 0 off, 50 the level of real tape, 100 twenty dB more
+    double calibration = kReferenceDb; // dBFS of a sine that reads 0 VU
 };
 
 /** Written by the audio thread, read by the UI thread. */
@@ -210,7 +212,7 @@ public:
 
         for (int c = 0; c < 2; ++c) {
             // A sine's rectified mean is 2/pi of its peak.
-            const double vu = linToDb(vu_[c] * (kPi / 2.0)) - kReferenceDb;
+            const double vu = linToDb(vu_[c] * (kPi / 2.0)) - p_.calibration;
             meters.vu[c].store(static_cast<float>(std::max(vu, -60.0)), std::memory_order_relaxed);
             if (static_cast<float>(outPk[c]) > meters.outPeak[c].load(std::memory_order_relaxed))
                 meters.outPeak[c].store(static_cast<float>(outPk[c]), std::memory_order_relaxed);
@@ -272,7 +274,7 @@ private:
         const FormulaInfo& tape = formulaInfo(p_.formula);
         const double ips = speedIps(p_.speed), bias = std::clamp(p_.bias, -100.0, 100.0) / 100.0;
         const bool sync = p_.path == kSync;
-        const double osFs = kOversample * fs_, reference = dbToLin(kReferenceDb);
+        const double osFs = kOversample * fs_, reference = dbToLin(p_.calibration);
 
         recT_ = dbToLin(p_.record);
         outT_ = dbToLin(p_.reproduce - (p_.link ? p_.record : 0.0));

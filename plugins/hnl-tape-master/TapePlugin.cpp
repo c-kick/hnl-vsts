@@ -11,7 +11,7 @@ START_NAMESPACE_DISTRHO
 
 class TapePlugin : public Plugin {
 public:
-    TapePlugin() : Plugin(kParamCount, 0, 0) {
+    TapePlugin() : Plugin(kParamCount, 0, 1) {
         for (uint32_t i = 0; i < kInputParamCount; ++i) values_[i].store(kParams[i].def);
         for (uint32_t i = kInputParamCount; i < kParamCount; ++i) meters_[i - kInputParamCount] = kParams[i].def;
         prepare(getSampleRate());
@@ -25,7 +25,7 @@ protected:
     const char* getMaker() const override { return "HNL Design"; }
     const char* getHomePage() const override { return "https://hnldesign.nl"; }
     const char* getLicense() const override { return "ISC"; }
-    uint32_t getVersion() const override { return d_version(0, 1, 0); }
+    uint32_t getVersion() const override { return d_version(0, 2, 0); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override {
         port.groupId = kPortGroupStereo;
@@ -59,6 +59,14 @@ protected:
         case kMeter: parameter.hints = kParameterIsOutput; break;
         }
     }
+
+    /** The name of the preset last chosen in the UI, saved with the song. */
+    void initState(uint32_t, State& state) override {
+        state.key = "preset";
+        state.label = "Preset";
+        state.defaultValue = "Default";
+    }
+    void setState(const char*, const char*) override {} // only stored by the host
 
     float getParameterValue(uint32_t index) const override {
         if (index >= kInputParamCount) return meters_[index - kInputParamCount];
@@ -118,6 +126,7 @@ private:
         p.wow = v[kWow];
         p.flutter = v[kFlutter];
         p.noise = v[kNoise];
+        p.calibration = v[kCalibration];
         machine_.setParams(p);
     }
 

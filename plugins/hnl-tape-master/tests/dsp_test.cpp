@@ -279,6 +279,20 @@ static void testAliasingAndSpeed(double fs) {
     check(finite && sec < 4.0, "speed (everything on, stereo)", "%.0fx realtime (%.1f%% of one core)", 20.0 / sec, 100.0 * sec / 20.0);
 }
 
+static void testCalibration(double fs) {
+    // The same signal on a machine lined up 6 dB lower sits 6 dB higher on the tape.
+    TapeParams p = steady();
+    double at, thdDefault, thdLow;
+    measure(fs, p, 315, 3, &at, &thdDefault);
+    p.calibration = kReferenceDb - 6;
+    measure(fs, p, 315, 3, &at, &thdLow);
+    p.calibration = kReferenceDb;
+    double thdHot;
+    measure(fs, p, 315, 9, &at, &thdHot);
+    check(std::fabs(thdLow - thdHot) < 0.02 && thdLow > 2.5 * thdDefault, "calibration moves 0 VU", "third harmonic %.2f%%, %.2f%% lined up 6 dB lower (as 6 dB hotter: %.2f%%)",
+          thdDefault, thdLow, thdHot);
+}
+
 static void testMeters(double fs) {
     TapeMachine m;
     m.prepare(fs);
@@ -301,6 +315,7 @@ int main() {
         testLink(fs);
         testTransport(fs);
         testNoise(fs);
+        testCalibration(fs);
         testMeters(fs);
         testAliasingAndSpeed(fs);
     }

@@ -1,4 +1,4 @@
-// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy]
+// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|help|menu]
 #include <fstream>
 #include <string>
 
@@ -19,6 +19,25 @@ int main(int argc, char** argv) {
         ui->parameterChanged(kBias, -25.0f);
         ui->parameterChanged(kNoise, 50.0f);
         ui->parameterChanged(kWow, 30.0f);
+    }
+    if (mode == "help") {
+        DISTRHO::MouseEvent click; // the ? button
+        click.pos.x = UI_BASE_WIDTH - 24;
+        click.pos.y = 26;
+        ui->onMouse(click);
+        DISTRHO::MouseEvent release = click;
+        release.press = false;
+        ui->onMouse(release);
+        DISTRHO::MotionEvent move; // the calibration knob
+        move.pos.x = 384;
+        move.pos.y = 372;
+        ui->onMotion(move);
+    }
+    if (mode == "menu") {
+        DISTRHO::MouseEvent click; // the preset name
+        click.pos.x = 260;
+        click.pos.y = 26;
+        ui->onMouse(click);
     }
     ui->onNanoDisplay();
     std::ofstream out(argv[1]);

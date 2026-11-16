@@ -29,11 +29,13 @@ and playing it back.
 | Record | How hard the tape is driven. The VU meters show the level on tape. |
 | Reproduce | Playback level. |
 | Link | Takes the record level off again at the output, so turning Record changes the colour, not the volume. |
+| Calibration | The level in your mix that the machine treats as 0 VU, from -24 to -6 dBFS (default -12). If the needles sit pinned in the red with Record at 0, raise it. |
 | Bias | Towards under: brighter, quiet signals get rougher. Towards over: duller top, cleaner lows. |
 | Wow, Flutter | 10% is a well-kept machine (about 0.04% pitch movement); 100% is a tired one (about 0.3%). |
 | Noise | 0 is off, 50% is the level of real tape, 100% is 20 dB more. |
 
-0 VU is a sine at -18 dBFS.
+Eleven presets are in the menu next to the name; they leave Calibration alone. The **?** button switches help on:
+rest the mouse on any control to read what it does.
 
 Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to
 its default. Latency is about 1.8 ms and is reported to the host.

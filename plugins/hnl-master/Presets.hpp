@@ -1,21 +1,13 @@
-// Factory presets. A preset is the default value of every parameter plus the
-// overrides listed here, so a new parameter never needs a change to old presets.
+// Factory presets: see common/Presets.hpp for how they work.
 #pragma once
 
+#include "../../common/Presets.hpp"
 #include "Params.hpp"
 
-struct PresetValue {
-    uint32_t id;
-    float value;
-};
-
-struct Preset {
-    const char* name;
-    const PresetValue* values;
-    uint32_t count;
-};
-
 namespace presets {
+
+using hnl::Preset;
+using hnl::PresetValue;
 
 // Sets threshold, ratio, attack and release of one compressor band.
 #define HM_BAND(base, thr, ratio, att, rel) {base, thr}, {base + 1, ratio}, {base + 2, att}, {base + 3, rel}
@@ -91,33 +83,24 @@ static const PresetValue kLimiterOnly[] = {
 
 #undef HM_BAND
 
-#define HM_PRESET(name, values) {name, values, static_cast<uint32_t>(sizeof(values) / sizeof(values[0]))}
-
 static const Preset kAll[] = {
     {"Default", nullptr, 0},
-    HM_PRESET("Gentle Glue", kGentleGlue),
-    HM_PRESET("Loud & Punchy", kLoudPunchy),
-    HM_PRESET("Warm Tape", kWarmTape),
-    HM_PRESET("Bright & Airy", kBrightAiry),
-    HM_PRESET("Wide Stereo", kWideStereo),
-    HM_PRESET("Tight Low End", kTightLowEnd),
-    HM_PRESET("Vocal Presence", kVocalPresence),
-    HM_PRESET("Room Ambience", kRoomAmbience),
-    HM_PRESET("Lo-Fi Retro", kLoFiRetro),
-    HM_PRESET("Club Master", kClubMaster),
-    HM_PRESET("Limiter Only", kLimiterOnly),
+    HNL_PRESET("Gentle Glue", kGentleGlue),
+    HNL_PRESET("Loud & Punchy", kLoudPunchy),
+    HNL_PRESET("Warm Tape", kWarmTape),
+    HNL_PRESET("Bright & Airy", kBrightAiry),
+    HNL_PRESET("Wide Stereo", kWideStereo),
+    HNL_PRESET("Tight Low End", kTightLowEnd),
+    HNL_PRESET("Vocal Presence", kVocalPresence),
+    HNL_PRESET("Room Ambience", kRoomAmbience),
+    HNL_PRESET("Lo-Fi Retro", kLoFiRetro),
+    HNL_PRESET("Club Master", kClubMaster),
+    HNL_PRESET("Limiter Only", kLimiterOnly),
 };
-
-#undef HM_PRESET
 
 static const int kCount = static_cast<int>(sizeof(kAll) / sizeof(kAll[0]));
 
 /** The value a preset gives to an input parameter. */
-inline float value(int preset, uint32_t id) {
-    const Preset& p = kAll[preset];
-    for (uint32_t i = 0; i < p.count; ++i)
-        if (p.values[i].id == id) return p.values[i].value;
-    return kParams[id].def;
-}
+inline float value(int preset, uint32_t id) { return hnl::presetValue(kAll[preset], id, kParams[id].def); }
 
 } // namespace presets

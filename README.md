@@ -14,6 +14,8 @@ Audio plugins by HNL Design, built as VST3 for Windows (tested in Reason 12.5+).
 - `plugins/<name>/`: one folder per plugin. Audio engine in `dsp/` (header-only C++17, no dependencies), the DPF
   plugin and its NanoVG UI next to it, and offline tests in `tests/`.
 - `common/dsp/`: building blocks shared by the plugins (filters, oversampling, true-peak detection).
+- `common/ui/`: UI parts shared by the plugins (preset bar, help tips); `common/Presets.hpp`: how presets are
+  defined.
 - `dpf/`: the [DISTRHO Plugin Framework](https://github.com/DISTRHO/DPF), as a git submodule.
 - `toolchain/`: wrappers that run zig as the Windows cross-compiler.
 - `tools/ui-preview/`: a stand-in for DPF's drawing API that writes a plugin UI as SVG, to check a layout on a

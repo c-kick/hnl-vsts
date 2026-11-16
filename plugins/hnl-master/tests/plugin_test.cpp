@@ -36,7 +36,7 @@ int main() {
     bool presetsOk = true;
     for (int i = 0; i < presets::kCount; ++i)
         for (uint32_t j = 0; j < presets::kAll[i].count; ++j) {
-            const PresetValue& v = presets::kAll[i].values[j];
+            const hnl::PresetValue& v = presets::kAll[i].values[j];
             presetsOk = presetsOk && v.id < kInputParamCount && v.value >= kParams[v.id].min && v.value <= kParams[v.id].max;
         }
     check(presetsOk, "preset values are within range", presets::kCount);

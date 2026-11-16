@@ -7,6 +7,7 @@
 #include "src/DistrhoPluginInternal.hpp"
 
 #include "../Params.hpp"
+#include "../Presets.hpp"
 
 USE_NAMESPACE_DISTRHO
 
@@ -32,13 +33,23 @@ int main() {
     }
     check(rangesOk, "parameter ranges, defaults, choices", rangesOk);
 
+    bool presetsOk = true;
+    for (int i = 0; i < presets::kCount; ++i)
+        for (uint32_t j = 0; j < presets::kAll[i].count; ++j) {
+            const hnl::PresetValue& v = presets::kAll[i].values[j];
+            presetsOk = presetsOk && v.id < kInputParamCount && presets::inPreset(v.id) && v.value >= kParams[v.id].min && v.value <= kParams[v.id].max;
+        }
+    check(presetsOk, "preset values are within range", presets::kCount);
+    check(plugin.getStateCount() == 1 && plugin.getStateKey(0) == "preset", "preset name is saved as state", plugin.getStateCount());
+    check(kNoise == 10 && kCalibration == 11, "0.1.0 parameter indices unchanged", kNoise);
+
     plugin.setParameterValue(kRecord, 6.0f);
     plugin.activate();
 
     std::vector<float> l(512), r(512);
     const float* in[2] = {l.data(), r.data()};
     float* out[2] = {l.data(), r.data()};
-    const double amp = std::pow(10.0, -18.0 / 20.0);
+    const double amp = std::pow(10.0, kParams[kCalibration].def / 20.0); // a 0 VU sine
     float peak = 0;
     long n = 0;
     for (int block = 0; block < 300; ++block) {
@@ -48,7 +59,7 @@ int main() {
     }
     check(std::fabs(plugin.getParameterValue(kMeterVuL) - 6.0f) < 0.3f, "VU meter: 0 VU sine, record +6 (VU)", plugin.getParameterValue(kMeterVuL));
     const float peakDb = 20 * std::log10(peak);
-    check(peakDb < -18.0f && peakDb > -19.5f, "linked output, slightly compressed (dBFS)", peakDb);
+    check(peakDb < -12.0f && peakDb > -13.5f, "linked output, slightly compressed (dBFS)", peakDb);
     check(std::fabs(plugin.getParameterValue(kMeterOutL) - peakDb) < 0.3f, "output peak meter (dBFS)", plugin.getParameterValue(kMeterOutL));
 
     // Every combination of the selectors must run and stay finite.
