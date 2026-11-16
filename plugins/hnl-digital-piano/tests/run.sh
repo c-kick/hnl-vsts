@@ -5,7 +5,7 @@
 set -e
 cd "$(dirname "$0")/.."
 ROOT=../..
-OUT=$ROOT/build/hnl-house-piano-tests
+OUT=$ROOT/build/hnl-digital-piano-tests
 mkdir -p "$OUT"
 g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/dsp_test" tests/dsp_test.cpp
 "$OUT/dsp_test"

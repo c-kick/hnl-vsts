@@ -16,6 +16,13 @@ int main(int argc, char** argv) {
         ui->parameterChanged(kDetune, 6.0f);
         ui->parameterChanged(kReverb, 28.0f);
         ui->parameterChanged(kDecay, 60.0f);
+    }
+    if (mode == "fm") {
+        ui->parameterChanged(kVoice, 1.0f);
+        ui->parameterChanged(kReverb, 20.0f);
+        ui->parameterChanged(kMeterOutL, -12.5f);
+        ui->parameterChanged(kMeterOutR, -11.8f);
+        ui->parameterChanged(kMeterVoices, 4.0f);
         DISTRHO::MouseEvent click; // a key: E4
         click.pos.x = 24 + 16.5 * 772.0 / 36.0;
         click.pos.y = 390;

@@ -21,7 +21,7 @@ A list to pick from, not a plan. Nothing here is started unless it says so.
 ## Modulation and space
 
 - **Plate/hall reverb:** a full standalone reverb with pre-delay, size, decay, damping and modulation. The
-  reverbs inside HNL Master, HNL Tape Echo and HNL House Piano are deliberately simple.
+  reverbs inside HNL Master, HNL Tape Echo and HNL Digital Piano are deliberately simple.
 - **Chorus/ensemble:** the bucket-brigade chorus of 80s string machines and polysynths, plus a wide
   "dimension" mode. Can reuse the moving delay of the tape plugins.
 - **Phaser** and **tape-style flanger.**
@@ -36,7 +36,10 @@ A list to pick from, not a plan. Nothing here is started unless it says so.
 
 ## Instruments
 
-- **House piano:** started as `plugins/hnl-house-piano`.
+- **Digital piano:** built as `plugins/hnl-digital-piano`, with a workstation piano and an FM electric piano.
+  More voices to add once there are reference recordings to fit them to (single notes across the keyboard,
+  dry): a 90s dance piano (JD-800 style), an 80s "SA" stage piano (MKS-20 / RD-1000 style), an early sampled
+  grand, a General MIDI piano, an electric grand (CP-70 style), and the workstation organ.
 - **Synth or drum machine.**
 
 ## Bigger steps

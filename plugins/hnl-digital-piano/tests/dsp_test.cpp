@@ -336,8 +336,94 @@ static void testSpeed() {
     check(seconds < 2.5, "speed with all 64 voices", "%.1fx real time", 10.0 / seconds);
 }
 
+static void testFm() {
+    const double fs = 48000;
+    PianoParams p = plain();
+    p.voice = kFmElectric;
+
+    double worst = 0;
+    for (double rate : {44100.0, 96000.0})
+        for (int note = 28; note <= 100; note += 6) {
+            const Take t = play(rate, p, note, 100, 0.8);
+            Buf mid(t.l.size());
+            for (size_t i = 0; i < mid.size(); ++i) mid[i] = 0.5f * (t.l[i] + t.r[i]);
+            const double off = centsOff(mid, rate, 0.4, noteFreq(note));
+            if (std::fabs(off) > std::fabs(worst)) worst = off;
+        }
+    check(std::fabs(worst) < 2.0, "FM: in tune", "worst %+.2f cents", worst);
+
+    // As loud as the workstation voice, give or take.
+    double apart = 0;
+    for (int note : {40, 52, 64, 76, 88}) {
+        const Take a = play(fs, plain(), note, 100, 0.4), b = play(fs, p, note, 100, 0.4);
+        apart = std::max(apart, std::fabs(linToDb(std::hypot(rms(b.l, fs, 0, 0.3), rms(b.r, fs, 0, 0.3)) / std::hypot(rms(a.l, fs, 0, 0.3), rms(a.r, fs, 0, 0.3)))));
+    }
+    check(apart < 4.0, "FM: as loud as the workstation voice", "at most %.1f dB apart", apart);
+
+    // The bell: overtones around fourteen times the note, strong at the start and gone later.
+    const Take hard = play(fs, p, 60, 120, 3.0), soft = play(fs, p, 60, 45, 3.0);
+    const double f = noteFreq(60);
+    const auto bell = [&](const Take& t, double at) { return linToDb((tone(t.l, fs, at, at + 0.1, 13 * f) + tone(t.l, fs, at, at + 0.1, 15 * f)) / tone(t.l, fs, at, at + 0.1, f)); };
+    check(bell(hard, 0.02) > -20 && bell(hard, 2.5) < bell(hard, 0.02) - 15, "FM: the bell rings at the start, then fades", "%.1f dB, later %.1f dB", bell(hard, 0.02), bell(hard, 2.5));
+    const auto bark = [&](const Take& t, double at) { return linToDb(tone(t.l, fs, at, at + 0.1, 3 * f) / tone(t.l, fs, at, at + 0.1, f)); };
+    check(bark(hard, 0.02) > bark(soft, 0.02) + 10 && bark(hard, 2.5) < bark(hard, 0.02) - 4, "FM: hard notes bark, and mellow as they ring", "hard %.1f dB, soft %.1f dB, hard later %.1f dB",
+          bark(hard, 0.02), bark(soft, 0.02), bark(hard, 2.5));
+
+    // Stereo, and safe in mono: the two halves never cancel.
+    double lr = 0, ll = 0, rr = 0, lo = 1e9, hi = 0;
+    const Take t = play(fs, p, 72, 100, 4.0);
+    for (size_t i = 0; i < t.l.size(); ++i) { lr += static_cast<double>(t.l[i]) * t.r[i]; ll += static_cast<double>(t.l[i]) * t.l[i]; rr += static_cast<double>(t.r[i]) * t.r[i]; }
+    Buf mid(t.l.size());
+    for (size_t i = 0; i < mid.size(); ++i) mid[i] = 0.5f * (t.l[i] + t.r[i]);
+    for (double at = 0.2; at < 3.8; at += 0.1) {
+        const double v = rms(mid, fs, at, at + 0.1) / std::hypot(rms(t.l, fs, at, at + 0.1), rms(t.r, fs, at, at + 0.1));
+        lo = std::min(lo, v);
+        hi = std::max(hi, v);
+    }
+    check(lr / std::sqrt(ll * rr) < 0.9 && lr / std::sqrt(ll * rr) > 0.3, "FM: stereo", "correlation %.2f", lr / std::sqrt(ll * rr));
+    check(linToDb(hi / lo) < 2.0, "FM: summed to mono nothing cancels", "moves %.1f dB", linToDb(hi / lo));
+    p.width = 0;
+    const Take mono = play(fs, p, 60, 100, 0.5);
+    double diff = 0;
+    for (size_t i = 0; i < mono.l.size(); ++i) diff = std::max(diff, static_cast<double>(std::fabs(mono.l[i] - mono.r[i])));
+    check(diff < 1e-6, "FM: width 0% is mono", "largest difference %.1e", diff);
+    p.width = 100;
+
+    // Top of the keyboard: the bell is left out before it could fold back as false tones.
+    const Take top = play(44100, p, 100, 127, 0.5);
+    const double ft = noteFreq(100), fold = 44100 - 13 * ft; // where the 13th would land if it were made
+    check(tone(top.l, 44100, 0.02, 0.3, fold) < 0.003 * tone(top.l, 44100, 0.02, 0.3, ft), "FM: no folded-back bell on high keys", "%.1f dB under the note",
+          -linToDb(tone(top.l, 44100, 0.02, 0.3, fold) / tone(top.l, 44100, 0.02, 0.3, ft)));
+
+    // Release, pedal and running out all work as for the other voice.
+    Piano m;
+    m.prepare(fs);
+    m.setParams(p);
+    m.reset();
+    Take e{{}, {}, fs};
+    m.noteOn(60, 100);
+    run(m, e, 0.5);
+    m.noteOff(60);
+    run(m, e, 1.5);
+    const bool released = m.activeVoices() == 0;
+    m.noteOn(96, 100);
+    run(m, e, 20.0);
+    check(released && m.activeVoices() == 0, "FM: notes end after release, and by themselves", "%.0f voices left", m.activeVoices());
+
+    m.controller(64, 127);
+    for (int note = 36; note < 100; ++note) m.noteOn(note, 100);
+    Take s{{}, {}, fs};
+    const std::clock_t t0 = std::clock();
+    run(m, s, 5.0);
+    const double seconds = static_cast<double>(std::clock() - t0) / CLOCKS_PER_SEC;
+    bool finite = true;
+    for (float v : s.l) finite = finite && std::isfinite(v);
+    check(finite && seconds < 1.6, "FM: speed with all 64 voices", "%.1fx real time", 5.0 / seconds);
+}
+
 int main() {
     testSpeed();
+    testFm();
     testPitch();
     testLevels();
     testEnvelope();

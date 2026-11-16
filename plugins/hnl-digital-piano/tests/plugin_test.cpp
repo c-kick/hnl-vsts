@@ -105,6 +105,7 @@ int main() {
         for (int block = 0; block < 200; ++block) plugin.run(nullptr, out, 512, nullptr, 0);
     }
     check(finite && peak > 0.1f && peak < 1.0f, "all presets: a hard chord stays under full scale (peak)", peak);
+    check(kVoice == 10 && kOctave == 9, "0.3.0 parameter indices unchanged", kVoice);
 
     plugin.deactivate();
     plugin.setSampleRate(96000.0, true);

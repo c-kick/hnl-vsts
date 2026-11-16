@@ -7,6 +7,7 @@
 enum ParamId : uint32_t {
     kVolume, kTone, kVelocity, kDecay, kRelease,
     kDetune, kWidth, kReverb, kTune, kOctave,
+    kVoice, // added in 0.4.0
     // New parameters go here, at the end of the inputs: hosts store automation by index.
     kInputParamCount,
 
@@ -18,6 +19,8 @@ enum ParamId : uint32_t {
 enum ParamKind { kLinear, kLog, kToggle, kChoice, kMeter };
 
 static const char* const kOctaveNames[] = {"-2", "-1", "0", "+1", "+2"};
+static const char* const kVoiceNames[] = {"Workstation", "FM Electric"};
+constexpr int kVoiceChoices = sizeof(kVoiceNames) / sizeof(kVoiceNames[0]);
 
 struct ParamInfo {
     const char* name;
@@ -39,6 +42,7 @@ static const ParamInfo kParams[kParamCount] = {
     {"Reverb", "reverb", "%", 0.f, 100.f, 15.f, kLinear, nullptr},
     {"Tune", "tune", "cents", -100.f, 100.f, 0.f, kLinear, nullptr},
     {"Octave", "octave", "", 0.f, 4.f, 2.f, kChoice, kOctaveNames},
+    {"Voice", "voice", "", 0.f, kVoiceChoices - 1.f, 0.f, kChoice, kVoiceNames},
 
     {"Output Peak Left", "meter_out_l", "dB", -100.f, 24.f, -100.f, kMeter, nullptr},
     {"Output Peak Right", "meter_out_r", "dB", -100.f, 24.f, -100.f, kMeter, nullptr},

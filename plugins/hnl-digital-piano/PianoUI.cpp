@@ -1,4 +1,4 @@
-// HNL House Piano: user interface (NanoVG). All coordinates are in a fixed
+// HNL Digital Piano: user interface (NanoVG). All coordinates are in a fixed
 // UI_BASE_WIDTH x UI_BASE_HEIGHT design space, scaled by the host's UI scale.
 #include <cmath>
 #include <cstdio>
@@ -49,7 +49,8 @@ const int kKnobCount = sizeof(kKnobs) / sizeof(kKnobs[0]);
 
 struct Selector { uint32_t id; Rect box; const char* label; const char* const* names; int count; };
 const Selector kSelectors[] = {
-    {kOctave, {24, 208, 250, 26}, "OCTAVE", kOctaveNames, 5},
+    {kVoice, {24, 208, 260, 26}, "VOICE", kVoiceNames, kVoiceChoices},
+    {kOctave, {300, 208, 200, 26}, "OCTAVE", kOctaveNames, 5},
 };
 
 // The keyboard on screen: C2 to C7, 36 white keys.
@@ -130,7 +131,7 @@ protected:
         fillColor(rgb(kBg));
         fill();
 
-        label("HNL HOUSE PIANO", 16, 27, 18, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
+        label("HNL DIGITAL PIANO", 16, 27, 18, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         presetBar_.drawBar(*this, kTheme, presetText.c_str());
@@ -141,8 +142,7 @@ protected:
         for (const Knob& k : kKnobs) drawKnob(k);
         drawOutput();
         for (const Selector& sel : kSelectors) drawSelector(sel);
-        label("SUSTAIN PEDAL: CC 64  /  PITCH BEND: 2 SEMITONES  /  64 VOICES, STEREO", kSwitchPanel.x + kSwitchPanel.w - 16, 221, 9, rgb(kDim),
-              ALIGN_RIGHT | ALIGN_MIDDLE);
+        label("SUSTAIN PEDAL: CC 64  /  PITCH BEND: 2 SEMITONES", kSwitchPanel.x + kSwitchPanel.w - 16, 221, 9, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
         drawKeyboard();
 
         presetBar_.drawMenu(*this, kTheme, presets::kCount, preset_, [](int i) { return presets::kAll[i].name; });

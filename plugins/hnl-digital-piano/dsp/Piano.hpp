@@ -1,3 +1,7 @@
+// Digital pianos of the 1980s and 1990s, one engine, several voices.
+//
+// WORKSTATION
+//
 // A digital piano in the manner of the sample-playback workstations of the
 // late 1980s: a hard, bright attack over a strong fundamental, a tone that
 // loses its overtones within a second, and a tail that is almost a pure tone.
@@ -14,6 +18,19 @@
 // piano were recorded with two microphones: left and right carry the same
 // partials at somewhat different levels and phases, more so higher up, so
 // the bass stays in the middle and the upper part of the tone spreads out.
+//
+// FM ELECTRIC
+//
+// The glassy electric piano of 1980s FM synthesizers, computed as those did
+// it: sine waves whose phase is pushed around by other sine waves. Three
+// pairs of a carrier and a modulator make a note. One pair has its modulator
+// fourteen times higher than the note and makes the bell of the attack; two
+// pairs with the modulator at the note's own pitch make the body. The second
+// of those is tuned a fraction of a hertz above the first and is added on the
+// left and taken off on the right: that gives the slow shimmer from side to
+// side, and it vanishes when left and right are summed, so in mono nothing
+// cancels. How far each modulator pushes follows velocity and fades during
+// the note, so a hard note barks and then mellows.
 #pragma once
 
 #include <atomic>
@@ -32,13 +49,16 @@ namespace hnl {
 constexpr double kWaveRate = 32000.0; // the rate the waves are stored at, as in the machines of the time
 constexpr int kMaxVoices = 64;
 
+enum PianoVoice { kWorkstation, kFmElectric, kVoiceCount };
+
 struct PianoParams {
+    int voice = kWorkstation;
     double volume = 0.0;    // dB
     double tone = 0.0;      // -100 dark .. +100 open
     double velocity = 70.0; // percent: how much playing harder adds level and brightness
     double decay = 100.0;   // percent of the natural length of a held note
     double release = 600.0; // ms to fall 60 dB after the key is let go
-    double detune = 0.0;    // cents; above 0 every note sounds twice, one up and one down
+    double detune = 0.0;    // cents; workstation: above 0 every note sounds twice, one up and one down. FM: a faster shimmer
     double width = 100.0;   // percent: 0 mono, 100 the full stereo image; also spreads the keys and doubled notes
     double reverb = 15.0;   // percent
     double tune = 0.0;      // cents
@@ -231,10 +251,12 @@ public:
         if (note < 0 || note > 127) return;
         for (Voice& v : voices_) // the same key again: the old note makes way
             if (v.active && v.key == key) v.held = v.sustained = false;
-        const bool doubled = p_.detune > 0.05;
+        const bool fm = p_.voice == kFmElectric;
+        const bool doubled = !fm && p_.detune > 0.05;
         for (int layer = 0; layer < (doubled ? 2 : 1); ++layer) {
             Voice& v = allocate();
             v.active = true;
+            v.kind = fm ? kFmElectric : kWorkstation;
             v.key = key;
             v.note = note;
             v.layer = doubled ? (layer == 0 ? -1 : 1) : 0;
@@ -247,6 +269,7 @@ public:
             v.lp1[0] = v.lp1[1] = v.lp2[0] = v.lp2[1] = 0.0;
             v.age = ++clock_;
             shape(v);
+            if (fm) strike(v);
         }
     }
 
@@ -296,7 +319,8 @@ public:
             sounding = 0;
             for (Voice& v : voices_) {
                 if (!v.active) continue;
-                render(v, n);
+                if (v.kind == kFmElectric) renderFm(v, n);
+                else render(v, n);
                 ++sounding;
             }
             if (sounding > 0) tail_ = static_cast<long>(4.0 * fs_); // let the reverb ring out, then rest
@@ -338,14 +362,33 @@ private:
 
     struct Voice {
         bool active = false, held = false, sustained = false;
-        int key = 0, note = 60, layer = 0;
+        int key = 0, note = 60, layer = 0, kind = kWorkstation;
         uint64_t age = 0;
         const Wave* wave = nullptr;
         double velocity = 1.0, pos = 0.0, step = 1.0;
         double env = 0.0, decay = 1.0, release = 1.0, level = 1.0;
         double mix[2][2] = {{1, 0}, {0, 1}}; // output side from wave side
         double lpCoef = 1.0, lp1[2] = {0, 0}, lp2[2] = {0, 0};
+        // FM: three pairs (bell, body, the body's detuned twin), each a carrier [2p] and its modulator [2p + 1].
+        double phase[6] = {}, inc[6] = {};             // in cycles, and cycles per sample
+        double push[3] = {}, pushFade[3] = {}, pushRest[3] = {}; // how far the modulator pushes (cycles): the part that fades, and what stays
+        double amp[3] = {}, ampFade[3] = {};
     };
+
+    /** One cycle of a sine, for the FM voice. */
+    struct SineTable {
+        static constexpr int kSize = 4096;
+        float v[kSize + 1];
+        SineTable() { for (int i = 0; i <= kSize; ++i) v[i] = static_cast<float>(std::sin(2.0 * kPi * i / kSize)); }
+    };
+    /** cycles must be above -16: the phases here are 0..1 plus a push of a few cycles at most. */
+    static inline const SineTable kSine;
+    static inline double sine(double cycles) {
+        const SineTable& table = kSine;
+        const double lifted = cycles + 16.0, x = (lifted - static_cast<int>(lifted)) * SineTable::kSize;
+        const int i = static_cast<int>(x);
+        return table.v[i] + (x - i) * (table.v[i + 1] - table.v[i]);
+    }
 
     static const WaveSet& waves() {
         static const WaveSet set; // computed once, shared by every instance
@@ -368,6 +411,7 @@ private:
         const double sens = std::clamp(p_.velocity, 0.0, 100.0) / 100.0, width = std::clamp(p_.width, 0.0, 100.0) / 100.0;
         const double cents = p_.tune + v.layer * p_.detune;
         const double freq = 440.0 * std::pow(2.0, (v.note - 69) / 12.0 + cents / 1200.0) * bend_;
+        if (v.kind == kFmElectric) { shapeFm(v, freq, sens, width); return; }
         v.step = kWaveRate / fs_ * freq / v.wave->freq;
 
         v.level = kVoiceLevel * std::pow(v.velocity, 2.0 * sens) * (v.layer != 0 ? 0.7071 : 1.0);
@@ -390,6 +434,91 @@ private:
         v.mix[0][0] = gl * same; v.mix[0][1] = gl * cross;
         v.mix[1][0] = gr * cross; v.mix[1][1] = gr * same;
     }
+
+    // ------------------------------------------------------------------ FM
+
+    /** Velocity as the FM voice feels it: with Velocity at 0% every note is a hard one. */
+    double touch(const Voice& v) const { return 1.0 - std::clamp(p_.velocity, 0.0, 100.0) / 100.0 * (1.0 - v.velocity); }
+
+    void shapeFm(Voice& v, double freq, double sens, double width) {
+        // The twin sits a fraction of a hertz above the body, the same on most keys, so the shimmer
+        // is as slow in the treble as in the bass (and never more than a few cents). Detune widens it.
+        const double f = freq / fs_, apart = std::min((0.6 + 0.25 * p_.detune) / fs_, f * (0.0023 + 0.0006 * p_.detune));
+        v.inc[0] = f;          v.inc[1] = 14.0 * f;
+        v.inc[2] = f;          v.inc[3] = f;
+        v.inc[4] = f + apart;  v.inc[5] = f + apart;
+
+        v.level = kFmLevel * std::pow(v.velocity, 2.0 * sens);
+        v.decay = 1.0; // the pairs fade by themselves
+        v.release = std::exp(-6.908 / (0.001 * std::clamp(p_.release, 5.0, 10000.0) * fs_));
+
+        const double length = std::clamp(p_.decay, 5.0, 100.0) / 100.0, high = std::pow(2.0, -(v.note - 60) / 24.0);
+        const double seconds[3] = {1.2 * high * length, 4.0 * high * length, 4.0 * high * length};
+        const double pushSeconds[3] = {0.5 * high, 1.0 * std::sqrt(high), 1.0 * std::sqrt(high)};
+        for (int p = 0; p < 3; ++p) {
+            v.ampFade[p] = std::exp(-1.0 / (seconds[p] * fs_));
+            v.pushFade[p] = std::exp(-1.0 / (pushSeconds[p] * fs_));
+        }
+
+        // The keys lie low to high from left to right.
+        const double pan = std::clamp(width * 0.35 * std::clamp((v.note - 64) / 40.0, -1.0, 1.0), -1.0, 1.0);
+        const double same = 0.5 * (1.0 + width), cross = 0.5 * (1.0 - width);
+        const double gl = std::sqrt(1.0 - pan), gr = std::sqrt(1.0 + pan);
+        v.mix[0][0] = gl * same; v.mix[0][1] = gl * cross;
+        v.mix[1][0] = gr * cross; v.mix[1][1] = gr * same;
+    }
+
+    /** The start of an FM note: how hard each modulator pushes, and how loud each pair is. */
+    void strike(Voice& v) {
+        const double hard = touch(v), bright = std::pow(2.0, p_.tone / 100.0 * 1.5);
+        const double freq = v.inc[0] * fs_;
+        const double keys = std::clamp(std::pow(2.0, -(v.note - 60) / 30.0), 0.4, 1.15); // less push higher up, as on the originals
+        for (double& ph : v.phase) ph = 0.0;
+
+        // Bell: its overtones lie around fourteen times the note. Held back where they would pass the top of what
+        // the sample rate can carry, and left out above that.
+        const double room = (0.45 * fs_ - freq) / (14.0 * freq) - 1.0;
+        const double bell = std::min((1.1 + 1.4 * hard) * bright, std::max(room, 0.0));
+        v.push[0] = bell / (2.0 * kPi);
+        v.pushRest[0] = 0.0;
+        v.amp[0] = room <= 0.0 ? 0.0 : 0.4 * std::pow(hard, 1.5) * std::clamp(1.0 - (v.note - 66) / 40.0, 0.2, 1.0) * std::min(1.0, room);
+
+        // Body: a soft note is nearly a sine, a hard one barks, and both mellow as the note rings.
+        // The twin is softer and rounder than the body itself.
+        static const double kHalfPush[3] = {0.0, 1.0, 0.7}, kHalfLevel[3] = {0.0, 0.7, 0.3};
+        for (int p = 1; p < 3; ++p) {
+            const double start = (0.3 + 1.5 * hard * hard) * bright * keys * kHalfPush[p], rest = 0.3 * start + 0.1;
+            v.push[p] = (start - rest) / (2.0 * kPi);
+            v.pushRest[p] = rest / (2.0 * kPi);
+            v.amp[p] = kHalfLevel[p];
+        }
+    }
+
+    void renderFm(Voice& v, int n) {
+        for (int i = 0; i < n; ++i) {
+            double out[3];
+            for (int p = 0; p < 3; ++p) {
+                double& car = v.phase[2 * p];
+                double& mod = v.phase[2 * p + 1];
+                mod += v.inc[2 * p + 1];
+                if (mod >= 1.0) mod -= 1.0;
+                car += v.inc[2 * p];
+                if (car >= 1.0) car -= 1.0;
+                out[p] = sine(car + (v.push[p] + v.pushRest[p]) * sine(mod)) * v.amp[p];
+                v.push[p] *= v.pushFade[p];
+                v.amp[p] *= v.ampFade[p];
+            }
+            // The twin is added on the left and taken off on the right.
+            const double gain = v.env * v.level, centre = 0.7071 * out[0] + out[1];
+            const double left = (centre + out[2]) * gain, right = (centre - out[2]) * gain;
+            mixL_[i] += left * v.mix[0][0] + right * v.mix[0][1];
+            mixR_[i] += left * v.mix[1][0] + right * v.mix[1][1];
+            if (!(v.held || v.sustained)) v.env *= v.release;
+        }
+        if (v.env * (v.amp[0] + v.amp[1] + v.amp[2]) < 1e-5) v.active = false;
+    }
+
+    // --------------------------------------------------------- workstation
 
     void render(Voice& v, int n) {
         const Wave& w = *v.wave;
@@ -425,6 +554,7 @@ private:
 
     static constexpr int kChunk = 64;
     static constexpr double kVoiceLevel = 0.16; // a hard eight-note chord stays just under full scale
+    static constexpr double kFmLevel = 0.10;    // as loud as the workstation voice
 
     PianoParams p_;
     double fs_ = 48000.0, gainCoef_ = 0.0;

@@ -40,6 +40,23 @@ static const PresetValue kMonoClassic[] = {
     {kWidth, 0}, {kReverb, 0}, {kVelocity, 60},
 };
 
+// The FM electric piano (voice 1).
+static const PresetValue kFmElectricPiano[] = {
+    {kVoice, 1}, {kReverb, 20},
+};
+static const PresetValue kFmBallad[] = {
+    {kVoice, 1}, {kTone, -20}, {kVelocity, 85}, {kDetune, 6}, {kRelease, 900}, {kReverb, 45},
+};
+static const PresetValue kFmBrightTines[] = {
+    {kVoice, 1}, {kTone, 40}, {kVelocity, 60}, {kReverb, 25},
+};
+static const PresetValue kFmSoftPad[] = {
+    {kVoice, 1}, {kTone, -60}, {kVelocity, 40}, {kDetune, 12}, {kRelease, 1500}, {kReverb, 55},
+};
+static const PresetValue kFmDry[] = {
+    {kVoice, 1}, {kReverb, 0}, {kWidth, 60}, {kRelease, 300},
+};
+
 static const Preset kAll[] = {
     {"Default", nullptr, 0},
     HNL_PRESET("House Stabs", kHouseStabs),
@@ -52,6 +69,11 @@ static const Preset kAll[] = {
     HNL_PRESET("Bass Piano", kBassPiano),
     HNL_PRESET("High Bells", kHighBells),
     HNL_PRESET("Mono, No Reverb", kMonoClassic),
+    HNL_PRESET("FM Electric Piano", kFmElectricPiano),
+    HNL_PRESET("FM Ballad", kFmBallad),
+    HNL_PRESET("FM Bright Tines", kFmBrightTines),
+    HNL_PRESET("FM Soft and Slow", kFmSoftPad),
+    HNL_PRESET("FM Dry", kFmDry),
 };
 
 static const int kCount = static_cast<int>(sizeof(kAll) / sizeof(kAll[0]));

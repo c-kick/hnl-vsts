@@ -2,9 +2,9 @@
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
 #define DISTRHO_PLUGIN_BRAND   "HNL Design"
-#define DISTRHO_PLUGIN_NAME    "HNL House Piano"
-#define DISTRHO_PLUGIN_URI     "https://hnldesign.nl/plugins/hnl-house-piano"
-#define DISTRHO_PLUGIN_CLAP_ID "nl.hnldesign.house-piano"
+#define DISTRHO_PLUGIN_NAME    "HNL Digital Piano"
+#define DISTRHO_PLUGIN_URI     "https://hnldesign.nl/plugins/hnl-digital-piano"
+#define DISTRHO_PLUGIN_CLAP_ID "nl.hnldesign.digital-piano"
 
 #define DISTRHO_PLUGIN_BRAND_ID  HnlD
 #define DISTRHO_PLUGIN_UNIQUE_ID HnPi

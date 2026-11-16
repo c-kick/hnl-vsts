@@ -1,4 +1,4 @@
-// HNL House Piano: plugin side. Wraps hnl::Piano for DPF and feeds it MIDI.
+// HNL Digital Piano: plugin side. Wraps hnl::Piano for DPF and feeds it MIDI.
 #include <atomic>
 #include <cstring>
 
@@ -18,14 +18,14 @@ public:
     }
 
 protected:
-    const char* getLabel() const override { return "HNLHousePiano"; }
+    const char* getLabel() const override { return "HNLDigitalPiano"; }
     const char* getDescription() const override {
-        return "A bright digital piano in the manner of the late-1980s workstations: stereo, with a looped sustain.";
+        return "Digital pianos of the 1980s and 1990s: a workstation piano and an FM electric piano, in stereo.";
     }
     const char* getMaker() const override { return "HNL Design"; }
     const char* getHomePage() const override { return "https://hnldesign.nl"; }
     const char* getLicense() const override { return "ISC"; }
-    uint32_t getVersion() const override { return d_version(0, 3, 0); }
+    uint32_t getVersion() const override { return d_version(0, 4, 0); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override {
         port.groupId = kPortGroupStereo;
@@ -144,6 +144,7 @@ private:
         p.reverb = v[kReverb];
         p.tune = v[kTune];
         p.octave = static_cast<int>(std::lround(v[kOctave])) - 2;
+        p.voice = static_cast<int>(std::lround(v[kVoice]));
         piano_.setParams(p);
     }
 
