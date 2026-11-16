@@ -176,6 +176,7 @@ int main(int argc, char** argv) {
         // kept out of the result.
         const long quiet = on - static_cast<long>(0.02 * fs);
         double seconds = 0.2;
+        bool carriedOn = false; // a partial outlasts the recording
 
         // The note's own frequency, from its fundamental once things have settled.
         double level;
@@ -224,6 +225,9 @@ int main(int argc, char** argv) {
                 const double cand = peakFreq(x, fs, lateAt, lateWin, fe, std::min(0.2, 0.04 + 0.015 * k) * f1, &ll);
                 if (ll > peak * 2e-4) fl = cand;
             }
+            // The fundamental of a very low note is weak and sits next to a much stronger second partial: it
+            // cannot be placed to the cent by itself. The pitch found above from the partials together can.
+            if (k == 1 && nominal < 70.0) fe = fl = f1;
             if (heard) {
                 const double ratio = fe / (k * f1);
                 slope = std::clamp(0.5 * slope + 0.5 * (ratio - lastRatio), 0.0, 0.004);
@@ -237,6 +241,7 @@ int main(int argc, char** argv) {
                 const std::vector<double>& s = *in[c];
                 const double sideFloor = noiseAt(s), floorDb = sideFloor > 0.0 ? 20 * std::log10(sideFloor / peak + 1e-9) : -200.0;
                 double sideTop = -200;
+                int measured = -1; // the last time at which the recording still had the partial
                 for (int j = 0; j < kTimes; ++j) {
                     const double t = kTimesMs[j] / 1000.0;
                     long a = on + static_cast<long>(t * fs) - win / 2;
@@ -247,6 +252,7 @@ int main(int argc, char** argv) {
                         const double amp = component(s, fs, a, win, t < kSwitch ? fe : fl, on, &p);
                         if (j == 0) phase[c] = p;
                         v = std::max(-120.0, 20 * std::log10(amp / peak + 1e-9));
+                        measured = j;
                     }
                     level[c][j] = v;
                     sideTop = std::max(sideTop, v);
@@ -264,6 +270,15 @@ int main(int argc, char** argv) {
                     const double span = (kTimesMs[sunk] - kTimesMs[from]) / 1000.0;
                     const double rate = std::min(-6.0, span > 0 ? (level[c][sunk] - level[c][from]) / span : -6.0); // dB per second
                     for (int j = sunk + 1; j < kTimes; ++j) level[c][j] = std::max(-120.0, level[c][sunk] + rate * (kTimesMs[j] - kTimesMs[sunk]) / 1000.0);
+                }
+                // The recording may stop while the partial still sounds (a key that was let go after a few
+                // seconds): then it carries on fading at the rate of its last second and a half.
+                if (sunk < 0 && measured >= 0 && measured < kTimes - 1 && kTimesMs[measured] >= 2000 && level[c][measured] > -95) {
+                    int from = measured;
+                    while (from > 0 && kTimesMs[measured] - kTimesMs[from] < 1500) --from;
+                    const double rate = std::min(-3.0, (level[c][measured] - level[c][from]) * 1000.0 / (kTimesMs[measured] - kTimesMs[from]));
+                    for (int j = measured + 1; j < kTimes; ++j) level[c][j] = std::max(-120.0, level[c][measured] + rate * (kTimesMs[j] - kTimesMs[measured]) / 1000.0);
+                    carriedOn = true;
                 }
             }
             if (top < -72 || clear < 12) continue; // never audible, or never clear of the noise
@@ -298,11 +313,11 @@ int main(int argc, char** argv) {
                 knock += "}";
             }
             char line[512];
-            std::snprintf(line, sizeof line, "    {%d, %.4ff, %.3ff, %d, kNote%d%s, {%s}},\n", midi, f1, std::min((end - on) / fs, seconds + 0.3), kept, midi, c ? "Right" : "", knock.c_str());
+            std::snprintf(line, sizeof line, "    {%d, %.4ff, %.3ff, %d, kNote%d%s, {%s}},\n", midi, f1, (carriedOn ? seconds + 0.3 : std::min((end - on) / fs, seconds + 0.3)), kept, midi, c ? "Right" : "", knock.c_str());
             (c ? notesRight : notes) += line;
         }
         ++count;
-        std::fprintf(stderr, "note %3d  starts %.3f s  %8.2f Hz (%+5.1f cents)  %5.2f s  %3d partials\n", midi, on / fs, f1, 1200 * std::log2(f1 / nominal), std::min((end - on) / fs, seconds + 0.3), kept);
+        std::fprintf(stderr, "note %3d  starts %.3f s  %8.2f Hz (%+5.1f cents)  %5.2f s  %3d partials\n", midi, on / fs, f1, 1200 * std::log2(f1 / nominal), (carriedOn ? seconds + 0.3 : std::min((end - on) / fs, seconds + 0.3)), kept);
     }
     std::printf("static const Note kNotes[] = {\n%s};\n", notes.c_str());
     if (stereo) std::printf("// The same notes as heard on the right; kNotes is the left.\nstatic const Note kNotesRight[] = {\n%s};\n", notesRight.c_str());
