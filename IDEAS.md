@@ -1,14 +1,25 @@
 # Ideas for more plugins
 
-A list to pick from, not a plan. Nothing here is started unless it says so.
+A list to pick from, not a plan. The first part is what could still be added to plugins that exist; the rest is
+plugins that have not been started.
+
+## Additions to existing plugins
+
+- **HNL Bus Compressor:** an external sidechain input (as in HNL Channel Spacer), and an optional saturating
+  gain stage; it is clean as built.
+- **HNL Leveller:** oversampling for the colour stage, so that high Colour settings stay clean on bright
+  material.
+- **HNL Transient Shaper:** an output soft clipper for the boosted peaks, and shaping of only the range the
+  detector listens to (multiband).
+- **HNL Digital Piano:** more voices, once there are reference recordings to fit them to (single notes across
+  the keyboard, dry): an early sampled grand, a General MIDI piano, an electric grand (CP-70 style), the
+  workstation organ. The Dance 90s voice would gain most from proper single-note references. The emulator used
+  for the Stage 80s voice also holds that machine's electric pianos, harpsichord, clavi and vibraphone.
 
 ## Dynamics
 
-- **Bus compressor:** built as `plugins/hnl-bus-compressor`. Could still gain an external sidechain input (as
-  in HNL Channel Spacer) and an optional saturating gain stage.
-- **Levelling compressor:** built as `plugins/hnl-leveller`, with an opto and a FET type.
-- **Transient shaper:** built as `plugins/hnl-transient-shaper`. Could still gain an output soft clipper for the
-  boosted peaks, and shaping of only the detected range (multiband).
+Built: the bus compressor, the levelling compressor and the transient shaper.
+
 - **De-esser.**
 - **Gate/expander.**
 
@@ -37,11 +48,8 @@ A list to pick from, not a plan. Nothing here is started unless it says so.
 
 ## Instruments
 
-- **Digital piano:** built as `plugins/hnl-digital-piano`, with five voices. More to add once there are
-  reference recordings to fit them to (single notes across the keyboard, dry): an early sampled grand, a
-  General MIDI piano, an electric grand (CP-70 style), the workstation organ. The Dance 90s voice would gain
-  most from proper single-note references. The emulator used for the Stage 80s voice also holds that
-  machine's electric pianos, harpsichord, clavi and vibraphone.
+Built: the digital piano.
+
 - **Synth or drum machine.**
 
 ## Bigger steps
