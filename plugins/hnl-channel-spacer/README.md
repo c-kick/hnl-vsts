@@ -19,8 +19,8 @@ This VST plugin does the same with 32 bands.
 ## Connecting it
 
 The plugin has two stereo inputs: the main input (the channel it sits on) and a sidechain input. In Reason the
-sidechain input is expected to appear as a second pair of audio jacks on the back of the plugin device; cable the
-ducker in from a Spider splitter or a send. Not yet tried in Reason.
+sidechain input appears as a second pair of audio jacks on the back of the plugin device; cable the
+ducker in from a Spider splitter or a send.
 
 **Listen to: Sidechain** plays what arrives at the sidechain input, to check the cabling. With nothing arriving
 the display says so, and the plugin passes its input through untouched.
