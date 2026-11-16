@@ -4,8 +4,9 @@ Makes room in one channel for another. Put it on the channel that should give wa
 the signal that needs the room (a voice, a kick) into its sidechain input. Wherever the sidechain signal is
 playing, that part of the spectrum is turned down in the channel, and nothing else.
 
-It started as a Combinator patch in Reason: a vocoder used as a four-band crossover, a compressor per band as level
-detector, and a second vocoder as the equaliser they control. The plugin does the same with 32 bands.
+This VST started life as a Combinator patch I built in Reason: a vocoder used as a four-band crossover, 
+a compressor per band as level detector, and a second vocoder as the equaliser they control. 
+This VST plugin does the same with 32 bands.
 
 ![HNL Channel Spacer](docs/preview.png)
 
