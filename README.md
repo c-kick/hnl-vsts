@@ -1,12 +1,13 @@
 # hnl-vsts
 
-Audio plugins by HNL Design, built as VST3 for Windows (tested in Reason 12.5+).
+Audio plugins by HNL Design (effects and an instrument), built as VST3 for Windows (tested in Reason 12.5+).
 
 | Plugin | What it is |
 | --- | --- |
 | [HNL Master](plugins/hnl-master) | Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets |
 | [HNL Tape Master](plugins/hnl-tape-master) | Two-track mastering tape machine: saturation, tape compression, head response by speed, formula and head width, wow, flutter, hiss |
 | [HNL Tape Echo](plugins/hnl-tape-echo) | Tape echo with three playback heads and a spring reverb: saturating repeats, pitch bends, wow and flutter, self-oscillation, tempo sync |
+| [HNL House Piano](plugins/hnl-house-piano) | Instrument: a bright stereo digital piano in the manner of the late-1980s workstations, with looped sustain, doubling, reverb and an on-screen keyboard |
 
 ![HNL Master](plugins/hnl-master/docs/in-use.png)
 
@@ -14,7 +15,7 @@ Audio plugins by HNL Design, built as VST3 for Windows (tested in Reason 12.5+).
 
 - `plugins/<name>/`: one folder per plugin. Audio engine in `dsp/` (header-only C++17, no dependencies), the DPF
   plugin and its NanoVG UI next to it, and offline tests in `tests/`.
-- `common/dsp/`: building blocks shared by the plugins (filters, oversampling, true-peak detection).
+- `common/dsp/`: building blocks shared by the plugins (filters, oversampling, true-peak detection, a small reverb).
 - `common/ui/`: UI parts shared by the plugins (preset bar, help tips); `common/Presets.hpp`: how presets are
   defined.
 - `dpf/`: the [DISTRHO Plugin Framework](https://github.com/DISTRHO/DPF), as a git submodule.

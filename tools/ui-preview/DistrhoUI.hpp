@@ -66,6 +66,7 @@ public:
     void editParameter(uint32_t, bool) {}
     void setParameterValue(uint32_t, float) {}
     void setState(const char*, const char*) {}
+    void sendNote(uint8_t, uint8_t, uint8_t) {}
 
     void scale(float, float) {}
     void fontFace(const char*) {}
