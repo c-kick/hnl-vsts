@@ -1,9 +1,12 @@
 // Offline measurements of the tape echo. Build and run with tests/run.sh.
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 #include <string>
 #include <vector>
 
+#include "../Params.hpp"
 #include "../dsp/TapeEcho.hpp"
 
 using namespace hnl;
@@ -466,6 +469,27 @@ static void testSpeed() {
     check(seconds < 1.0, "speed", "%.1fx real time", 10.0 / seconds);
 }
 
+/** Whatever tempo a host reports, the synced time is one the tape can do, and the call returns. */
+static void testTempo() {
+    const auto bits = [](uint64_t b) { double v; std::memcpy(&v, &b, sizeof(v)); return v; };
+    const double inf = bits(0x7ff0000000000000ull), nan = bits(0x7ff8000000000000ull);
+    bool bounded = true, asAt120 = true;
+    for (int division = 0; division < 5; ++division) {
+        for (double bpm : {inf, -inf, nan, 0.0, -90.0, 1e300, 5000.0}) {
+            const double t = syncedTime(division, bpm);
+            bounded = bounded && t >= 0.02 && t <= 0.5;
+            asAt120 = asAt120 && t == syncedTime(division, 120.0);
+        }
+        for (double bpm : {21.0, 60.0, 174.0, 999.0}) {
+            const double t = syncedTime(division, bpm);
+            bounded = bounded && t >= 0.02 && t <= 0.5;
+        }
+    }
+    check(bounded, "tempo sync: every tempo gives a time the tape can do", "%.0f", static_cast<double>(bounded));
+    check(asAt120, "a tempo that is no tempo counts as 120", "%.0f", static_cast<double>(asAt120));
+    check(std::fabs(syncedTime(2, 120.0) - 0.125) < 1e-12 && std::fabs(syncedTime(4, 90.0) - 1.0 / 3.0) < 1e-12, "real tempos are unchanged", "1/16 at 120: %.4f s, 1/8 at 90: %.4f s", syncedTime(2, 120.0), syncedTime(4, 90.0));
+}
+
 int main() {
     for (double fs : {44100.0, 48000.0, 96000.0}) testHeadTimes(fs);
     testFeedback();
@@ -477,6 +501,7 @@ int main() {
     testNoise();
     testExtremes();
     testSpeed();
+    testTempo();
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;
 }

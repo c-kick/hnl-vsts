@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "../../common/dsp/Safety.hpp"
+
 enum ParamId : uint32_t {
     kInput, kTime, kSync, kDivision,
     kHead1, kHead2, kHead3,
@@ -78,7 +80,8 @@ inline float normToParam(uint32_t id, float norm) {
 
 /** Seconds from the record head to head 1 for a division at a tempo, kept within what the tape can do. */
 inline double syncedTime(int division, double bpm) {
-    if (!(bpm > 20.0)) bpm = 120.0;
+    // A tempo that is not a number, or not one music is played at, counts as 120.
+    if (!hnl::isFinite(bpm) || !(bpm > 20.0 && bpm < 1000.0)) bpm = 120.0;
     double t = kDivisionBeats[division < 0 ? 0 : (division > 4 ? 4 : division)] * 60.0 / bpm;
     while (t > 0.5) t *= 0.5;
     while (t < 0.02) t *= 2.0;

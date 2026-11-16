@@ -24,10 +24,6 @@
 
 #include "../../../common/dsp/Filters.hpp"
 
-#if defined(__SSE2__) || defined(_M_X64)
-#include <immintrin.h>
-#endif
-
 namespace hnl {
 
 constexpr int kHeads = 3;
@@ -280,14 +276,6 @@ public:
     }
 
 private:
-    struct ScopedNoDenormals {
-#if defined(__SSE2__) || defined(_M_X64)
-        unsigned saved = _mm_getcsr();
-        ScopedNoDenormals() { _mm_setcsr(saved | 0x8040); } // FTZ + DAZ
-        ~ScopedNoDenormals() { _mm_setcsr(saved); }
-#endif
-    };
-
     /** How far the tape speed is off, as a fraction: slow wow, faster flutter and some randomness. */
     inline double speedDeviation() {
         if (wobble_ <= 0.0) return 0.0;

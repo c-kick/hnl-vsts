@@ -38,7 +38,8 @@ Audio plugins by HNL Design (effects and an instrument), built as VST3 for Windo
 
 - `plugins/<name>/`: one folder per plugin. Audio engine in `dsp/` (header-only C++17, no dependencies), the DPF
   plugin and its NanoVG UI next to it, and offline tests in `tests/`.
-- `common/dsp/`: building blocks shared by the plugins (filters, oversampling, true-peak detection, a small reverb).
+- `common/dsp/`: building blocks shared by the plugins (filters, oversampling, true-peak detection, a small reverb),
+  and `Safety.hpp`: the guards every plugin puts between itself and the host (see "What a plugin must survive").
 - `common/ui/`: UI parts shared by the plugins (preset bar, help tips); `common/Presets.hpp`: how presets are
   defined.
 - `dpf/`: the [DISTRHO Plugin Framework](https://github.com/DISTRHO/DPF), as a git submodule.
@@ -58,16 +59,39 @@ git submodule update --init --recursive
 ./build.sh hnl-master   # one plugin
 ```
 
+`./test.sh` builds every engine test twice: once plainly, and once with `-O3 -ffast-math`, the flags DPF builds the
+plugin itself with. Under those flags the compiler may assume that NaN and infinity never occur, so a test that
+only passes the first time shows code that behaves differently in the plugin than in its tests. A plugin whose
+tests take longer than 15 minutes counts as failed (`TEST_TIMEOUT=<seconds>` changes that).
+
 `plugins/<name>/tests/preview.sh` writes the UI as SVG files into `build/`; `tools/ui-preview/shot.mjs` turns them
 into PNG with a Playwright Chromium.
 
 Install by copying the `<Plugin>.vst3` folder from `dist/` to `C:\Program Files\Common Files\VST3\`.
 
+## What a plugin must survive
+
+A host can hand a plugin anything, and a plugin that goes wrong takes the whole song with it. Every plugin here
+therefore does the following, and has a test for each in `tests/plugin_test.cpp`:
+
+- **Parameter values** are pulled into their range when they arrive, and a value that is not a number becomes
+  the default (`hnl::cleanParam` in `setParameterValue`).
+- **Input samples** that are not numbers count as silence (`hnl::cleanInput` at the top of `run`). Should the
+  output still contain one, that block is silent and the engine starts again clean (`hnl::isClean`, then
+  `reset()`), instead of staying broken until the host restarts it.
+- **Numbers too small to matter** count as zero while the engine runs (`hnl::ScopedNoDenormals` at the top of
+  `process`), so filters ringing out into silence do not slow the processor down.
+- **Nothing slow on the audio thread.** The piano computes a voice's waves on a thread of its own and keeps
+  playing the voice it has until they are there (`Piano::setParamsRealtime`).
+
+Tests of whether something is a number look at its bits (`hnl::isFinite`): `std::isfinite` and `x != x` are
+removed by the compiler under `-ffast-math`.
+
 ## Adding a plugin
 
 Create `plugins/<name>/` with a `Makefile` that includes `../../dpf/Makefile.plugins.mk` (copy the one from
-`hnl-master`), a `DistrhoPluginInfo.h` with its own `DISTRHO_PLUGIN_UNIQUE_ID`, and `tests/run.sh`. `build.sh` and
-`test.sh` pick it up by folder name.
+`hnl-master`), a `DistrhoPluginInfo.h` with its own `DISTRHO_PLUGIN_UNIQUE_ID`, and `tests/run.sh`. Copy the guards named above from an existing plugin, with their
+tests. `build.sh` and `test.sh` pick it up by folder name.
 
 ## Versions
 

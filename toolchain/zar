@@ -1,2 +1,4 @@
 #!/bin/sh
-exec /home/klaas/.local/opt/zig-x86_64-linux-0.17.1/zig ar "$@"
+# zig's archiver, for the Windows cross-build. Same zig as zwrap; override with ZIG=.
+ZIG=${ZIG:-$HOME/.local/opt/zig-x86_64-linux-0.17.1/zig}
+exec "$ZIG" ar "$@"

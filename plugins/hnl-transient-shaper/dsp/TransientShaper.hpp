@@ -94,6 +94,7 @@ public:
     int latency() const { return latency_; }
 
     void process(float* left, float* right, int frames) {
+        ScopedNoDenormals guard;
         double peakIn[2] = {0, 0}, peakOut[2] = {0, 0}, most = 0.0, least = 0.0;
         const double floorLin = dbToLin(kShaperFloorDb);
         for (int i = 0; i < frames; ++i) {

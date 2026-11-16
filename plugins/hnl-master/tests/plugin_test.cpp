@@ -1,7 +1,9 @@
 // Drives the plugin through DPF's own host-side wrapper, natively on Linux.
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 #include "src/DistrhoPluginInternal.hpp"
@@ -15,6 +17,33 @@ static int failures = 0;
 static void check(bool ok, const char* what, double value) {
     std::printf("%s  %-40s %.3f\n", ok ? "PASS" : "FAIL", what, value);
     if (!ok) ++failures;
+}
+
+// What a host must never send. Made from bits and tested by bits, so that no compiler setting can reason them away.
+static float fromBits(uint32_t bits) {
+    float v;
+    std::memcpy(&v, &bits, sizeof(v));
+    return v;
+}
+static bool isNumber(float v) {
+    uint32_t bits;
+    std::memcpy(&bits, &v, sizeof(bits));
+    return (bits & 0x7f800000u) != 0x7f800000u;
+}
+
+/** Every input parameter: far too high, far too low, and not a number. Leaves all of them at their default. */
+static bool parametersAreGuarded(PluginExporter& plugin) {
+    bool ok = true;
+    for (uint32_t id = 0; id < kInputParamCount; ++id) {
+        const ParameterRanges& range = plugin.getParameterRanges(id);
+        plugin.setParameterValue(id, 1e9f);
+        ok = ok && plugin.getParameterValue(id) == range.max;
+        plugin.setParameterValue(id, -1e9f);
+        ok = ok && plugin.getParameterValue(id) == range.min;
+        plugin.setParameterValue(id, fromBits(0x7fc00000u));
+        ok = ok && plugin.getParameterValue(id) == range.def;
+    }
+    return ok;
 }
 
 int main() {
@@ -100,9 +129,58 @@ int main() {
     }
     check(worst <= 0.01f && worst > -3.0f, "all presets hold the ceiling (dB over)", worst);
 
+
+    { // Guards: bad parameter values, and samples that are not numbers.
+        check(parametersAreGuarded(plugin), "parameters: clamped, not-a-number gives the default", 1);
+        std::vector<float> gl(512), gr(512), gs(512, 0.0f);
+        const float* gin[2] = {gl.data(), gr.data()};
+        float* gout[2] = {gl.data(), gr.data()};
+        bool numbers = true;
+        float last = 0;
+        long gn = 0;
+        for (int block = 0; block < 200; ++block) {
+            for (int i = 0; i < 512; ++i, ++gn) gl[i] = gr[i] = static_cast<float>(0.25 * std::sin(6.283185307 * 1000 * gn / 48000.0));
+            if (block == 2) {
+                gl[10] = fromBits(0x7fc00000u); // NaN
+                gr[20] = fromBits(0x7f800000u); // +infinity
+                gl[30] = fromBits(0xff800000u); // -infinity
+            }
+            plugin.run(gin, gout, 512);
+            last = 0;
+            for (int i = 0; i < 512; ++i) {
+                numbers = numbers && isNumber(gl[i]) && isNumber(gr[i]);
+                last = std::max(last, std::max(std::fabs(gl[i]), std::fabs(gr[i])));
+            }
+        }
+        check(numbers, "NaN and infinity in: every output sample is a number", numbers);
+        check(last > 0.01f && last < 4.0f, "and the signal is back afterwards (peak of the last block)", last);
+    }
+
     plugin.deactivate();
     plugin.setSampleRate(96000.0, true);
     check(plugin.getLatency() == 340, "latency follows sample rate", plugin.getLatency());
+
+    { // The commonest sample rate of all.
+        plugin.deactivate();
+        plugin.setSampleRate(44100.0, true);
+        plugin.activate();
+        std::vector<float> ql(512), qr(512), qs(512, 0.0f);
+        const float* qin[2] = {ql.data(), qr.data()};
+        float* qout[2] = {ql.data(), qr.data()};
+        bool numbers = true;
+        float last = 0;
+        long qn = 0;
+        for (int block = 0; block < 100; ++block) {
+            for (int i = 0; i < 512; ++i, ++qn) ql[i] = qr[i] = static_cast<float>(0.25 * std::sin(6.283185307 * 1000 * qn / 44100.0));
+            plugin.run(qin, qout, 512);
+            last = 0;
+            for (int i = 0; i < 512; ++i) {
+                numbers = numbers && isNumber(ql[i]) && isNumber(qr[i]);
+                last = std::max(last, std::max(std::fabs(ql[i]), std::fabs(qr[i])));
+            }
+        }
+        check(numbers && last > 0.01f && last < 4.0f, "runs at 44.1 kHz (peak of the last block)", last);
+    }
 
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;

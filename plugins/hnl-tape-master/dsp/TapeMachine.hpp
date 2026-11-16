@@ -22,10 +22,6 @@
 
 #include "../../../common/dsp/Filters.hpp"
 
-#if defined(__SSE2__) || defined(_M_X64)
-#include <immintrin.h>
-#endif
-
 namespace hnl {
 
 constexpr double kReferenceDb = -12.0;
@@ -199,14 +195,6 @@ public:
     }
 
 private:
-    struct ScopedNoDenormals {
-#if defined(__SSE2__) || defined(_M_X64)
-        unsigned saved = _mm_getcsr();
-        ScopedNoDenormals() { _mm_setcsr(saved | 0x8040); } // FTZ + DAZ
-        ~ScopedNoDenormals() { _mm_setcsr(saved); }
-#endif
-    };
-
     /** The tape's transfer curve. x and the result are in linear amplitude. */
     inline double magnetise(double x) const {
         const double u = x * satInv_;

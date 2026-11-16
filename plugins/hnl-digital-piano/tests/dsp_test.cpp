@@ -1,5 +1,9 @@
 // Offline measurements of the piano engine. Build and run with tests/run.sh.
+#include <chrono>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <thread>
 #include <ctime>
 #include <string>
 #include <vector>
@@ -542,7 +546,97 @@ static void testGrand() {
     check(a < -40 && b > -25, "Grand: dampers stop a middle key, not a top key", "%.1f dB, top key %.1f dB", a, b);
 }
 
+/**
+ * On the audio thread a voice's waves are never computed: the piano asks for them and keeps the
+ * voice it has until they are there. Must run before anything else has asked for the Dance voice.
+ */
+static void testRealtimeVoiceChange() {
+    using Clock = std::chrono::steady_clock;
+    Piano m;
+    m.prepare(48000.0);
+    PianoParams p = plain();
+    p.voice = kDance;
+    const Clock::time_point t0 = Clock::now();
+    m.setParamsRealtime(p);
+    const double ms = std::chrono::duration<double, std::milli>(Clock::now() - t0).count();
+    check(ms < 50.0 && Bank::ready(kDance) == nullptr, "realtime voice change returns at once", "%.2f ms, waves there: %.0f", ms, static_cast<double>(Bank::ready(kDance) != nullptr));
+    check(m.soundingVoice() == kWorkstation && m.params().voice == kDance, "the old voice stays until then", "sounding %.0f, asked for %.0f", static_cast<double>(m.soundingVoice()), static_cast<double>(m.params().voice));
+    Take t{{}, {}, 48000.0};
+    m.noteOn(60, 100);
+    run(m, t, 0.05);
+    double peak = 0;
+    for (float v : t.l) peak = std::max(peak, static_cast<double>(std::fabs(v)));
+    check(peak > 0.01 && m.activeVoices() == 1, "and plays", "peak %.3f", peak);
+    double waited = 0;
+    for (; waited < 20000.0 && m.soundingVoice() != kDance; waited += 5.0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        run(m, t, 0.005);
+    }
+    check(m.soundingVoice() == kDance && Bank::ready(kDance) != nullptr, "the new voice takes over when its waves are there", "after %.0f ms", waited);
+    check(m.activeVoices() == 1, "the note that was sounding rings on", "%.0f voices", static_cast<double>(m.activeVoices()));
+}
+
+/** Settings far outside their range must not take the engine outside its tables, nor silence it. */
+static void testWildSettings() {
+    bool numbers = true;
+    double top = 0, quietest = 1e9;
+    for (int voice : {static_cast<int>(kFmElectric), static_cast<int>(kWorkstation), 99, -3}) {
+        for (int field = 0; field < 4; ++field) {
+            for (double wild : {1e6, -1e6}) {
+                Piano m;
+                m.prepare(48000.0);
+                PianoParams p = plain();
+                p.voice = voice;
+                if (field == 0) p.tone = wild;
+                else if (field == 1) p.detune = wild;
+                else if (field == 2) p.volume = wild > 0 ? wild : 0.0;
+                else p.octave = static_cast<int>(wild);
+                m.setParams(p);
+                Take t{{}, {}, 48000.0};
+                m.noteOn(60, 127);
+                m.noteOn(64, 1);
+                run(m, t, 0.2);
+                double peak = 0;
+                for (size_t i = 0; i < t.l.size(); ++i) {
+                    uint32_t a, b;
+                    std::memcpy(&a, &t.l[i], 4);
+                    std::memcpy(&b, &t.r[i], 4);
+                    numbers = numbers && (a & 0x7f800000u) != 0x7f800000u && (b & 0x7f800000u) != 0x7f800000u;
+                    peak = std::max(peak, static_cast<double>(std::max(std::fabs(t.l[i]), std::fabs(t.r[i]))));
+                }
+                top = std::max(top, peak);
+                quietest = std::min(quietest, peak);
+            }
+        }
+    }
+    check(numbers && top < 8.0 && quietest > 1e-4, "settings far out of range: sound, bounded, no crash", "peaks between %.4f and %.3f", quietest, top);
+}
+
+/** "Reset all controllers" puts the pitch bend and the pedal back. */
+static void testResetControllers() {
+    Piano a, b;
+    a.prepare(48000.0);
+    b.prepare(48000.0);
+    a.setParams(plain());
+    b.setParams(plain());
+    b.pitchBend(1.0);
+    b.controller(64, 127);
+    b.controller(121, 0);
+    Take ta{{}, {}, 48000.0}, tb{{}, {}, 48000.0};
+    a.noteOn(60, 100);
+    b.noteOn(60, 100);
+    run(a, ta, 0.3);
+    run(b, tb, 0.3);
+    size_t different = 0;
+    for (size_t i = 0; i < ta.l.size(); ++i) different += ta.l[i] != tb.l[i] ? 1 : 0;
+    check(different == 0, "controller 121 undoes the pitch bend", "%.0f samples differ from a note played straight", static_cast<double>(different));
+    b.noteOff(60);
+    run(b, tb, 3.0);
+    check(b.activeVoices() == 0, "and lifts the pedal", "%.0f voices still sounding", static_cast<double>(b.activeVoices()));
+}
+
 int main() {
+    testRealtimeVoiceChange();
     testSpeed();
     testFm();
     testWaves(kStage, "Stage");
@@ -554,6 +648,8 @@ int main() {
     testEnvelope();
     testStereo();
     testVoices();
+    testWildSettings();
+    testResetControllers();
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;
 }

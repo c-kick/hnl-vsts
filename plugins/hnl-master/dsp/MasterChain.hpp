@@ -8,10 +8,6 @@
 #include "Effects.hpp"
 #include "Processors.hpp"
 
-#if defined(__SSE2__) || defined(_M_X64)
-#include <immintrin.h>
-#endif
-
 namespace hnl {
 
 struct BandParams {
@@ -125,10 +121,17 @@ public:
         double grMin[3] = {0, 0, 0}, limMin = 1.0;
         const bool compOn = p_.compOn, excOn = p_.exciterOn, limOn = p_.limiterOn;
         const bool eqOn = p_.eqOn, wideOn = p_.widenerOn, revOn = p_.reverbOn;
-        // A stage that was off starts from a clean state.
+        // A stage that was off starts from a clean state: while it is off its filters are not
+        // run, and would otherwise let out what they held at the moment it was switched off.
+        if (compOn && !compWasOn_) {
+            for (auto& x : xo_) x.reset();
+            for (auto& b : comp_) b.reset();
+        }
+        if (excOn && !excWasOn_) exciter_.resetWet();
         if (eqOn && !eqWasOn_) eq_.reset();
         if (wideOn && !wideWasOn_) widener_.reset();
         if (revOn && !revWasOn_) reverb_.reset();
+        compWasOn_ = compOn; excWasOn_ = excOn;
         eqWasOn_ = eqOn; wideWasOn_ = wideOn; revWasOn_ = revOn;
 
         for (int i = 0; i < frames; ++i) {
@@ -200,14 +203,6 @@ public:
     }
 
 private:
-    struct ScopedNoDenormals {
-#if defined(__SSE2__) || defined(_M_X64)
-        unsigned saved = _mm_getcsr();
-        ScopedNoDenormals() { _mm_setcsr(saved | 0x8040); } // FTZ + DAZ
-        ~ScopedNoDenormals() { _mm_setcsr(saved); }
-#endif
-    };
-
     void applyParams(bool force) {
         inGainT_ = dbToLin(p_.inputGain);
         limGainT_ = dbToLin(p_.limiterGain);
@@ -250,7 +245,7 @@ private:
     double fs_ = 48000.0, smooth_ = 0.0;
     double f1_ = 0.0, f2_ = 0.0, excFreq_ = 0.0, wideFreq_ = 0.0;
     double width_ = 1.0, widthT_ = 1.0, revMix_ = 0.0, revMixT_ = 0.0;
-    bool eqWasOn_ = false, wideWasOn_ = false, revWasOn_ = false;
+    bool compWasOn_ = false, excWasOn_ = false, eqWasOn_ = false, wideWasOn_ = false, revWasOn_ = false;
     double inGain_ = 1.0, inGainT_ = 1.0, limGain_ = 1.0, limGainT_ = 1.0, mix_ = 0.0, mixT_ = 0.0;
     double makeup_[3] = {1, 1, 1}, makeupT_[3] = {1, 1, 1};
 

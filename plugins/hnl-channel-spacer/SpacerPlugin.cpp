@@ -26,7 +26,7 @@ protected:
     const char* getMaker() const override { return "HNL Design"; }
     const char* getHomePage() const override { return "https://hnldesign.nl"; }
     const char* getLicense() const override { return "ISC"; }
-    uint32_t getVersion() const override { return d_version(0, 1, 0); }
+    uint32_t getVersion() const override { return d_version(0, 1, 1); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override {
         if (input && index >= 2) {
@@ -95,7 +95,9 @@ protected:
 
     void setParameterValue(uint32_t index, float value) override {
         if (index >= kInputParamCount) return;
-        values_[index].store(value, std::memory_order_relaxed);
+        // Within the parameter's range, whatever the host sends; the default when it is not a number.
+        const ParamInfo& p = paramInfo(index);
+        values_[index].store(hnl::cleanParam(value, p.min, p.max, p.def), std::memory_order_relaxed);
         dirty_.store(true, std::memory_order_release);
     }
 
@@ -109,8 +111,18 @@ protected:
     void run(const float** inputs, float** outputs, uint32_t frames) override {
         if (outputs[0] != inputs[0]) std::memcpy(outputs[0], inputs[0], sizeof(float) * frames);
         if (outputs[1] != inputs[1]) std::memcpy(outputs[1], inputs[1], sizeof(float) * frames);
+        // Samples that are not numbers would stay in the filters for good: they count as silence.
+        hnl::cleanInput(outputs[0], frames);
+        hnl::cleanInput(outputs[1], frames);
         if (dirty_.exchange(false, std::memory_order_acquire)) pushParams();
         spacer_.process(outputs[0], outputs[1], inputs[2], inputs[3], static_cast<int>(frames));
+        // Should the engine still have produced something that is not a number, this block is
+        // silent and the engine starts again clean, instead of staying broken.
+        if (!hnl::isClean(outputs[0], frames) || !hnl::isClean(outputs[1], frames)) {
+            std::memset(outputs[0], 0, sizeof(float) * frames);
+            std::memset(outputs[1], 0, sizeof(float) * frames);
+            spacer_.reset();
+        }
 
         // Output peak meters fall 20 dB/s; the band meters follow the engine.
         const float fall = static_cast<float>(20.0 * frames / sampleRate_);

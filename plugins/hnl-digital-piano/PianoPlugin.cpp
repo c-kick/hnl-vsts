@@ -25,7 +25,7 @@ protected:
     const char* getMaker() const override { return "HNL Design"; }
     const char* getHomePage() const override { return "https://hnldesign.nl"; }
     const char* getLicense() const override { return "ISC"; }
-    uint32_t getVersion() const override { return d_version(0, 8, 1); }
+    uint32_t getVersion() const override { return d_version(0, 8, 2); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override {
         port.groupId = kPortGroupStereo;
@@ -76,19 +76,21 @@ protected:
 
     void setParameterValue(uint32_t index, float value) override {
         if (index >= kInputParamCount) return;
-        values_[index].store(value, std::memory_order_relaxed);
+        // Within the parameter's range, whatever the host sends; the default when it is not a number.
+        const ParamInfo& p = kParams[index];
+        values_[index].store(hnl::cleanParam(value, p.min, p.max, p.def), std::memory_order_relaxed);
         dirty_.store(true, std::memory_order_release);
     }
 
     void sampleRateChanged(double newSampleRate) override { prepare(newSampleRate); }
 
     void activate() override {
-        pushParams();
+        pushParams(false);
         piano_.reset();
     }
 
     void run(const float**, float** outputs, uint32_t frames, const MidiEvent* events, uint32_t eventCount) override {
-        if (dirty_.exchange(false, std::memory_order_acquire)) pushParams();
+        if (dirty_.exchange(false, std::memory_order_acquire)) pushParams(true);
 
         // Render up to each event, then apply it, so notes start on their exact sample.
         uint32_t done = 0;
@@ -102,6 +104,13 @@ protected:
             if (ev.size >= 1 && ev.size <= MidiEvent::kDataSize) handle(ev.data, ev.size);
         }
         if (frames > done) piano_.process(outputs[0] + done, outputs[1] + done, static_cast<int>(frames - done));
+        // Should the engine still have produced something that is not a number, this block is
+        // silent and the engine starts again clean, instead of staying broken.
+        if (!hnl::isClean(outputs[0], frames) || !hnl::isClean(outputs[1], frames)) {
+            std::memset(outputs[0], 0, sizeof(float) * frames);
+            std::memset(outputs[1], 0, sizeof(float) * frames);
+            piano_.reset();
+        }
 
         // Output peak meters fall 20 dB/s.
         const float fall = static_cast<float>(20.0 * frames / sampleRate_);
@@ -126,11 +135,12 @@ private:
     void prepare(double sampleRate) {
         sampleRate_ = sampleRate > 0.0 ? sampleRate : 48000.0;
         piano_.prepare(sampleRate_);
-        pushParams();
+        pushParams(false);
         piano_.reset();
     }
 
-    void pushParams() {
+    /** realtime: called from run(), where a voice's waves must not be computed (see hnl::Piano). */
+    void pushParams(bool realtime) {
         float v[kInputParamCount];
         for (uint32_t i = 0; i < kInputParamCount; ++i) v[i] = values_[i].load(std::memory_order_relaxed);
         hnl::PianoParams p;
@@ -145,7 +155,8 @@ private:
         p.tune = v[kTune];
         p.octave = static_cast<int>(std::lround(v[kOctave])) - 2;
         p.voice = static_cast<int>(std::lround(v[kVoice]));
-        piano_.setParams(p);
+        if (realtime) piano_.setParamsRealtime(p);
+        else piano_.setParams(p);
     }
 
     hnl::Piano piano_;

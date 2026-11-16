@@ -9,6 +9,8 @@
 #include <cstddef>
 #include <vector>
 
+#include "Safety.hpp"
+
 namespace hnl {
 
 constexpr double kPi = 3.14159265358979323846;
@@ -151,8 +153,9 @@ struct Delay {
         return y;
     }
     /** peek() then push() is process() split in two, for feedback loops. */
-    inline double peek() const { return buf[pos]; }
+    inline double peek() const { return buf.empty() ? 0.0 : buf[pos]; }
     inline void push(double x) {
+        if (buf.empty()) return;
         buf[pos] = x;
         if (++pos == buf.size()) pos = 0;
     }

@@ -9,6 +9,9 @@ OUT=$ROOT/build/hnl-digital-piano-tests
 mkdir -p "$OUT"
 g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/dsp_test" tests/dsp_test.cpp
 "$OUT/dsp_test"
+# Once more with the flags the plugin itself is built with (DPF: -O3 -ffast-math).
+g++ -std=c++17 -O3 -ffast-math -Wall -Wextra -o "$OUT/dsp_test_release" tests/dsp_test.cpp
+"$OUT/dsp_test_release"
 g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1 -o "$OUT/plugin_test" \
     tests/plugin_test.cpp PianoPlugin.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp
 "$OUT/plugin_test"

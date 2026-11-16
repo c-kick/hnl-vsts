@@ -82,8 +82,13 @@ public:
         }
     }
     void reset() {
+        for (int c = 0; c < 2; ++c) dry_[c].reset();
+        resetWet();
+    }
+    /** Clears everything but the dry signal's delay, which runs whether the exciter is on or not. */
+    void resetWet() {
         for (int c = 0; c < 2; ++c) {
-            a_[c].reset(); b_[c].reset(); dry_[c].reset(); pre_[c].reset(); post_[c].reset();
+            a_[c].reset(); b_[c].reset(); pre_[c].reset(); post_[c].reset();
             tape_[c] = 0.0;
         }
     }

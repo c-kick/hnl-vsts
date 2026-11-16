@@ -113,6 +113,7 @@ public:
     }
 
     void process(float* left, float* right, int frames) {
+        ScopedNoDenormals guard;
         double peakIn[2] = {0, 0}, peakOut[2] = {0, 0}, deepest = 0.0;
         const bool opto = p_.type == kOpto;
         const double k2 = kColour2[p_.type], k3 = kColour3[p_.type];

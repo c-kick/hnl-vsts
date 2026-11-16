@@ -1,10 +1,16 @@
 // Offline measurements of the leveller. Build and run with tests/run.sh.
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
 #include "../dsp/Leveller.hpp"
+
+#if defined(__SSE2__) || defined(_M_X64)
+#include <immintrin.h>
+#endif
 
 using namespace hnl;
 
@@ -317,6 +323,40 @@ static void testSilenceAndSpeed() {
     check(seconds < 2.0, "speed", "20 s of audio in %.3f s (%.0fx real time)", seconds, 20.0 / seconds);
 }
 
+// Made from bits and tested by bits, so that no compiler setting can reason them away.
+static float fromBits(uint32_t bits) {
+    float v;
+    std::memcpy(&v, &bits, sizeof(v));
+    return v;
+}
+static bool isNumber(float v) {
+    uint32_t bits;
+    std::memcpy(&bits, &v, sizeof(bits));
+    return (bits & 0x7f800000u) != 0x7f800000u;
+}
+
+/**
+ * Numbers too small to matter must count as zero inside the engine, whatever the host has set:
+ * otherwise filters ringing out into silence make the processor many times slower.
+ */
+static void testDenormals() {
+#if defined(__SSE2__) || defined(_M_X64)
+    const unsigned before = _mm_getcsr();
+    _mm_setcsr(before & ~0x8040u); // as a host that sets nothing
+    Leveller m;
+    m.prepare(48000.0);
+    m.reset();
+    const int n = 4800;
+    std::vector<float> l(n, fromBits(0x00000100u)), r(n, fromBits(0x00000100u)); // about 3.6e-43
+    m.process(l.data(), r.data(), n);
+    int nonzero = 0;
+    for (int i = 0; i < n; ++i) nonzero += (l[i] != 0.0f || r[i] != 0.0f) ? 1 : 0;
+    check(nonzero == 0, "denormal input counts as silence", "%.0f samples not zero", static_cast<double>(nonzero));
+    check((_mm_getcsr() & 0x8040u) == 0u, "and the host's own setting is left as it was", "%.0f", static_cast<double>(_mm_getcsr() & 0x8040u));
+    _mm_setcsr(before);
+#endif
+}
+
 int main() {
     testStaticCurve();
     for (double fs : {44100.0, 48000.0, 96000.0}) testTiming(fs);
@@ -324,6 +364,7 @@ int main() {
     testColour();
     testSignal();
     testSilenceAndSpeed();
+    testDenormals();
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;
 }

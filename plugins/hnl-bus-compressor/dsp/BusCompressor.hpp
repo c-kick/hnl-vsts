@@ -86,6 +86,7 @@ public:
     }
 
     void process(float* left, float* right, int frames) {
+        ScopedNoDenormals guard;
         double peakIn[2] = {0, 0}, peakOut[2] = {0, 0}, deepest = 0.0;
         const bool automatic = p_.release == kAutoRelease;
         for (int i = 0; i < frames; ++i) {

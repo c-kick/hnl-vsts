@@ -45,7 +45,7 @@ public:
     } meters;
 
     void prepare(double sampleRate) {
-        fs_ = sampleRate;
+        fs_ = sampleRate > 0.0 ? sampleRate : 48000.0;
         const double spacing = std::log(kBandHigh / kBandLow) / (kBands - 1);
         const double carveQ = 1.0 / (2.0 * kCarveSpread * spacing);
         for (int k = 0; k < kBands; ++k) {
@@ -88,6 +88,7 @@ public:
 
     /** In place on l and r. scl and scr are the ducker; they may be null (then it is silent). */
     void process(float* l, float* r, const float* scl, const float* scr, int frames) {
+        ScopedNoDenormals guard;
         float peak[2] = {0.0f, 0.0f};
         int done = 0;
         while (done < frames) {
@@ -213,6 +214,8 @@ private:
         for (int i = 0; i < n; ++i) {
             if (params_.self) sc[i] = 0.5 * (static_cast<double>(l[i]) + r[i]);
             else sc[i] = scl ? 0.5 * (static_cast<double>(scl[i]) + (scr ? scr[i] : scl[i])) : 0.0;
+            // The ducker comes straight from the host: what is not a number counts as silence.
+            if (!isFinite(sc[i])) sc[i] = 0.0;
         }
 
         float* const io[2] = {l, r};

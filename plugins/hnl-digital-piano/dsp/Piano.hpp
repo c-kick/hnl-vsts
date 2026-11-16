@@ -44,8 +44,10 @@
 
 #include "../../../common/dsp/Filters.hpp"
 #include "../../../common/dsp/Reverb.hpp"
+#include <chrono>
 #include <memory>
 #include <mutex>
+#include <thread>
 
 #include "DanceData.hpp"
 #include "GrandData127.hpp"
@@ -56,10 +58,6 @@
 #include "StageData64.hpp"
 #include "StageData96.hpp"
 #include "WorkstationData.hpp"
-
-#if defined(__SSE2__) || defined(_M_X64)
-#include <immintrin.h>
-#endif
 
 namespace hnl {
 
@@ -299,12 +297,47 @@ struct Bank {
         return last;
     }
 
-    /** Built the first time a voice is asked for: it takes a moment. Shared by every instance. */
+    /** The voice's waves if they have been computed, else null. Never waits: safe on the audio thread. */
+    static const Bank* ready(int voice) { return shared().ready[voice].load(std::memory_order_acquire); }
+
+    /** Asks the worker thread to compute a voice's waves. Never waits: safe on the audio thread. */
+    static void request(int voice) { shared().wanted.fetch_or(1u << voice, std::memory_order_release); }
+
+    /**
+     * Every piano calls attach() once before it asks for anything and detach() when it goes. The
+     * first starts the worker thread and the last stops it, so none is left when the plugin is unloaded.
+     */
+    static void attach() {
+        Shared& s = shared();
+        std::lock_guard<std::mutex> guard(s.workerLock);
+        if (s.users++ > 0) return;
+        s.stop.store(false, std::memory_order_release);
+        s.worker = std::thread([] {
+            Shared& s = shared();
+            while (!s.stop.load(std::memory_order_acquire)) {
+                const uint32_t wanted = s.wanted.exchange(0u, std::memory_order_acq_rel);
+                for (int v = 0; v < kVoiceCount; ++v)
+                    if ((wanted >> v) & 1u) get(v);
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+        });
+    }
+    static void detach() {
+        Shared& s = shared();
+        std::lock_guard<std::mutex> guard(s.workerLock);
+        if (--s.users > 0) return;
+        s.stop.store(true, std::memory_order_release);
+        if (s.worker.joinable()) s.worker.join();
+    }
+
+    /**
+     * Computes a voice's waves if that has not been done yet, which takes most of a second, and
+     * waits for it. Shared by every instance. Not for the audio thread: there, use ready() and request().
+     */
     static const Bank& get(int voice) {
-        static std::mutex lock;
-        static std::unique_ptr<Bank> banks[kVoiceCount];
-        std::lock_guard<std::mutex> guard(lock);
-        std::unique_ptr<Bank>& b = banks[voice];
+        Shared& s = shared();
+        std::lock_guard<std::mutex> guard(s.buildLock);
+        std::unique_ptr<Bank>& b = s.banks[voice];
         if (!b) {
             b = std::make_unique<Bank>();
             const auto add = [&](const pianodata::Note* notes, int count, int top, double rate, int vel, int low = 0, const pianodata::Note* right = nullptr, bool wide = false) {
@@ -333,8 +366,24 @@ struct Bank {
                 // Measured from a mono source, so it is given wide sides.
                 add(workstation::kNotes, workstation::kNoteCount, 96, 32000.0, 127, 0, nullptr, true);
             }
+            s.ready[voice].store(b.get(), std::memory_order_release); // only now may the audio thread see it
         }
         return *b;
+    }
+
+private:
+    struct Shared {
+        std::mutex buildLock, workerLock;
+        std::unique_ptr<Bank> banks[kVoiceCount];
+        std::atomic<const Bank*> ready[kVoiceCount] = {};
+        std::atomic<uint32_t> wanted{0u};
+        std::atomic<bool> stop{false};
+        std::thread worker;
+        int users = 0;
+    };
+    static Shared& shared() {
+        static Shared s;
+        return s;
     }
 };
 
@@ -342,10 +391,19 @@ struct Bank {
 
 class Piano {
 public:
+    Piano() = default;
+    ~Piano() { if (attached_) Bank::detach(); }
+    Piano(const Piano&) = delete;
+    Piano& operator=(const Piano&) = delete;
+
     void prepare(double sampleRate) {
-        fs_ = sampleRate;
-        Bank::get(kWorkstation); // computed here, not at the first note
-        if (p_.voice != kFmElectric) Bank::get(p_.voice);
+        fs_ = sampleRate > 0.0 ? sampleRate : 48000.0;
+        if (!attached_) {
+            Bank::attach();
+            attached_ = true;
+        }
+        if (p_.voice != kFmElectric) Bank::get(p_.voice); // computed here, not at the first note
+        voice_ = p_.voice;
         reverb_.prepare(fs_);
         reverb_.setDecay(1.9);
         reverb_.setDamping(5500.0);
@@ -363,12 +421,29 @@ public:
         tail_ = 0;
     }
 
+    /**
+     * Takes the settings at once. A voice chosen for the first time has its waves computed here,
+     * which takes most of a second: not for the audio thread.
+     */
     void setParams(const PianoParams& p) {
-        if (p.voice != p_.voice && p.voice != kFmElectric) Bank::get(p.voice); // computes its waves the first time
-        p_ = p;
-        configure();
-        for (Voice& v : voices_) if (v.active) shape(v);
+        store(p);
+        if (p_.voice != kFmElectric) Bank::get(p_.voice);
+        voice_ = p_.voice;
+        apply();
     }
+
+    /**
+     * The same for the audio thread: never waits. A voice whose waves are not there yet is asked
+     * for, and the piano keeps the voice it has until they are (see process()).
+     */
+    void setParamsRealtime(const PianoParams& p) {
+        store(p);
+        adoptVoice();
+        apply();
+    }
+
+    /** The voice new notes get now; differs from params().voice while that one is being computed. */
+    int soundingVoice() const { return voice_; }
     const PianoParams& params() const { return p_; }
 
     PianoMeters meters;
@@ -381,12 +456,14 @@ public:
         if (note < 0 || note > 127) return;
         for (Voice& v : voices_) // the same key again: the old note makes way
             if (v.active && v.key == key) v.held = v.sustained = false;
-        const bool fm = p_.voice == kFmElectric;
+        const bool fm = voice_ == kFmElectric;
+        const Bank* const bank = fm ? nullptr : Bank::ready(voice_);
+        if (!fm && bank == nullptr) return; // not prepared yet
         const bool doubled = !fm && p_.detune > 0.05;
         for (int layer = 0; layer < (doubled ? 2 : 1); ++layer) {
             Voice& v = allocate();
             v.active = true;
-            v.kind = p_.voice;
+            v.kind = voice_;
             v.key = key;
             v.note = note;
             v.layer = doubled ? (layer == 0 ? -1 : 1) : 0;
@@ -394,11 +471,10 @@ public:
             v.held = true;
             v.sustained = false;
             if (!fm) {
-                const Bank& bank = Bank::get(p_.voice);
-                const int layer = bank.layerFor(velocity, note);
-                v.wave = &bank.layers[layer]->forNote(note);
-                v.layerVelocity = bank.velocity[layer] / 127.0;
-                v.placed = bank.stereo;
+                const int layer = bank->layerFor(velocity, note);
+                v.wave = &bank->layers[layer]->forNote(note);
+                v.layerVelocity = bank->velocity[layer] / 127.0;
+                v.placed = bank->stereo;
             }
             v.pos = 0.0;
             v.env = 1.0;
@@ -421,6 +497,10 @@ public:
         if (number == 64) {
             pedal_ = value >= 64;
             if (!pedal_) for (Voice& v : voices_) v.sustained = false;
+        } else if (number == 121) { // reset all controllers
+            pedal_ = false;
+            for (Voice& v : voices_) v.sustained = false;
+            pitchBend(0.0);
         } else if (number == 120) {
             for (Voice& v : voices_) v.active = false;
         } else if (number == 123) {
@@ -445,6 +525,7 @@ public:
     /** Writes `frames` samples of output. */
     void process(float* left, float* right, int frames) {
         ScopedNoDenormals guard;
+        if (voice_ != p_.voice) adoptVoice();
         double pk[2] = {0, 0};
         int sounding = 0;
 
@@ -488,13 +569,28 @@ public:
     }
 
 private:
-    struct ScopedNoDenormals {
-#if defined(__SSE2__) || defined(_M_X64)
-        unsigned saved = _mm_getcsr();
-        ScopedNoDenormals() { _mm_setcsr(saved | 0x8040); } // FTZ + DAZ
-        ~ScopedNoDenormals() { _mm_setcsr(saved); }
-#endif
-    };
+    /** Keeps the settings, within what the engine can work with whoever calls. */
+    void store(const PianoParams& p) {
+        p_ = p;
+        p_.voice = std::clamp(p.voice, 0, kVoiceCount - 1);
+        p_.octave = std::clamp(p.octave, -2, 2);
+        p_.tone = std::clamp(p.tone, -100.0, 100.0);
+        p_.detune = std::clamp(p.detune, 0.0, 100.0);
+        p_.tune = std::clamp(p.tune, -1200.0, 1200.0);
+        p_.volume = std::clamp(p.volume, -120.0, 24.0);
+    }
+
+    /** Moves to the voice asked for once its waves are there. */
+    void adoptVoice() {
+        if (voice_ == p_.voice) return;
+        if (p_.voice == kFmElectric || Bank::ready(p_.voice) != nullptr) voice_ = p_.voice;
+        else Bank::request(p_.voice);
+    }
+
+    void apply() {
+        configure();
+        for (Voice& v : voices_) if (v.active) shape(v);
+    }
 
     struct Voice {
         bool active = false, held = false, sustained = false;
@@ -696,7 +792,8 @@ private:
     PianoParams p_;
     double fs_ = 48000.0, gainCoef_ = 0.0;
     double volume_ = 1.0, volumeT_ = 1.0, rev_ = 0.0, revT_ = 0.0, bend_ = 1.0;
-    bool pedal_ = false;
+    bool pedal_ = false, attached_ = false;
+    int voice_ = kWorkstation; // the voice new notes get: p_.voice once its waves are there
     long tail_ = 0;
     uint64_t clock_ = 0;
     Voice voices_[kMaxVoices];

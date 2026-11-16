@@ -1,10 +1,16 @@
 // Offline measurements of the transient shaper. Build and run with tests/run.sh.
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
 #include "../dsp/TransientShaper.hpp"
+
+#if defined(__SSE2__) || defined(_M_X64)
+#include <immintrin.h>
+#endif
 
 using namespace hnl;
 
@@ -240,8 +246,15 @@ static void testRest() {
         p.output = 6.0;
         p.mix = 0.0;
         const auto x = hit(fs, -40, -10, 1.0, 60.0);
-        const auto g = gainOf(fs, p, x);
-        check(maxOf(g, fs, 0, 0.99) == 0.0 && minOf(g, fs, 0, 0.99) == 0.0, "mix 0%: untouched", "gain between %.1e and %.1e dB", minOf(g, fs, 0, 0.99), maxOf(g, fs, 0, 0.99));
+        // Compared sample for sample: a gain worked out by dividing is only exact to the last bit
+        // under strict floating point, and the plugin is not built that way.
+        Shaper m(fs, p);
+        std::vector<float> l = x, r = x;
+        run(m, l, r);
+        const size_t lat = static_cast<size_t>(m.latency());
+        size_t different = 0;
+        for (size_t i = 0; i + lat < x.size(); ++i) different += (l[i + lat] != x[i] || r[i + lat] != x[i]) ? 1 : 0;
+        check(different == 0, "mix 0%: untouched", "%.0f samples differ from the input", static_cast<double>(different));
         p.mix = 100.0;
         p.attack = p.sustain = 0.0;
         const auto out = gainOf(fs, p, x);
@@ -273,6 +286,40 @@ static void testRest() {
     }
 }
 
+// Made from bits and tested by bits, so that no compiler setting can reason them away.
+static float fromBits(uint32_t bits) {
+    float v;
+    std::memcpy(&v, &bits, sizeof(v));
+    return v;
+}
+static bool isNumber(float v) {
+    uint32_t bits;
+    std::memcpy(&bits, &v, sizeof(bits));
+    return (bits & 0x7f800000u) != 0x7f800000u;
+}
+
+/**
+ * Numbers too small to matter must count as zero inside the engine, whatever the host has set:
+ * otherwise filters ringing out into silence make the processor many times slower.
+ */
+static void testDenormals() {
+#if defined(__SSE2__) || defined(_M_X64)
+    const unsigned before = _mm_getcsr();
+    _mm_setcsr(before & ~0x8040u); // as a host that sets nothing
+    TransientShaper m;
+    m.prepare(48000.0);
+    m.reset();
+    const int n = 4800;
+    std::vector<float> l(n, fromBits(0x00000100u)), r(n, fromBits(0x00000100u)); // about 3.6e-43
+    m.process(l.data(), r.data(), n);
+    int nonzero = 0;
+    for (int i = 0; i < n; ++i) nonzero += (l[i] != 0.0f || r[i] != 0.0f) ? 1 : 0;
+    check(nonzero == 0, "denormal input counts as silence", "%.0f samples not zero", static_cast<double>(nonzero));
+    check((_mm_getcsr() & 0x8040u) == 0u, "and the host's own setting is left as it was", "%.0f", static_cast<double>(_mm_getcsr() & 0x8040u));
+    _mm_setcsr(before);
+#endif
+}
+
 int main() {
     for (double fs : {44100.0, 48000.0, 96000.0}) {
         testNeutral(fs);
@@ -284,6 +331,7 @@ int main() {
     testLowNotes();
     testFocus();
     testRest();
+    testDenormals();
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;
 }

@@ -376,6 +376,42 @@ static void testSpeed(double fs) {
     check(sec < 4.0, "speed (everything on, stereo)", "%.0fx realtime (%.1f%% of one core)", 20.0 / sec, 100.0 * sec / 20.0);
 }
 
+/** A stage switched on again must not let out what was in its filters when it was switched off. */
+static void testStagesStartClean(double fs) {
+    static const char* const kNames[2] = {"compressor back on: nothing left in its filters", "exciter back on: nothing left in its filters"};
+    for (int stage = 0; stage < 2; ++stage) {
+        MasterChain c;
+        c.prepare(fs);
+        Params p = allOff();
+        bool& on = stage == 0 ? p.compOn : p.exciterOn;
+        on = true;
+        p.exciterMix = 100.0;
+        c.setParams(p);
+        c.reset();
+        const size_t n = static_cast<size_t>(fs);
+        std::mt19937 rng(7);
+        std::uniform_real_distribution<float> dist(-0.5f, 0.5f);
+        std::vector<float> l(n / 2), r(n / 2);
+        for (size_t i = 0; i < l.size(); ++i) { l[i] = dist(rng); r[i] = dist(rng); }
+        run(c, l, r);
+        on = false; // off in the middle of the noise, then a second of silence
+        c.setParams(p);
+        l.assign(n, 0.0f);
+        r.assign(n, 0.0f);
+        run(c, l, r);
+        double before = 0;
+        for (size_t i = n / 2; i < n; ++i) before = std::max(before, static_cast<double>(std::max(std::fabs(l[i]), std::fabs(r[i]))));
+        on = true;
+        c.setParams(p);
+        l.assign(n / 4, 0.0f);
+        r.assign(n / 4, 0.0f);
+        run(c, l, r);
+        double peak = 0;
+        for (size_t i = 0; i < l.size(); ++i) peak = std::max(peak, static_cast<double>(std::max(std::fabs(l[i]), std::fabs(r[i]))));
+        check(before < 1e-6 && peak < 1e-6, kNames[stage], "peak %.2e (silent before: %.2e)", peak, before);
+    }
+}
+
 int main() {
     for (double fs : {44100.0, 48000.0, 96000.0}) {
         std::printf("--- %.0f Hz ---\n", fs);
@@ -389,6 +425,7 @@ int main() {
         testLimiter(fs);
         testLoudness(fs);
         testSpeed(fs);
+        testStagesStartClean(fs);
     }
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;

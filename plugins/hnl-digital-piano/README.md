@@ -22,7 +22,9 @@ An instrument with five pianos, each as its own voice, all in stereo: the digita
 | Grand | A concert grand, from soft to loud. | Fitted in stereo to single notes of a real grand played soft, medium and loud, every third key, from the University of Iowa Musical Instrument Samples. |
 
 Switching voice affects new notes; notes already sounding keep theirs. The first time a voice is chosen, the
-plugin works out its waves, which takes a moment (around a second) and can interrupt the sound once.
+plugin works out its waves, which takes around a second. It does so beside the audio, which carries on: until
+the waves are there, new notes still get the voice that was playing. A song that opens with a voice already
+chosen has it from the first note.
 
 **No audio of any instrument is stored in the plugin or in this repository.** A fitted voice holds
 measurements: for each reference note, every partial (its frequency, its starting phase, and its level at 29
@@ -97,8 +99,8 @@ its default.
 
 ## MIDI
 
-Notes with velocity, sustain pedal (CC 64), pitch bend (two semitones), all notes off (CC 123) and all sound
-off (CC 120). 64 voices; when they run out, the quietest note makes way. No latency.
+Notes with velocity, sustain pedal (CC 64), pitch bend (two semitones), all notes off (CC 123), all sound
+off (CC 120) and reset all controllers (CC 121: pitch bend to the middle, pedal up). 64 voices; when they run out, the quietest note makes way. No latency.
 
 The plugin was called HNL House Piano up to 0.3.0. It kept its identity, so songs that used it should open
 with the renamed plugin.

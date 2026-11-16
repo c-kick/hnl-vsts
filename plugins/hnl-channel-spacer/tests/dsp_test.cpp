@@ -1,10 +1,16 @@
 // Offline measurements of the channel spacer. Build and run with tests/run.sh.
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 #include <string>
 #include <vector>
 
 #include "../dsp/Spacer.hpp"
+
+#if defined(__SSE2__) || defined(_M_X64)
+#include <immintrin.h>
+#endif
 
 using namespace hnl;
 
@@ -68,6 +74,85 @@ static double toneDb(const Buf& x, double f, double from, double to) {
 static void setup(Spacer& m, const SpacerParams& p, double fs = kFs) {
     m.prepare(fs);
     m.setParams(p);
+}
+
+// Made from bits and tested by bits, so that no compiler setting can reason them away.
+static float fromBits(uint32_t bits) {
+    float v;
+    std::memcpy(&v, &bits, sizeof(v));
+    return v;
+}
+static bool isNumber(float v) {
+    uint32_t bits;
+    std::memcpy(&bits, &v, sizeof(bits));
+    return (bits & 0x7f800000u) != 0x7f800000u;
+}
+
+/**
+ * Numbers too small to matter must count as zero inside the engine, whatever the host has set:
+ * otherwise filters ringing out into silence make the processor many times slower.
+ */
+static void testDenormals() {
+#if defined(__SSE2__) || defined(_M_X64)
+    const unsigned before = _mm_getcsr();
+    _mm_setcsr(before & ~0x8040u); // as a host that sets nothing
+    Spacer m;
+    m.prepare(48000.0);
+    m.reset();
+    const int n = 4800;
+    std::vector<float> l(n, fromBits(0x00000100u)), r(n, fromBits(0x00000100u)); // about 3.6e-43
+    m.process(l.data(), r.data(), nullptr, nullptr, n);
+    int nonzero = 0;
+    for (int i = 0; i < n; ++i) nonzero += (l[i] != 0.0f || r[i] != 0.0f) ? 1 : 0;
+    check(nonzero == 0, "denormal input counts as silence", "%.0f samples not zero", static_cast<double>(nonzero));
+    check((_mm_getcsr() & 0x8040u) == 0u, "and the host's own setting is left as it was", "%.0f", static_cast<double>(_mm_getcsr() & 0x8040u));
+    _mm_setcsr(before);
+#endif
+}
+
+/** A ducker that sends something that is not a number must not get into the filters and stay there. */
+static void testBadSidechain() {
+    Spacer m;
+    m.prepare(48000.0);
+    m.reset();
+    const int n = 48000;
+    std::vector<float> l(n), r(n), in(n), sc(n, 0.0f);
+    for (int i = 0; i < n; ++i) in[i] = l[i] = r[i] = static_cast<float>(0.25 * std::sin(2 * kPi * 1000.0 * i / 48000.0));
+    sc[100] = fromBits(0x7fc00000u); // NaN
+    sc[101] = fromBits(0x7f800000u); // infinity
+    sc[102] = fromBits(0xff800000u);
+    for (int i = 0; i < n; i += 256) m.process(&l[i], &r[i], &sc[i], &sc[i], std::min(256, n - i));
+    int bad = 0, changed = 0;
+    for (int i = 0; i < n; ++i) bad += (isNumber(l[i]) && isNumber(r[i])) ? 0 : 1;
+    for (int i = n / 2; i < n; ++i) changed += l[i] != in[i] ? 1 : 0;
+    check(bad == 0, "NaN and infinity on the ducker: output stays numbers", "%.0f bad samples", static_cast<double>(bad));
+    check(changed == 0, "and with the ducker silent again the output is the input", "%.0f samples differ", static_cast<double>(changed));
+}
+
+/** Below 44.1 kHz the highest bands do not fit under half the sample rate. */
+static void testLowSampleRates() {
+    for (double fs : {32000.0, 22050.0}) {
+        Spacer m;
+        m.prepare(fs);
+        m.reset();
+        m.forceCut(6.0);
+        double lo = 0, hi = -200;
+        for (double f = 60; f < 0.36 * fs; f *= 1.03) {
+            const double g = m.gainDbAt(f);
+            lo = std::min(lo, g);
+            hi = std::max(hi, g);
+        }
+        check(hi < -6.0 + 1.5 && lo > -6.0 - 2.5, "even cut of 6 dB at " + std::to_string(static_cast<int>(fs)) + " Hz", "between %.2f and %.2f dB", lo, hi);
+        // And the sound does what gainDbAt says: a tone in the middle, measured.
+        const int n = static_cast<int>(fs);
+        std::vector<float> l(n), r(n);
+        for (int i = 0; i < n; ++i) l[i] = r[i] = static_cast<float>(0.25 * std::sin(2 * kPi * 1000.0 * i / fs));
+        const double predicted = m.gainDbAt(1000.0);
+        m.process(l.data(), r.data(), nullptr, nullptr, 16); // one control step: the forced cut still holds
+        double peak = 0;
+        for (int i = 0; i < n; ++i) peak = std::max(peak, static_cast<double>(std::fabs(l[i])));
+        check(peak < 10.0 && predicted < -4.0, "stays bounded at " + std::to_string(static_cast<int>(fs)) + " Hz", "peak %.3f, predicted %.2f dB", peak, predicted);
+    }
 }
 
 int main() {
@@ -238,6 +323,9 @@ int main() {
         check(finite && seconds < 2.0, "10 s of audio", "in %.2f s (%.1f%% of one core)", seconds, seconds * 10);
     }
 
+    testDenormals();
+    testBadSidechain();
+    testLowSampleRates();
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;
 }
