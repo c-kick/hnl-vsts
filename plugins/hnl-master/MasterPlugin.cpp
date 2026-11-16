@@ -11,7 +11,7 @@ START_NAMESPACE_DISTRHO
 
 class MasterPlugin : public Plugin {
 public:
-    MasterPlugin() : Plugin(kParamCount, 0, 0) {
+    MasterPlugin() : Plugin(kParamCount, 0, 1) {
         for (uint32_t i = 0; i < kInputParamCount; ++i) values_[i].store(kParams[i].def);
         for (uint32_t i = kInputParamCount; i < kParamCount; ++i) meters_[i - kInputParamCount] = kParams[i].def;
         prepare(getSampleRate());
@@ -20,12 +20,12 @@ public:
 protected:
     const char* getLabel() const override { return "HNLMaster"; }
     const char* getDescription() const override {
-        return "Mastering chain: 3-band compressor, harmonic exciter and true-peak limiter.";
+        return "Mastering chain: 3-band compressor, equaliser, exciter, widener, reverb and true-peak limiter.";
     }
     const char* getMaker() const override { return "HNL Design"; }
     const char* getHomePage() const override { return "https://hnldesign.nl"; }
     const char* getLicense() const override { return "ISC"; }
-    uint32_t getVersion() const override { return d_version(0, 1, 0); }
+    uint32_t getVersion() const override { return d_version(0, 2, 0); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override {
         port.groupId = kPortGroupStereo;
@@ -44,11 +44,28 @@ protected:
         case kLinear: parameter.hints = kParameterIsAutomatable; break;
         case kLog: parameter.hints = kParameterIsAutomatable | kParameterIsLogarithmic; break;
         case kToggle: parameter.hints = kParameterIsAutomatable | kParameterIsBoolean | kParameterIsInteger; break;
+        case kChoice: {
+            parameter.hints = kParameterIsAutomatable | kParameterIsInteger;
+            ParameterEnumerationValue* const values = new ParameterEnumerationValue[3];
+            for (int i = 0; i < 3; ++i) {
+                values[i].value = static_cast<float>(i);
+                values[i].label = kExciterModes[i];
+            }
+            parameter.enumValues.count = 3;
+            parameter.enumValues.restrictedMode = true;
+            parameter.enumValues.values = values;
+            break;
+        }
         case kMeter: parameter.hints = kParameterIsOutput; break;
         }
     }
 
-    void initState(uint32_t, State&) override {}
+    /** The name of the preset last chosen in the UI, saved with the song. */
+    void initState(uint32_t, State& state) override {
+        state.key = "preset";
+        state.label = "Preset";
+        state.defaultValue = "Default";
+    }
 
     float getParameterValue(uint32_t index) const override {
         if (index >= kInputParamCount) return meters_[index - kInputParamCount];
@@ -61,7 +78,8 @@ protected:
         dirty_.store(true, std::memory_order_release);
     }
 
-    /** The UI sends "reset" to clear integrated loudness and the true-peak hold. */
+    /** The UI sends "reset" to clear integrated loudness and the true-peak hold.
+        "preset" is only stored by the host; the UI sets the parameters itself. */
     void setState(const char* key, const char*) override {
         if (std::strcmp(key, "reset") == 0) resetMeters_.store(true, std::memory_order_relaxed);
     }
@@ -113,6 +131,22 @@ private:
         p.exciterDrive = v[kExcDrive];
         p.exciterColour = 0.01 * v[kExcColour];
         p.exciterMix = v[kExcMix];
+        p.exciterMode = static_cast<int>(std::lround(v[kExcMode]));
+        p.eqOn = v[kEqOn] > 0.5f;
+        p.eqLowFreq = v[kEqLowFreq];
+        p.eqLowGain = v[kEqLowGain];
+        p.eqMidFreq = v[kEqMidFreq];
+        p.eqMidGain = v[kEqMidGain];
+        p.eqMidQ = v[kEqMidQ];
+        p.eqHighFreq = v[kEqHighFreq];
+        p.eqHighGain = v[kEqHighGain];
+        p.widenerOn = v[kWideOn] > 0.5f;
+        p.width = v[kWideWidth];
+        p.widenerFreq = v[kWideFreq];
+        p.reverbOn = v[kRevOn] > 0.5f;
+        p.reverbDecay = v[kRevDecay];
+        p.reverbDamping = v[kRevDamping];
+        p.reverbMix = v[kRevMix];
         p.limiterOn = v[kLimOn] > 0.5f;
         p.limiterGain = v[kLimGain];
         p.limiterCeiling = v[kLimCeiling];

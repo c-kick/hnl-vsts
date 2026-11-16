@@ -4,7 +4,7 @@ Audio plugins by HNL Design, built as VST3 for Windows (tested in Reason 12.5+).
 
 | Plugin | What it is |
 | --- | --- |
-| [HNL Master](plugins/hnl-master) | Mastering chain: multiband compressor, exciter, true-peak limiter, loudness meters |
+| [HNL Master](plugins/hnl-master) | Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets |
 
 ## Layout
 
@@ -26,6 +26,9 @@ git submodule update --init --recursive
 ./build.sh              # dist/<Plugin>.vst3 for 64-bit Windows
 ./build.sh hnl-master   # one plugin
 ```
+
+`plugins/<name>/tests/preview.sh` writes the UI as SVG files into `build/`; `tools/ui-preview/shot.mjs` turns them
+into PNG with a Playwright Chromium.
 
 Install by copying the `<Plugin>.vst3` folder from `dist/` to `C:\Program Files\Common Files\VST3\`.
 

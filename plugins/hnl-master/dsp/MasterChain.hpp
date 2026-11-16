@@ -1,9 +1,11 @@
 // The complete mastering chain:
-//   input gain -> 3-band compressor -> exciter -> true-peak limiter -> meters
+//   input gain -> 3-band compressor -> equaliser -> exciter -> widener
+//   -> reverb -> true-peak limiter -> meters
 #pragma once
 
 #include <atomic>
 
+#include "Effects.hpp"
 #include "Processors.hpp"
 
 #if defined(__SSE2__) || defined(_M_X64)
@@ -32,11 +34,26 @@ struct Params {
         {-20.0, 2.0, 5.0, 80.0, 0.0},
     };
 
+    bool eqOn = false;
+    double eqLowFreq = 80.0, eqLowGain = 0.0;                   // Hz, dB (low shelf)
+    double eqMidFreq = 1000.0, eqMidGain = 0.0, eqMidQ = 1.0;   // peak
+    double eqHighFreq = 10000.0, eqHighGain = 0.0;              // high shelf
+
     bool exciterOn = true;
+    int exciterMode = Exciter::kTube;
     double exciterFreq = 5000.0; // Hz
     double exciterDrive = 9.0;   // dB
     double exciterColour = 0.3;  // 0 odd .. 1 even
     double exciterMix = 15.0;    // percent
+
+    bool widenerOn = false;
+    double width = 130.0;       // percent; 100 = unchanged
+    double widenerFreq = 200.0; // Hz; widening applies above this
+
+    bool reverbOn = false;
+    double reverbDecay = 1.4;      // seconds
+    double reverbDamping = 6000.0; // Hz
+    double reverbMix = 8.0;        // percent of reverb added to the dry signal
 
     bool limiterOn = true;
     double limiterGain = 0.0;     // dB
@@ -66,6 +83,8 @@ public:
         fs_ = sampleRate;
         limiter_.prepare(fs_);
         loud_.prepare(fs_);
+        eq_.prepare(fs_);
+        reverb_.prepare(fs_);
         smooth_ = onePoleCoef(20.0, fs_);
         applyParams(true);
         reset();
@@ -75,11 +94,16 @@ public:
         for (int c = 0; c < 2; ++c) { xo_[c].reset(); outTp_[c].reset(); }
         for (auto& b : comp_) b.reset();
         exciter_.reset();
+        eq_.reset();
+        widener_.reset();
+        reverb_.reset();
         limiter_.reset();
         loud_.reset();
         inGain_ = inGainT_;
         limGain_ = limGainT_;
         mix_ = mixT_;
+        width_ = widthT_;
+        revMix_ = revMixT_;
         for (int b = 0; b < 3; ++b) makeup_[b] = makeupT_[b];
     }
 
@@ -100,11 +124,19 @@ public:
         double inPk[2] = {0, 0}, outPk[2] = {0, 0}, tpk = 0.0;
         double grMin[3] = {0, 0, 0}, limMin = 1.0;
         const bool compOn = p_.compOn, excOn = p_.exciterOn, limOn = p_.limiterOn;
+        const bool eqOn = p_.eqOn, wideOn = p_.widenerOn, revOn = p_.reverbOn;
+        // A stage that was off starts from a clean state.
+        if (eqOn && !eqWasOn_) eq_.reset();
+        if (wideOn && !wideWasOn_) widener_.reset();
+        if (revOn && !revWasOn_) reverb_.reset();
+        eqWasOn_ = eqOn; wideWasOn_ = wideOn; revWasOn_ = revOn;
 
         for (int i = 0; i < frames; ++i) {
             inGain_ = inGainT_ + smooth_ * (inGain_ - inGainT_);
             limGain_ = limGainT_ + smooth_ * (limGain_ - limGainT_);
             mix_ = mixT_ + smooth_ * (mix_ - mixT_);
+            width_ = widthT_ + smooth_ * (width_ - widthT_);
+            revMix_ = revMixT_ + smooth_ * (revMix_ - revMixT_);
 
             double l = left[i] * inGain_, r = right[i] * inGain_;
             inPk[0] = std::max(inPk[0], std::fabs(l));
@@ -125,8 +157,23 @@ public:
                 }
             }
 
+            if (eqOn) {
+                eq_.tick();
+                l = eq_.process(0, l);
+                r = eq_.process(1, r);
+            }
+
             l = exciter_.process(0, l, mix_, excOn);
             r = exciter_.process(1, r, mix_, excOn);
+
+            if (wideOn) widener_.process(l, r, width_);
+
+            if (revOn) {
+                double wl, wr;
+                reverb_.process(l, r, wl, wr);
+                l += revMix_ * wl;
+                r += revMix_ * wr;
+            }
 
             if (limOn) { l *= limGain_; r *= limGain_; }
             limMin = std::min(limMin, limiter_.process(l, r, limOn));
@@ -182,20 +229,37 @@ private:
             excFreq_ = p_.exciterFreq;
             exciter_.setFreq(fs_, excFreq_);
         }
-        exciter_.setDrive(p_.exciterDrive, std::clamp(p_.exciterColour, 0.0, 1.0));
+        exciter_.setDrive(p_.exciterDrive, std::clamp(p_.exciterColour, 0.0, 1.0),
+                          static_cast<Exciter::Mode>(std::clamp(p_.exciterMode, 0, 2)));
+        eq_.set(Eq3::kLowShelf, p_.eqLowFreq, p_.eqLowGain);
+        eq_.set(Eq3::kPeak, p_.eqMidFreq, p_.eqMidGain, std::max(0.1, p_.eqMidQ));
+        eq_.set(Eq3::kHighShelf, p_.eqHighFreq, p_.eqHighGain);
+        widthT_ = 0.01 * p_.width;
+        if (force || p_.widenerFreq != wideFreq_) {
+            wideFreq_ = p_.widenerFreq;
+            widener_.setFreq(fs_, wideFreq_);
+        }
+        revMixT_ = 0.01 * p_.reverbMix;
+        reverb_.setDecay(p_.reverbDecay);
+        reverb_.setDamping(p_.reverbDamping);
         limiter_.setCeiling(p_.limiterCeiling);
         limiter_.setRelease(p_.limiterRelease);
     }
 
     Params p_;
     double fs_ = 48000.0, smooth_ = 0.0;
-    double f1_ = 0.0, f2_ = 0.0, excFreq_ = 0.0;
+    double f1_ = 0.0, f2_ = 0.0, excFreq_ = 0.0, wideFreq_ = 0.0;
+    double width_ = 1.0, widthT_ = 1.0, revMix_ = 0.0, revMixT_ = 0.0;
+    bool eqWasOn_ = false, wideWasOn_ = false, revWasOn_ = false;
     double inGain_ = 1.0, inGainT_ = 1.0, limGain_ = 1.0, limGainT_ = 1.0, mix_ = 0.0, mixT_ = 0.0;
     double makeup_[3] = {1, 1, 1}, makeupT_[3] = {1, 1, 1};
 
     Crossover3 xo_[2];
     CompBand comp_[3];
     Exciter exciter_;
+    Eq3 eq_;
+    Widener widener_;
+    Reverb reverb_;
     Limiter limiter_;
     TruePeak outTp_[2];
     LoudnessMeter loud_;

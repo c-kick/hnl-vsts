@@ -109,6 +109,12 @@ struct Delay {
         if (++pos == buf.size()) pos = 0;
         return y;
     }
+    /** peek() then push() is process() split in two, for feedback loops. */
+    inline double peek() const { return buf[pos]; }
+    inline void push(double x) {
+        buf[pos] = x;
+        if (++pos == buf.size()) pos = 0;
+    }
 };
 
 // --------------------------------------------------------------- windows

@@ -38,9 +38,15 @@ struct CompBand {
 /**
  * Harmonic exciter. The band above `freq` is saturated at 4x oversampling and
  * mixed back in. The dry signal is delayed by latency() so both stay aligned.
+ *
+ * Three characters:
+ *   Tape   smooth, mostly odd harmonics, with the top rolled off
+ *   Tube   tanh curve; colour moves it from odd to even harmonics
+ *   Retro  adds a rectified part, so a strong second harmonic at any colour
  */
 class Exciter {
 public:
+    enum Mode { kTape, kTube, kRetro };
     static constexpr int kLatency = 36;
 
     Exciter() {
@@ -54,16 +60,31 @@ public:
     void setFreq(double fs, double fc) {
         const auto h = designHighpass(fs, fc, 0.7071067811865476);
         for (int c = 0; c < 2; ++c) { pre_[c].set(h); post_[c].set(h); }
+        tapeCoef_ = std::exp(-2.0 * kPi * std::min(9000.0, 0.4 * fs) / fs);
     }
     /** driveDb 0..24, colour 0 (odd harmonics) .. 1 (strong even harmonics). */
-    void setDrive(double driveDb, double colour) {
+    void setDrive(double driveDb, double colour, Mode mode = kTube) {
+        mode_ = mode;
         drive_ = dbToLin(driveDb);
-        bias_ = 0.6 * colour;
-        biasOut_ = std::tanh(bias_);
+        switch (mode) {
+        case kTape:
+            bias_ = 0.35 * colour;
+            biasOut_ = bias_ / std::sqrt(1.0 + bias_ * bias_);
+            break;
+        case kTube:
+            bias_ = 0.6 * colour;
+            biasOut_ = std::tanh(bias_);
+            break;
+        case kRetro:
+            bias_ = 0.15 + 0.6 * colour; // amount of the rectified part
+            biasOut_ = 0.0;
+            break;
+        }
     }
     void reset() {
         for (int c = 0; c < 2; ++c) {
             a_[c].reset(); b_[c].reset(); dry_[c].reset(); pre_[c].reset(); post_[c].reset();
+            tape_[c] = 0.0;
         }
     }
     /** mix: linear amount of generated signal added (0 = dry only). */
@@ -75,18 +96,33 @@ public:
         a_[ch].up(s, u0, u1);
         b_[ch].up(u0, v[0], v[1]);
         b_[ch].up(u1, v[2], v[3]);
-        for (double& w : v) w = (std::tanh(drive_ * w + bias_) - biasOut_) / drive_;
+        switch (mode_) {
+        case kTape:
+            for (double& w : v) { const double t = drive_ * w + bias_; w = (t / std::sqrt(1.0 + t * t) - biasOut_) / drive_; }
+            break;
+        case kTube:
+            for (double& w : v) w = (std::tanh(drive_ * w + bias_) - biasOut_) / drive_;
+            break;
+        case kRetro:
+            // sqrt(k^2 + t^2) - k is a full-wave rectifier with a rounded corner.
+            for (double& w : v) { const double t = drive_ * w; w = (std::tanh(t) + bias_ * (std::sqrt(kCorner * kCorner + t * t) - kCorner)) / drive_; }
+            break;
+        }
         const double d0 = b_[ch].down(v[0], v[1]);
         const double d1 = b_[ch].down(v[2], v[3]);
-        const double h = post_[ch].process(a_[ch].down(d0, d1));
+        double h = post_[ch].process(a_[ch].down(d0, d1));
+        if (mode_ == kTape) h = tape_[ch] = h + tapeCoef_ * (tape_[ch] - h);
         return dry + mix * h;
     }
 
 private:
+    static constexpr double kCorner = 1.0;
+
     Halfband a_[2], b_[2];
     Delay dry_[2];
     Biquad pre_[2], post_[2];
-    double drive_ = 1.0, bias_ = 0.0, biasOut_ = 0.0;
+    Mode mode_ = kTube;
+    double drive_ = 1.0, bias_ = 0.0, biasOut_ = 0.0, tapeCoef_ = 0.0, tape_[2] = {0.0, 0.0};
 };
 
 // ---------------------------------------------------------------- limiter

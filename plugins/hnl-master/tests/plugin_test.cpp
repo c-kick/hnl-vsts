@@ -7,6 +7,7 @@
 #include "src/DistrhoPluginInternal.hpp"
 
 #include "../Params.hpp"
+#include "../Presets.hpp"
 
 USE_NAMESPACE_DISTRHO
 
@@ -31,6 +32,16 @@ int main() {
         rangesOk = rangesOk && std::fabs(normToParam(i, paramToNorm(i, r.def)) - r.def) < 1e-3f * (r.max - r.min);
     }
     check(rangesOk, "parameter ranges, defaults, directions", rangesOk);
+
+    bool presetsOk = true;
+    for (int i = 0; i < presets::kCount; ++i)
+        for (uint32_t j = 0; j < presets::kAll[i].count; ++j) {
+            const PresetValue& v = presets::kAll[i].values[j];
+            presetsOk = presetsOk && v.id < kInputParamCount && v.value >= kParams[v.id].min && v.value <= kParams[v.id].max;
+        }
+    check(presetsOk, "preset values are within range", presets::kCount);
+    check(plugin.getStateCount() == 1 && plugin.getStateKey(0) == "preset", "preset name is saved as state", plugin.getStateCount());
+    check(kLimRelease == 27 && kMeterInL == 44, "0.1.0 parameter indices unchanged", kLimRelease);
 
     plugin.setParameterValue(kLimGain, 12.0f);
     plugin.setParameterValue(kLimCeiling, -1.0f);
@@ -67,6 +78,27 @@ int main() {
     }
     check(plugin.getParameterValue(kMeterTruePeak) < -90.0f, "reset clears true-peak hold", plugin.getParameterValue(kMeterTruePeak));
     check(plugin.getParameterValue(kMeterGrLim) > -0.01f, "GR meter recovers in silence", plugin.getParameterValue(kMeterGrLim));
+
+    // Every preset, driven hard: the limiter must still hold its ceiling.
+    float worst = -100.0f;
+    for (int i = 0; i < presets::kCount; ++i) {
+        for (uint32_t id = 0; id < kInputParamCount; ++id) plugin.setParameterValue(id, presets::value(i, id));
+        plugin.setParameterValue(kLimOn, 1.0f);
+        plugin.setParameterValue(kInputGain, 12.0f);
+        float pk = 0;
+        n = 0;
+        for (int block = 0; block < 150; ++block) {
+            for (int k = 0; k < 512; ++k, ++n) {
+                const double t = n / 48000.0;
+                l[k] = static_cast<float>(0.5 * std::sin(6.283185307 * 80 * t) + 0.3 * std::sin(6.283185307 * 1000 * t));
+                r[k] = static_cast<float>(0.4 * std::sin(6.283185307 * 130 * t) + 0.3 * std::sin(6.283185307 * 7000 * t));
+            }
+            plugin.run(in, out, 512);
+            if (block > 10) for (int k = 0; k < 512; ++k) pk = std::max(pk, std::max(std::fabs(l[k]), std::fabs(r[k])));
+        }
+        worst = std::max(worst, 20 * std::log10(pk) - plugin.getParameterValue(kLimCeiling));
+    }
+    check(worst <= 0.01f && worst > -3.0f, "all presets hold the ceiling (dB over)", worst);
 
     plugin.deactivate();
     plugin.setSampleRate(96000.0, true);

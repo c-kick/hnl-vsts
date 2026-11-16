@@ -12,6 +12,12 @@ enum ParamId : uint32_t {
     kHighThreshold, kHighRatio, kHighAttack, kHighRelease, kHighMakeup,
     kExcOn, kExcFreq, kExcDrive, kExcColour, kExcMix,
     kLimOn, kLimGain, kLimCeiling, kLimRelease,
+    // Added in 0.2.0. New parameters go at the end of this block so the
+    // indices above, which hosts store with automation, never change.
+    kEqOn, kEqLowFreq, kEqLowGain, kEqMidFreq, kEqMidGain, kEqMidQ, kEqHighFreq, kEqHighGain,
+    kExcMode,
+    kWideOn, kWideWidth, kWideFreq,
+    kRevOn, kRevDecay, kRevDamping, kRevMix,
     kInputParamCount,
 
     // Meters (plugin -> UI/host), in dB or LUFS.
@@ -21,7 +27,9 @@ enum ParamId : uint32_t {
     kParamCount
 };
 
-enum ParamKind { kLinear, kLog, kToggle, kMeter };
+enum ParamKind { kLinear, kLog, kToggle, kChoice, kMeter };
+
+static const char* const kExciterModes[3] = {"Tape", "Tube", "Retro"};
 
 struct ParamInfo {
     const char* name;
@@ -66,6 +74,26 @@ static const ParamInfo kParams[kParamCount] = {
     {"Limiter Gain", "lim_gain", "dB", 0.f, 24.f, 0.f, kLinear},
     {"Limiter Ceiling", "lim_ceiling", "dB", -6.f, 0.f, -1.f, kLinear},
     {"Limiter Release", "lim_release", "ms", 10.f, 1000.f, 150.f, kLog},
+
+    {"Equaliser", "eq_on", "", 0.f, 1.f, 0.f, kToggle},
+    {"EQ Low Shelf Frequency", "eq_low_freq", "Hz", 20.f, 500.f, 80.f, kLog},
+    {"EQ Low Shelf Gain", "eq_low_gain", "dB", -12.f, 12.f, 0.f, kLinear},
+    {"EQ Peak Frequency", "eq_mid_freq", "Hz", 100.f, 10000.f, 1000.f, kLog},
+    {"EQ Peak Gain", "eq_mid_gain", "dB", -12.f, 12.f, 0.f, kLinear},
+    {"EQ Peak Q", "eq_mid_q", "Q", 0.3f, 8.f, 1.f, kLog},
+    {"EQ High Shelf Frequency", "eq_high_freq", "Hz", 1000.f, 20000.f, 10000.f, kLog},
+    {"EQ High Shelf Gain", "eq_high_gain", "dB", -12.f, 12.f, 0.f, kLinear},
+
+    {"Exciter Mode", "exc_mode", "", 0.f, 2.f, 1.f, kChoice},
+
+    {"Widener", "wide_on", "", 0.f, 1.f, 0.f, kToggle},
+    {"Stereo Width", "wide_width", "%", 0.f, 200.f, 130.f, kLinear},
+    {"Widen Above", "wide_freq", "Hz", 20.f, 1000.f, 200.f, kLog},
+
+    {"Reverb", "rev_on", "", 0.f, 1.f, 0.f, kToggle},
+    {"Reverb Decay", "rev_decay", "s", 0.2f, 6.f, 1.4f, kLog},
+    {"Reverb Damping", "rev_damping", "Hz", 1000.f, 16000.f, 6000.f, kLog},
+    {"Reverb Amount", "rev_mix", "%", 0.f, 50.f, 8.f, kLinear},
 
     {"Meter In L", "meter_in_l", "dB", -100.f, 24.f, -100.f, kMeter},
     {"Meter In R", "meter_in_r", "dB", -100.f, 24.f, -100.f, kMeter},

@@ -21,7 +21,12 @@
 
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|Mastering|Dynamics|Stereo"
 
-#define UI_BASE_WIDTH  980
+// Window size with the default settings. The UI resizes itself when stages
+// are switched on or off (see layout() in MasterUI.cpp).
+#define UI_BASE_WIDTH  1012
 #define UI_BASE_HEIGHT 560
+
+#define DISTRHO_UI_DEFAULT_WIDTH  UI_BASE_WIDTH
+#define DISTRHO_UI_DEFAULT_HEIGHT UI_BASE_HEIGHT
 
 #endif // DISTRHO_PLUGIN_INFO_H_INCLUDED

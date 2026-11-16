@@ -1,6 +1,6 @@
 // Stand-in for DPF's DistrhoUI.hpp that records the UI's NanoVG drawing as
 // SVG, so the layout can be checked on a machine without OpenGL or Windows.
-// Only the calls MasterUI.cpp uses are implemented.
+// Only the calls the plugins use are implemented; add more as needed.
 #pragma once
 
 #include <cmath>
@@ -44,7 +44,7 @@ public:
     enum Winding { CCW = 1, CW = 2 };
     enum LineCap { BUTT, ROUND };
 
-    UI(uint, uint, bool) {}
+    UI(uint w, uint h, bool) : w_(w), h_(h) {}
     virtual ~UI() {}
 
     virtual void parameterChanged(uint32_t, float) {}
@@ -59,6 +59,9 @@ public:
     bool loadSharedResources() { return true; }
     double getScaleFactor() const { return 1.0; }
     void repaint() {}
+    uint getWidth() const { return w_; }
+    uint getHeight() const { return h_; }
+    void setSize(uint w, uint h) { w_ = w; h_ = h; }
     void editParameter(uint32_t, bool) {}
     void setParameterValue(uint32_t, float) {}
     void setState(const char*, const char*) {}
@@ -68,6 +71,7 @@ public:
     void beginPath() { d_.clear(); }
     void moveTo(float x, float y) { add("M%.2f %.2f ", x, y); }
     void lineTo(float x, float y) { add("L%.2f %.2f ", x, y); }
+    void closePath() { d_ += "Z "; }
     void rect(float x, float y, float w, float h) { add("M%.2f %.2f h%.2f v%.2f h%.2f Z ", x, y, w, h, -w); }
     void roundedRect(float x, float y, float w, float h, float r) {
         add("M%.2f %.2f h%.2f a%.2f %.2f 0 0 1 %.2f %.2f ", x + r, y, w - 2 * r, r, r, r, r);
@@ -101,11 +105,17 @@ public:
         char head[160];
         std::snprintf(head, sizeof(head), "<text x=\"%.2f\" y=\"%.2f\" font-size=\"%.2f\" text-anchor=\"%s\" ", x, y, size_,
                       (align_ & ALIGN_CENTER) ? "middle" : (align_ & ALIGN_RIGHT) ? "end" : "start");
-        svg += std::string(head) + "dominant-baseline=\"central\" fill=\"" + fill_ + "\">" + s + "</text>\n";
+        svg += std::string(head) + "dominant-baseline=\"central\" fill=\"" + fill_ + "\">" + escape(s) + "</text>\n";
         return x;
     }
 
 private:
+    static std::string escape(const char* s) {
+        std::string out;
+        for (; *s; ++s) out += *s == '&' ? "&amp;" : *s == '<' ? "&lt;" : std::string(1, *s);
+        return out;
+    }
+    uint w_, h_;
     template <typename... A> void add(const char* fmt, A... a) {
         char s[200];
         std::snprintf(s, sizeof(s), fmt, a...);
