@@ -19,7 +19,7 @@ An instrument with five pianos, each as its own voice, all in stereo: the digita
 | FM Electric | The glassy electric piano of 1980s FM synthesizers: a bell on the attack, a body that barks when played hard, a slow shimmer from side to side. | Computed with FM synthesis. An FM patch of its own in that style; not compared with a reference. |
 | Stage 80s | The rounded, slightly artificial stage piano of the mid 1980s. Its tone changes a lot with touch. | Fitted to single notes at four velocities, a note every six keys, rendered with an emulator of the original sound engine. Within about 1.5 dB of them. |
 | Dance 90s | The thin, cutting piano of 1990s dance records. | Worked out from three recorded chords around middle C, the only reference there was. Chords it plays are within about 2.5 dB of those; the rest of the keyboard is extrapolated and the attack is blurred. The weakest of the fitted voices. |
-| Grand | A concert grand, from soft to loud. | Fitted to single notes of a real grand played soft, medium and loud, every third key, from the University of Iowa Musical Instrument Samples. Within about 1.7 dB of the medium and loud notes. |
+| Grand | A concert grand, from soft to loud. | Fitted in stereo to single notes of a real grand played soft, medium and loud, every third key, from the University of Iowa Musical Instrument Samples. |
 
 Switching voice affects new notes; notes already sounding keep theirs. The first time a voice is chosen, the
 plugin works out its waves, which takes a moment (around a second) and can interrupt the sound once.
@@ -32,7 +32,7 @@ waves from them and so computes one wave per measured note and velocity; as on t
 serves the keys around it, played a little faster or slower. The "within about N dB" figures compare the
 plugin's output with the reference in third-octave bands over the first seconds of a note.
 
-The measured pianos are mono. Every wave is made in stereo here, as if recorded with two microphones: left and
+The measured pianos are mono, except the grand. Their waves are made in stereo here, as if recorded with two microphones: left and
 right carry the same partials at somewhat different levels and phases. The fundamental keeps the same level on
 both sides, so no note leans by chance, and the bass stays in the middle. With Width at 0% the result is mono,
 and closest to the measured sound. All voices place low keys a little to the left and high keys to the right.
@@ -52,8 +52,17 @@ dynamics became three sets of waves; in between, a filter does the rest.
 
 - Those are recordings in a room, with its noise. The fitting follows each partial only until it sinks into
   that noise and lets it fade on from there, so the noise itself is not part of the sound.
+- **Stereo:** the recordings are stereo and both sides were measured, with the note's start and the place of
+  its partials found once for both. The two microphones stood far apart: in the recordings some notes are
+  7 dB louder on one side, and for several the sides partly cancel when summed. An instrument should not do
+  that, so the measured differences are kept within bounds: the fundamental stays nearly centred, a partial
+  leans at most 3 dB to a side, and no partial is more than a quarter turn out of step between the sides.
+  The result is the real piano's own width, with every key near the middle and at most about 3 dB lost in mono.
+  The tone lies between the two microphones. Unlike the other voices, keys are not placed left to right on
+  top of that.
 - The soft notes high up hardly rise above the noise; from about two octaves above middle C, soft playing uses
-  the medium notes with a darker filter. The very lowest and highest keys borrow from their neighbours.
+  the medium notes with a darker filter. The top keys use the loud notes for every touch. The lowest three
+  keys borrow from the lowest C, played a little slower.
 - A real note fades fast at first (about 20 dB in the first second at middle C) and then lingers quietly for a
   long time. That comes straight from the measurements.
 - Added on top: dampers that are slow on the bass strings, quick in the treble and absent on the top keys,

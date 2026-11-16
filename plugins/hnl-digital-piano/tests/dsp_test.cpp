@@ -449,7 +449,7 @@ static void testWaves(int voice, const char* name) {
     }
     check(std::fabs(worst) < 4.0, tag + "in tune", "worst %+.2f cents", worst);
     check(step < 3.5, tag + "even level from key to key", "largest step %.2f dB", step);
-    check(least > 0.2 && most < 0.97, tag + "stereo on every key", "correlation %.2f to %.2f", least, most);
+    check(least > 0.0 && most < 0.97, tag + "stereo on every key, the sides never against each other", "correlation %.2f to %.2f", least, most);
 
     const Take a = play(fs, plain(), 60, 100, 0.4), b = play(fs, p, 60, 100, 0.4);
     const double apart = linToDb(std::hypot(rms(b.l, fs, 0, 0.3), rms(b.r, fs, 0, 0.3)) / std::hypot(rms(a.l, fs, 0, 0.3), rms(a.r, fs, 0, 0.3)));
@@ -521,6 +521,18 @@ static void testGrand() {
     };
     const double low = lasts(33), mid = lasts(60), high = lasts(93);
     check(low >= mid && mid > 2 * high && high > 0.15, "Grand: bass rings long, treble short", "%.1f / %.1f / %.1f s to -30 dB", low, mid, high);
+
+    // Measured in stereo, but kept in hand: no key leans far to one side or thins out in mono.
+    double lean = 0, loss = 0;
+    for (int note = 21; note <= 108; note += 3)
+        for (int vel : {40, 85, 127}) {
+            const Take n = play(fs, p, note, vel, 1.0);
+            Buf mid(n.l.size());
+            for (size_t i = 0; i < mid.size(); ++i) mid[i] = 0.5f * (n.l[i] + n.r[i]);
+            lean = std::max(lean, std::fabs(linToDb(rms(n.l, fs, 0, 1) / rms(n.r, fs, 0, 1))));
+            loss = std::min(loss, linToDb(rms(mid, fs, 0, 1) / std::hypot(rms(n.l, fs, 0, 1), rms(n.r, fs, 0, 1)) * std::sqrt(2.0)));
+        }
+    check(lean < 4.5 && loss > -3.5, "Grand: every key near the middle, and whole in mono", "at most %.1f dB to a side, %.1f dB lost in mono", lean, loss);
 
     // Dampers: a middle key stops when let go, a top key has none and rings on.
     const Take stopped = play(fs, p, 60, 100, 0.2, 0.6), ringing = play(fs, p, 96, 100, 0.2, 0.6);

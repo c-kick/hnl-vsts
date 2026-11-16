@@ -101,12 +101,15 @@ struct Wave {
 
 class WaveSet {
 public:
-    /** One wave for each of the notes from the key lowRoot to topRoot, stored at `rate`. */
-    WaveSet(const pianodata::Note* notes, int count, int lowRoot, int topRoot, double rate) {
+    /**
+     * One wave for each of the notes from the key lowRoot to topRoot, stored at `rate`. With `right`,
+     * the notes were measured in stereo: `notes` is what the left side heard and `right` the other.
+     */
+    WaveSet(const pianodata::Note* notes, const pianodata::Note* right, int count, int lowRoot, int topRoot, double rate) {
         for (int i = 0; i < count; ++i) {
             if (notes[i].midi < lowRoot || notes[i].midi > topRoot) continue;
             waves_.emplace_back();
-            build(waves_.back(), notes[i], rate);
+            build(waves_.back(), notes[i], right ? &right[i] : nullptr, rate);
         }
     }
 
@@ -124,7 +127,7 @@ private:
         return static_cast<double>(static_cast<int32_t>(state)) * (1.0 / 2147483648.0);
     }
 
-    static void build(Wave& w, const pianodata::Note& note, double rate) {
+    static void build(Wave& w, const pianodata::Note& note, const pianodata::Note* right, double rate) {
         using namespace pianodata;
         std::vector<float> sides[2];
         w.root = note.midi;
@@ -143,19 +146,41 @@ private:
             const double early = p.early * note.freq, late = p.late * note.freq;
             if (early > 0.47 * rate || late > 0.47 * rate) continue;
             // The two microphones: the same below a few hundred hertz, their own level and phase above.
-            // The fundamental keeps the same level on both sides, so no note leans by chance.
-            const double apart = std::clamp((early - 120.0) / 300.0, 0.0, 1.0);
+            // A mono measurement is given two sides here. The fundamental keeps the same level on both,
+            // so no note leans by chance. A stereo measurement already has its two sides and is left as it is.
+            const double apart = right ? 0.0 : std::clamp((early - 120.0) / 300.0, 0.0, 1.0);
             const double tilt = k == 0 ? 0.0 : 3.0 * apart * noise(rng);
             const double offset = kPi * apart * (k == 0 ? (noise(rng) < 0.0 ? -0.15 : 0.15) : 0.25 * noise(rng));
 
+            // A stereo measurement brings its own differences between the sides. They are kept within
+            // bounds: microphones far apart hear single notes far to one side and partly out of phase,
+            // which makes an instrument's notes jump about and thin out in mono. The fundamental stays
+            // nearly centred, and no partial may differ so much that the sides work against each other.
+            double levels[2][kTimes], phases[2] = {p.phase, p.phase};
+            for (int j = 0; j < kTimes; ++j) levels[0][j] = levels[1][j] = p.level[j];
+            if (right) {
+                const Partial& other = right->partials[k];
+                const double most = k == 0 ? 10.0 : 30.0; // tenths of a dB either way
+                for (int j = 0; j < kTimes; ++j) {
+                    const double middle = 0.5 * (p.level[j] + other.level[j]);
+                    const double lean = std::clamp(0.5 * (p.level[j] - other.level[j]), -most, most);
+                    levels[0][j] = middle + lean;
+                    levels[1][j] = middle - lean;
+                }
+                double turn = std::remainder(static_cast<double>(p.phase) - other.phase, 2.0 * kPi);
+                turn = std::clamp(turn, -(k == 0 ? 0.3 : 0.5) * kPi, (k == 0 ? 0.3 : 0.5) * kPi);
+                phases[0] = p.phase;
+                phases[1] = p.phase - turn;
+            }
+
             for (int ch = 0; ch < 2; ++ch) {
                 const double sign = ch == 0 ? 1.0 : -1.0;
-                double phase = p.phase + sign * offset; // of the sine, at sample `at`
+                double phase = phases[ch] + sign * offset; // of the sine, at sample `at`
                 float* d = sides[ch].data();
                 int at = 0;
                 for (int j = 0; j + 1 < kTimes && at < w.length; ++j) {
                     const int to = std::min(w.length, static_cast<int>(kTimeMs[j + 1] * 0.001 * rate));
-                    const double from = p.level[j], until = p.level[j + 1];
+                    const double from = levels[ch][j], until = levels[ch][j + 1];
                     const bool sounding = from > silent || until > silent;
                     // Between two measurements the level moves evenly in dB.
                     double amp = dbToLin(0.1 * from + sign * tilt);
@@ -253,7 +278,8 @@ private:
 struct Bank {
     std::vector<std::unique_ptr<WaveSet>> layers; // softest first
     std::vector<int> velocity;                    // the velocity each layer was measured at
-    std::vector<int> top;                         // the highest key each layer has a wave for
+    std::vector<int> low, top;                    // the lowest and highest key each layer has a wave for
+    bool stereo = false;                          // measured in stereo: the keys already lie where they were heard
 
     /**
      * The layer measured at or just above this velocity, so a note is never brighter than it should be.
@@ -262,7 +288,7 @@ struct Bank {
     int layerFor(int vel, int note) const {
         const int last = static_cast<int>(velocity.size()) - 1;
         for (int i = 0; i < last; ++i)
-            if (vel <= velocity[i] && note <= top[i] + 3) return i;
+            if (vel <= velocity[i] && note <= top[i] + 3 && note >= low[i] - 3) return i;
         return last;
     }
 
@@ -274,10 +300,12 @@ struct Bank {
         std::unique_ptr<Bank>& b = banks[voice];
         if (!b) {
             b = std::make_unique<Bank>();
-            const auto add = [&](const pianodata::Note* notes, int count, int top, double rate, int vel, int low = 0) {
-                b->layers.push_back(std::make_unique<WaveSet>(notes, count, low, top, rate));
+            const auto add = [&](const pianodata::Note* notes, int count, int top, double rate, int vel, int low = 0, const pianodata::Note* right = nullptr) {
+                b->layers.push_back(std::make_unique<WaveSet>(notes, right, count, low, top, rate));
                 b->velocity.push_back(vel);
+                b->low.push_back(low);
                 b->top.push_back(top);
+                b->stereo = b->stereo || right != nullptr;
             };
             using namespace pianodata;
             if (voice == kStage) {
@@ -286,12 +314,12 @@ struct Bank {
                 add(stage96::kNotes, stage96::kNoteCount, 127, 20000.0, 96);
                 add(stage127::kNotes, stage127::kNoteCount, 127, 20000.0, 127);
             } else if (voice == kGrand) {
-                // Soft, medium and loud. The measurements of the very lowest and highest keys are not to be
-                // trusted (rumble, and hardly any note above the noise), so their neighbours stand in.
-                // Soft notes high up hardly rise above the noise of the recording: there the medium ones stand in.
-                add(grand40::kNotes, grand40::kNoteCount, 78, 32000.0, 40, 27);
-                add(grand85::kNotes, grand85::kNoteCount, 99, 32000.0, 85, 27);
-                add(grand127::kNotes, grand127::kNoteCount, 99, 32000.0, 127, 27);
+                // Soft, medium and loud, measured in stereo. Where a set is not to be trusted (soft notes high
+                // up hardly rise above the noise of the recording, and the lowest soft one is lost in rumble),
+                // the next louder set stands in.
+                add(grand40::kNotes, grand40::kNoteCount, 78, 32000.0, 40, 27, grand40::kNotesRight);
+                add(grand85::kNotes, grand85::kNoteCount, 102, 32000.0, 85, 24, grand85::kNotesRight);
+                add(grand127::kNotes, grand127::kNoteCount, 108, 32000.0, 127, 24, grand127::kNotesRight);
             } else if (voice == kDance) {
                 add(dance::kNotes, dance::kNoteCount, 127, 32000.0, 127);
             } else {
@@ -363,6 +391,7 @@ public:
                 const int layer = bank.layerFor(velocity, note);
                 v.wave = &bank.layers[layer]->forNote(note);
                 v.layerVelocity = bank.velocity[layer] / 127.0;
+                v.placed = bank.stereo;
             }
             v.pos = 0.0;
             v.env = 1.0;
@@ -463,6 +492,7 @@ private:
     struct Voice {
         bool active = false, held = false, sustained = false;
         int key = 0, note = 60, layer = 0, kind = kWorkstation;
+        bool placed = false; // its wave already has the key where it was heard: no panning by key
         uint64_t age = 0;
         const Wave* wave = nullptr;
         double velocity = 1.0, layerVelocity = 1.0, pos = 0.0, step = 1.0;
@@ -528,7 +558,7 @@ private:
 
         // Width narrows the recording towards mono; the keys lie low to high from left to right,
         // as the player hears them, and a doubled note has its two halves apart.
-        const double pan = std::clamp(width * (0.35 * std::clamp((v.note - 64) / 40.0, -1.0, 1.0) + 0.5 * v.layer), -1.0, 1.0);
+        const double pan = std::clamp(width * ((v.placed ? 0.0 : 0.35) * std::clamp((v.note - 64) / 40.0, -1.0, 1.0) + 0.5 * v.layer), -1.0, 1.0);
         const double same = 0.5 * (1.0 + width), cross = 0.5 * (1.0 - width);
         const double gl = std::sqrt(1.0 - pan), gr = std::sqrt(1.0 + pan);
         v.mix[0][0] = gl * same; v.mix[0][1] = gl * cross;
