@@ -104,12 +104,13 @@ public:
     /**
      * One wave for each of the notes from the key lowRoot to topRoot, stored at `rate`. With `right`,
      * the notes were measured in stereo: `notes` is what the left side heard and `right` the other.
+     * `wide` gives a mono measurement two sides that differ more, and from lower down.
      */
-    WaveSet(const pianodata::Note* notes, const pianodata::Note* right, int count, int lowRoot, int topRoot, double rate) {
+    WaveSet(const pianodata::Note* notes, const pianodata::Note* right, int count, int lowRoot, int topRoot, double rate, bool wide = false) {
         for (int i = 0; i < count; ++i) {
             if (notes[i].midi < lowRoot || notes[i].midi > topRoot) continue;
             waves_.emplace_back();
-            build(waves_.back(), notes[i], right ? &right[i] : nullptr, rate);
+            build(waves_.back(), notes[i], right ? &right[i] : nullptr, rate, wide);
         }
     }
 
@@ -127,7 +128,9 @@ private:
         return static_cast<double>(static_cast<int32_t>(state)) * (1.0 / 2147483648.0);
     }
 
-    static void build(Wave& w, const pianodata::Note& note, const pianodata::Note* right, double rate) {
+    static constexpr double kWideFrom = 50.0, kWideSpan = 150.0, kWideFirst = 0.20, kWideRest = 0.36;
+
+    static void build(Wave& w, const pianodata::Note& note, const pianodata::Note* right, double rate, bool wide) {
         using namespace pianodata;
         std::vector<float> sides[2];
         w.root = note.midi;
@@ -148,9 +151,13 @@ private:
             // The two microphones: the same below a few hundred hertz, their own level and phase above.
             // A mono measurement is given two sides here. The fundamental keeps the same level on both,
             // so no note leans by chance. A stereo measurement already has its two sides and is left as it is.
-            const double apart = right ? 0.0 : std::clamp((early - 120.0) / 300.0, 0.0, 1.0);
-            const double tilt = k == 0 ? 0.0 : 3.0 * apart * noise(rng);
-            const double offset = kPi * apart * (k == 0 ? (noise(rng) < 0.0 ? -0.15 : 0.15) : 0.25 * noise(rng));
+            // Wide: for a source that is mono through and through. The sides part from the bass up and differ
+            // about as much as two microphones some way apart would make them.
+            const double apart = right ? 0.0 : (wide ? std::clamp((early - kWideFrom) / kWideSpan, 0.0, 1.0) : std::clamp((early - 120.0) / 300.0, 0.0, 1.0));
+            // Levels differ only higher up, also when wide: a bass note louder on one side would lean.
+            const double tilt = k == 0 ? 0.0 : 3.0 * (right ? 0.0 : std::clamp((early - 120.0) / 300.0, 0.0, 1.0)) * noise(rng);
+            const double turnFirst = wide ? kWideFirst : 0.15, turnRest = wide ? kWideRest : 0.25;
+            const double offset = kPi * apart * (k == 0 ? (noise(rng) < 0.0 ? -turnFirst : turnFirst) : turnRest * noise(rng));
 
             // A stereo measurement brings its own differences between the sides. They are kept within
             // bounds: microphones far apart hear single notes far to one side and partly out of phase,
@@ -300,8 +307,8 @@ struct Bank {
         std::unique_ptr<Bank>& b = banks[voice];
         if (!b) {
             b = std::make_unique<Bank>();
-            const auto add = [&](const pianodata::Note* notes, int count, int top, double rate, int vel, int low = 0, const pianodata::Note* right = nullptr) {
-                b->layers.push_back(std::make_unique<WaveSet>(notes, right, count, low, top, rate));
+            const auto add = [&](const pianodata::Note* notes, int count, int top, double rate, int vel, int low = 0, const pianodata::Note* right = nullptr, bool wide = false) {
+                b->layers.push_back(std::make_unique<WaveSet>(notes, right, count, low, top, rate, wide));
                 b->velocity.push_back(vel);
                 b->low.push_back(low);
                 b->top.push_back(top);
@@ -323,8 +330,8 @@ struct Bank {
             } else if (voice == kDance) {
                 add(dance::kNotes, dance::kNoteCount, 127, 32000.0, 127);
             } else {
-                // Above key 96 the measurement of the workstation piano is too short to be of use.
-                add(workstation::kNotes, workstation::kNoteCount, 96, 32000.0, 127);
+                // Measured from a mono source, so it is given wide sides.
+                add(workstation::kNotes, workstation::kNoteCount, 96, 32000.0, 127, 0, nullptr, true);
             }
         }
         return *b;
