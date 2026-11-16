@@ -1,21 +1,19 @@
 // A digital piano in the manner of the sample-playback workstations of the
-// late 1980s: bright, a little thin, with a sustain that stands still.
+// late 1980s: a hard, bright attack over a strong fundamental, a tone that
+// loses its overtones within a second, and a tail that is almost a pure tone.
 //
-// Those instruments played short recordings of a piano. The start of each
-// note was the real attack; after a fraction of a second the recording ran
-// into a short loop, so the tone froze while an envelope faded it out. One
-// recording served several keys, played faster or slower. A lowpass filter
-// that opened with velocity did the rest.
+// The engine computes its own waves when it starts, one for every measured
+// note (a note every six semitones), by adding up sine waves: each partial
+// has a frequency, a starting phase and a level that changes over time, as
+// measured from reference recordings of such a piano (see tools/fit.cpp and
+// PianoData.hpp). No audio from any instrument is stored or played. As on
+// the original machines, one wave serves several keys, played faster or
+// slower, and a lowpass filter that opens with velocity does the rest.
 //
-// This engine works the same way, but makes its own recordings: when it
-// starts, it computes one wave per three keys from a model of a struck
-// string (stiff-string partials, hammer position, a bright body), each with
-// an attack and a loop. No samples of any instrument are used.
-//
-// Every wave is stereo, as if the piano were recorded with two microphones:
-// left and right carry the same partials at somewhat different levels and
-// phases, more so higher up, so the bass stays in the middle and the upper
-// part of the tone spreads out.
+// The measured piano is mono. Here every wave is made in stereo, as if the
+// piano were recorded with two microphones: left and right carry the same
+// partials at somewhat different levels and phases, more so higher up, so
+// the bass stays in the middle and the upper part of the tone spreads out.
 #pragma once
 
 #include <atomic>
@@ -23,6 +21,7 @@
 
 #include "../../../common/dsp/Filters.hpp"
 #include "../../../common/dsp/Reverb.hpp"
+#include "PianoData.hpp"
 
 #if defined(__SSE2__) || defined(_M_X64)
 #include <immintrin.h>
@@ -37,10 +36,10 @@ struct PianoParams {
     double volume = 0.0;    // dB
     double tone = 0.0;      // -100 dark .. +100 open
     double velocity = 70.0; // percent: how much playing harder adds level and brightness
-    double decay = 100.0;   // percent of the natural decay time
+    double decay = 100.0;   // percent of the natural length of a held note
     double release = 600.0; // ms to fall 60 dB after the key is let go
     double detune = 0.0;    // cents; above 0 every note sounds twice, one up and one down
-    double width = 100.0;   // percent: 0 mono, 100 the full stereo recording; also spreads the keys and doubled notes
+    double width = 100.0;   // percent: 0 mono, 100 the full stereo image; also spreads the keys and doubled notes
     double reverb = 15.0;   // percent
     double tune = 0.0;      // cents
     int octave = 0;         // -2 .. +2
@@ -54,25 +53,31 @@ struct PianoMeters {
 
 // ------------------------------------------------------------------ waves
 
-/** One computed recording: an attack that runs into a loop. */
+/** One computed note, from its first moment until it has died away. */
 struct Wave {
-    int root = 60;          // the key it was made for
-    double freq = 261.63;   // its pitch when played at kWaveRate
-    int loopStart = 0, loopLength = 1;
-    std::vector<float> data[2]; // left and right, loopStart + loopLength samples each
+    int root = 60;         // the key it was made for
+    double freq = 261.63;  // its pitch when played at kWaveRate
+    int length = 0;
+    std::vector<float> data[2]; // left and right
 };
 
 class WaveSet {
 public:
-    static constexpr int kFirstRoot = 22, kStep = 3, kCount = 29; // roots 22, 25 .. 106
+    static constexpr int kTopRoot = 96; // above this the measurement is too short to be of use
 
     WaveSet() {
-        for (int i = 0; i < kCount; ++i) build(waves_[i], kFirstRoot + i * kStep);
+        for (int i = 0; i < pianodata::kNoteCount && pianodata::kNotes[i].midi <= kTopRoot; ++i) {
+            waves_.emplace_back();
+            build(waves_.back(), pianodata::kNotes[i]);
+        }
     }
 
+    /** The wave made for the nearest measured key. */
     const Wave& forNote(int note) const {
-        const int i = (note - kFirstRoot + kStep / 2) / kStep;
-        return waves_[note < kFirstRoot ? 0 : (i >= kCount ? kCount - 1 : i)];
+        const Wave* best = &waves_[0];
+        for (const Wave& w : waves_)
+            if (std::abs(w.root - note) < std::abs(best->root - note)) best = &w;
+        return *best;
     }
 
 private:
@@ -81,98 +86,108 @@ private:
         return static_cast<double>(static_cast<int32_t>(state)) * (1.0 / 2147483648.0);
     }
 
-    /** The colour of the instrument's body: thin lows, a hollow low-mid, a forward presence. */
-    static double body(double f) {
-        const double low = (f / 70.0) * (f / 70.0);
-        const double dip = std::log2(f / 420.0), lift = std::log2(f / 2800.0);
-        return low / (1.0 + low) * dbToLin(-4.0 * std::exp(-dip * dip / 0.6) + 5.0 * std::exp(-lift * lift / 1.2));
-    }
+    static void build(Wave& w, const pianodata::Note& note) {
+        using namespace pianodata;
+        w.root = note.midi;
+        w.freq = note.freq * (note.count > 0 ? note.partials[0].late : 1.0f); // what the ear takes as the pitch
+        w.length = static_cast<int>(note.seconds * kWaveRate);
+        for (auto& d : w.data) d.assign(static_cast<size_t>(w.length) + 4, 0.0f);
+        uint32_t rng = 0x9e3779b9u + static_cast<uint32_t>(note.midi) * 2654435761u;
+        const int switchAt = std::min(w.length, static_cast<int>(kSwitchSeconds * kWaveRate));
+        const double silent = -1100; // tenths of a dB
 
-    static void build(Wave& w, int root) {
-        const double nominal = 440.0 * std::pow(2.0, (root - 69) / 12.0);
-        // The loop holds a whole number of periods in a whole number of samples.
-        const int periods = std::max(4, static_cast<int>(std::lround(0.2 * nominal)));
-        w.root = root;
-        w.loopLength = static_cast<int>(std::lround(periods * kWaveRate / nominal));
-        w.freq = periods * kWaveRate / w.loopLength;
-        w.loopStart = static_cast<int>(std::lround(kWaveRate * 0.9 * std::pow(2.0, -(root - 21) / 40.0)));
-        for (auto& d : w.data) d.assign(static_cast<size_t>(w.loopStart + w.loopLength), 0.0f);
-
-        // A stiff string: the partials lie a little above the harmonics, more so higher up.
-        const double stiff = std::max(1.0e-4, 3.5e-4 * std::pow(2.0, (root - 60) / 9.0));
-        const double hammer = std::clamp(3000.0 * std::pow(2.0, (root - 60) / 24.0), 1900.0, 9000.0);
-        const double sustain = 2.5 * std::pow(2.0, -(root - 60) / 24.0); // seconds, for the fundamental
-        const double first = sustain / (1.0 + std::pow(w.freq / 1800.0, 1.3));
-        const double strikePoint = 0.12, strikeFade = std::exp(-1.0 / (0.04 * kWaveRate));
-        uint32_t rng = 0x9e3779b9u + static_cast<uint32_t>(root) * 2654435761u;
-
-        for (int k = 1; k <= 160; ++k) {
-            const double f = k * w.freq * std::sqrt((1.0 + stiff * k * k) / (1.0 + stiff));
-            if (f > 14000.0) break;
-            const double level = std::pow(k, -0.75) * (0.3 + 0.7 * std::fabs(std::sin(kPi * k * strikePoint))) * std::exp(-f / hammer) * body(f);
-            const double life = sustain / (1.0 + std::pow(f / 1800.0, 1.3));
-            const double fade = std::exp(-(1.0 / life - 1.0 / first) / kWaveRate); // per sample, against the fundamental
-            const double loopFreq = std::round(f / w.freq * periods) * w.freq / periods; // the nearest that fits the loop
+        for (int k = 0; k < note.count; ++k) {
+            const Partial& p = note.partials[k];
+            const double early = p.early * note.freq, late = p.late * note.freq;
+            if (early > 0.47 * kWaveRate || late > 0.47 * kWaveRate) continue;
             // The two microphones: the same below a few hundred hertz, their own level and phase above.
-            const double apart = std::min(1.0, f / 700.0);
-            const double tilt = 3.0 * apart * noise(rng), phase = 0.5 * noise(rng), offset = 0.28 * kPi * apart * noise(rng);
+            // The fundamental keeps the same level on both sides, so no note leans by chance.
+            const double apart = std::clamp((early - 120.0) / 300.0, 0.0, 1.0);
+            const double tilt = k == 0 ? 0.0 : 3.0 * apart * noise(rng);
+            const double offset = kPi * apart * (k == 0 ? (noise(rng) < 0.0 ? -0.15 : 0.15) : 0.25 * noise(rng));
 
             for (int ch = 0; ch < 2; ++ch) {
                 const double sign = ch == 0 ? 1.0 : -1.0;
-                double amp = level * dbToLin(sign * tilt), strike = std::min(2.0, f / 2500.0);
-                double c = std::cos(phase + sign * offset), s = std::sin(phase + sign * offset);
+                double c = std::cos(p.phase + sign * offset), s = std::sin(p.phase + sign * offset);
+                double step = 2.0 * kPi * early / kWaveRate, dc = std::cos(step), ds = std::sin(step);
                 float* d = w.data[ch].data();
-                // Attack: the partial at its own frequency, fading against the fundamental.
-                double step = 2.0 * kPi * f / kWaveRate, dc = std::cos(step), ds = std::sin(step);
-                for (int i = 0; i < w.loopStart; ++i) {
-                    d[i] += static_cast<float>(amp * (1.0 + strike) * s);
-                    const double next = c * dc - s * ds;
-                    s = s * dc + c * ds;
-                    c = next;
-                    amp *= fade;
-                    strike *= strikeFade;
-                }
-                // Loop: the tone as it is at that moment, frozen, the partial moved to where it repeats exactly.
-                amp *= 1.0 + strike;
-                step = 2.0 * kPi * loopFreq / kWaveRate; dc = std::cos(step); ds = std::sin(step);
-                for (int i = 0; i < w.loopLength; ++i) {
-                    d[w.loopStart + i] += static_cast<float>(amp * s);
-                    const double next = c * dc - s * ds;
-                    s = s * dc + c * ds;
-                    c = next;
+                int at = 0;
+                for (int j = 0; j + 1 < kTimes && at < w.length; ++j) {
+                    const int to = std::min(w.length, static_cast<int>(kTimeMs[j + 1] * 0.001 * kWaveRate));
+                    const double from = p.level[j], until = p.level[j + 1];
+                    const bool sounding = from > silent || until > silent;
+                    // Between two measurements the level moves evenly in dB.
+                    double amp = dbToLin(0.1 * from + sign * tilt);
+                    const double grow = to > at ? dbToLin(0.1 * (until - from) / (to - at)) : 1.0;
+                    if (!sounding && (switchAt < at || switchAt >= to)) { // nothing to add: only keep the phase
+                        const double turn = step * (to - at), tc = std::cos(turn), ts = std::sin(turn), next = c * tc - s * ts;
+                        s = s * tc + c * ts;
+                        c = next;
+                        at = to;
+                        continue;
+                    }
+                    for (; at < to; ++at) {
+                        if (at == switchAt) { // from here on the partial sits where it was measured late in the note
+                            step = 2.0 * kPi * late / kWaveRate; dc = std::cos(step); ds = std::sin(step);
+                        }
+                        if (sounding) d[at] += static_cast<float>(amp * s);
+                        const double next = c * dc - s * ds;
+                        s = s * dc + c * ds;
+                        c = next;
+                        amp *= grow;
+                    }
                 }
             }
         }
 
-        // Level: the same loudness for every wave, measured over the first 150 ms of both sides.
+        // The knock of the attack: noise below the note's own pitch, at the measured level in each octave.
+        const int frames = kKnockFrames;
+        for (int b = 0; b < kKnockBands; ++b) {
+            if (note.knock[b][0] <= silent && note.knock[b][1] <= silent) continue;
+            const double wc = 2.0 * kPi * kKnockHz[b] / kWaveRate, alpha = std::sin(wc) / (2.0 * 1.414), a0 = 1.0 + alpha;
+            const BiquadCoeffs bp{alpha / a0, 0.0, -alpha / a0, -2.0 * std::cos(wc) / a0, (1.0 - alpha) / a0};
+            // How loud this filter makes white noise, so the measured level can be set exactly.
+            Biquad f[3][2];
+            for (auto& pair : f) for (auto& q : pair) q.set(bp);
+            double power = 0.0;
+            const int warm = static_cast<int>(0.5 * kWaveRate);
+            for (int i = 0; i < warm; ++i) {
+                const double v = f[2][1].process(f[2][0].process(noise(rng)));
+                power += v * v;
+            }
+            const double unit = 1.0 / std::sqrt(power / warm);
+            const int last = std::min(w.length, static_cast<int>(0.36 * kWaveRate));
+            for (int i = 0; i < last; ++i) {
+                // The level at the middle of each frame, moving evenly in dB between them and falling away after the last.
+                const double ms = i * 1000.0 / kWaveRate;
+                double db = note.knock[b][0] * 0.1;
+                for (int j = 0; j < frames; ++j) {
+                    const double mid = 0.5 * (kKnockMs[j] + kKnockMs[j + 1]), next = j + 1 < frames ? 0.5 * (kKnockMs[j + 1] + kKnockMs[j + 2]) : mid + 120.0;
+                    const double here = note.knock[b][j] * 0.1, there = j + 1 < frames ? note.knock[b][j + 1] * 0.1 : here - 40.0;
+                    if (ms >= mid) db = here + (there - here) * std::min(1.5, (ms - mid) / (next - mid));
+                }
+                const double amp = dbToLin(db) * unit, shared = noise(rng);
+                for (int ch = 0; ch < 2; ++ch)
+                    w.data[ch][i] += static_cast<float>(amp * f[ch][1].process(f[ch][0].process(0.7071 * shared + 0.7071 * noise(rng))));
+            }
+        }
+
+        // Level: the same loudness for every wave, measured over the first 200 ms of both sides.
         double sum = 0.0;
-        const int window = std::min(w.loopStart, static_cast<int>(0.15 * kWaveRate));
+        const int window = std::max(1, std::min(w.length, static_cast<int>(0.2 * kWaveRate)));
         for (const auto& d : w.data)
             for (int i = 0; i < window; ++i) sum += 0.5 * static_cast<double>(d[i]) * d[i];
         const double gain = 0.25 / std::sqrt(sum / window + 1e-20);
-
-        // The knock of the hammer: a short burst of filtered noise, partly shared by the two sides.
-        const double lpCoef = std::exp(-2.0 * kPi * std::min(6000.0, 1.5 * hammer) / kWaveRate), hpCoef = std::exp(-2.0 * kPi * 250.0 / kWaveRate);
-        const double burstFade = std::exp(-1.0 / (0.010 * kWaveRate));
-        double lp[2] = {0, 0}, hp[2] = {0, 0}, level = 0.12;
-        const int burst = std::min(w.loopStart, static_cast<int>(0.08 * kWaveRate));
-        for (auto& d : w.data)
+        const int fade = std::min(w.length, static_cast<int>(0.03 * kWaveRate));
+        for (auto& d : w.data) {
             for (float& v : d) v = static_cast<float>(v * gain);
-        for (int i = 0; i < burst; ++i) {
-            const double shared = noise(rng);
-            for (int ch = 0; ch < 2; ++ch) {
-                const double n = 0.7 * shared + 0.7 * noise(rng);
-                lp[ch] = n + lpCoef * (lp[ch] - n);
-                hp[ch] = lp[ch] + hpCoef * (hp[ch] - lp[ch]);
-                w.data[ch][i] += static_cast<float>(level * (lp[ch] - hp[ch]));
-            }
-            level *= burstFade;
+            for (int i = 0; i < fade; ++i) d[w.length - 1 - i] *= static_cast<float>(i) / fade; // run out without a step
+            for (int i = 0; i < 8 && i < w.length; ++i) d[i] *= static_cast<float>((i + 1) / 9.0);
+            for (int i = w.length; i < w.length + 4; ++i) d[i] = 0.0f;
         }
-        for (auto& d : w.data)
-            for (int i = 0; i < 16; ++i) d[i] *= static_cast<float>(i / 16.0); // no step at the very start
     }
 
-    Wave waves_[kCount];
+    std::vector<Wave> waves_;
 };
 
 // ------------------------------------------------------------------ engine
@@ -356,13 +371,15 @@ private:
         v.step = kWaveRate / fs_ * freq / v.wave->freq;
 
         v.level = kVoiceLevel * std::pow(v.velocity, 2.0 * sens) * (v.layer != 0 ? 0.7071 : 1.0);
-        // Playing softer closes the filter, by up to seven octaves for the softest touch; higher keys keep it further open.
-        const double cutoff = 12000.0 * std::pow(2.0, p_.tone / 100.0 * 4.0 + (v.velocity - 1.0) * 7.0 * sens + (v.note - 60) / 24.0);
+        // Wide open at full velocity; playing softer closes the filter, by up to five octaves for the softest touch.
+        // Higher keys keep it further open.
+        const double cutoff = 16000.0 * std::pow(2.0, p_.tone / 100.0 * 4.0 + (v.velocity - 1.0) * 5.0 * sens + (v.note - 60) / 24.0);
         v.lpCoef = 1.0 - std::exp(-2.0 * kPi * std::clamp(cutoff, 150.0, 0.45 * fs_) / fs_);
 
-        // The natural decay: long in the bass, short in the treble.
-        const double seconds = 3.0 * std::pow(2.0, -(v.note - 60) / 24.0) * std::clamp(p_.decay, 10.0, 1000.0) / 100.0;
-        v.decay = std::exp(-1.0 / (seconds * fs_));
+        // The waves carry the natural decay. Below 100% a held note is faded on top of that:
+        // at 50% it is gone in about half the time.
+        const double natural = 2.0 * std::pow(2.0, -(v.note - 60) / 24.0), shorter = 100.0 / std::clamp(p_.decay, 5.0, 100.0) - 1.0;
+        v.decay = std::exp(-shorter / (natural * fs_));
         v.release = std::exp(-6.908 / (0.001 * std::clamp(p_.release, 5.0, 10000.0) * fs_)); // 60 dB down in that time
 
         // Width narrows the recording towards mono; the keys lie low to high from left to right,
@@ -377,19 +394,15 @@ private:
     void render(Voice& v, int n) {
         const Wave& w = *v.wave;
         const float* d[2] = {w.data[0].data(), w.data[1].data()};
-        const double loopEnd = w.loopStart + w.loopLength;
-        const int last = w.loopStart + w.loopLength - 1;
+        const double end = w.length - 1;
         for (int i = 0; i < n; ++i) {
+            if (v.pos >= end) { v.active = false; return; } // the note has run its course
             const int at = static_cast<int>(v.pos);
             const double f = v.pos - at;
-            // Neighbours for the interpolation, wrapping inside the loop.
-            const bool looping = v.pos >= w.loopStart + 1;
-            const int im = at > 0 ? (looping && at == w.loopStart ? last : at - 1) : 0;
-            const int i1 = at + 1 > last ? at + 1 - w.loopLength : at + 1;
-            const int i2 = at + 2 > last ? at + 2 - w.loopLength : at + 2;
+            const int im = at > 0 ? at - 1 : 0;
             double s[2];
             for (int ch = 0; ch < 2; ++ch) {
-                const double ym = d[ch][im], y0 = d[ch][at], y1 = d[ch][i1], y2 = d[ch][i2];
+                const double ym = d[ch][im], y0 = d[ch][at], y1 = d[ch][at + 1], y2 = d[ch][at + 2];
                 const double c1 = 0.5 * (y1 - ym), c2 = ym - 2.5 * y0 + 2.0 * y1 - 0.5 * y2, c3 = 0.5 * (y2 - ym) + 1.5 * (y0 - y1);
                 v.lp1[ch] += v.lpCoef * (((c3 * f + c2) * f + c1) * f + y0 - v.lp1[ch]);
                 v.lp2[ch] += v.lpCoef * (v.lp1[ch] - v.lp2[ch]);
@@ -400,7 +413,6 @@ private:
 
             v.env *= (v.held || v.sustained) ? v.decay : v.release;
             v.pos += v.step;
-            if (v.pos >= loopEnd) v.pos -= w.loopLength;
         }
         if (v.env < 1e-5) v.active = false;
     }

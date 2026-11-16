@@ -32,7 +32,7 @@ static const ParamInfo kParams[kParamCount] = {
     {"Volume", "volume", "dB", -24.f, 12.f, 0.f, kLinear, nullptr},
     {"Tone", "tone", "%", -100.f, 100.f, 0.f, kLinear, nullptr},
     {"Velocity", "velocity", "%", 0.f, 100.f, 70.f, kLinear, nullptr},
-    {"Decay", "decay", "%", 25.f, 400.f, 100.f, kLog, nullptr},
+    {"Decay", "decay", "%", 10.f, 100.f, 100.f, kLinear, nullptr},
     {"Release", "release", "ms", 50.f, 5000.f, 600.f, kLog, nullptr},
     {"Detune", "detune", "cents", 0.f, 30.f, 0.f, kLinear, nullptr},
     {"Width", "width", "%", 0.f, 100.f, 100.f, kLinear, nullptr},

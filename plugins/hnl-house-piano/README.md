@@ -1,7 +1,7 @@
 # HNL House Piano
 
-A bright digital piano in the manner of the sample-playback workstations of the late 1980s: the piano of
-countless house and dance records. Punchy attack, a little thin, a sustain that stands still, and in stereo.
+A digital piano in the manner of the sample-playback workstations of the late 1980s: the piano of countless
+house and dance records. Hard attack, strong fundamental, a tone that mellows within a second, and in stereo.
 
 ![HNL House Piano](docs/preview.png)
 
@@ -13,30 +13,37 @@ countless house and dance records. Punchy attack, a little thin, a sustain that 
 
 ## How it makes its sound
 
-Those workstations played short recordings of a piano. The start of a note was the real attack; after a
-fraction of a second the recording ran into a short loop, so the tone froze while an envelope faded it out. One
-recording served several keys, played faster or slower, and a filter that opened with velocity did the rest.
-That recipe is the sound.
+Those workstations played short recordings of a piano through a filter and an envelope. What comes out has a
+character of its own: a hard, bright attack over a strong fundamental, overtones that fall away within a second,
+and a tail that is almost a pure tone.
 
-This plugin follows the recipe but makes its own recordings. When it loads it computes 29 stereo waves, one per
-three keys, from a model of a struck piano string: stiff-string partials, the hammer and its strike point, and a
-bright body. Each wave has an attack that runs into a loop. **It contains no samples of any instrument**, so it
-is in the character of those pianos, not a copy of one.
+This plugin plays no recordings. It was fitted to reference recordings of such a piano, one note every six
+semitones: for each of those notes, `tools/fit.cpp` measured every partial (its frequency, its starting phase,
+and its level at 29 moments from the first millisecond to ten seconds) and the dull knock of the attack below the
+note's pitch. Those measurements are in `dsp/PianoData.hpp`. When the plugin loads, it adds up sine waves from
+them and so computes one wave per measured note; as on the original machines, each wave serves the keys around
+it, played a little faster or slower. **No audio of any instrument is stored in the plugin or in this
+repository.**
+
+Measured against the reference notes, in third-octave bands from the first moment to four seconds in, the
+plugin's output differs by about 2 dB on average. Keys between the measured notes cannot be checked that way.
 
 ## Stereo
 
-Every wave is stereo, as if the piano were recorded with two microphones: left and right carry the same partials
-at somewhat different levels and phases. The bass stays in the middle, the upper part of the tone spreads out,
-and low keys sit a little to the left and high keys to the right. Summed to mono it loses about 1 dB.
+The measured piano is mono. Here every wave is made in stereo, as if the piano were recorded with two
+microphones: left and right carry the same partials at somewhat different levels and phases. The fundamental
+keeps the same level on both sides, so no note leans to one side by chance; the bass stays in the middle, and
+low keys sit a little to the left and high keys to the right. With Width at 0% the result is mono, and closest
+to the measured sound.
 
 ## Controls
 
 | Control | What it changes |
 | --- | --- |
 | Volume | Output level. A hard eight-note chord stays just under full scale at 0 dB. |
-| Tone | Closes or opens the filter on every note: darker and rounder to the left, wide open to the right. |
+| Tone | Closes or opens the filter on every note: darker and rounder to the left. At full velocity it is already wide open; to the right it also stays open for soft notes. |
 | Velocity | How much playing harder adds level and brightness. At 0% every note is the same, for programmed stabs. |
-| Decay | How long a held note rings: 100% is natural (long in the bass, short in the treble). |
+| Decay | How long a held note rings: 100% is the natural length as measured (long in the bass, short in the treble); lower fades it sooner. |
 | Release | How long a note rings on after the key is let go: the time to fall 60 dB, 50 ms to 5 s (default 600 ms). |
 | Detune | Above 0, every note sounds twice, one sharp and one flat, spread left and right. Uses two voices per note. |
 | Width | 100% is the full stereo image; 0% is mono. |
