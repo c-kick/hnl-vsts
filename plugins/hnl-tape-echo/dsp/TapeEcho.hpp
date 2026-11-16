@@ -3,7 +3,9 @@
 //   input -> preamp -+-> record (+ feedback, + hiss) -> tape loop -> heads 1..3
 //                    |        ^                                        |
 //                    |        +---- intensity <---- bass / treble <----+--> echo
-//                    +-> spring reverb ----------------------------------> reverb
+//                    |                                                 | echo level
+//                    +-> spring reverb <-------------------------------+
+//                              +-----------------------------------------> reverb
 //
 // One loop of tape runs past a record head and three playback heads at one,
 // two and three times the same distance. The tape is modelled as it moves:
@@ -39,7 +41,7 @@ struct EchoParams {
     bool head[kHeads] = {false, true, false};
     double intensity = 35.0; // percent of feedback; howls by itself somewhere past 60
     double echo = 60.0;      // percent
-    double reverb = 0.0;     // percent
+    double reverb = 0.0;     // percent; the springs hear the input and the echo
     double bass = 0.0;       // dB, on the echo
     double treble = 0.0;     // dB, on the echo
     double wobble = 25.0;    // percent of wow and flutter
@@ -252,8 +254,8 @@ public:
             // More heads feed back more, but not in proportion.
             feedback_ = fbGain_ * sum / std::sqrt(std::max(1.0, heads));
 
-            // Springs, driven by the preamp.
-            const double drive = springHp_.process(amp);
+            // Springs, driven by the preamp and by the echo as loud as it is set.
+            const double drive = springHp_.process(amp + echo_ * sum);
             const double s0 = spring_[0].process(drive), s1 = spring_[1].process(drive), s2 = spring_[2].process(drive);
             const double rl = s0 + 0.5 * s2, rr = s1 + 0.5 * s2, rm = 0.5 * (rl + rr);
             const double revL = springLp_[0][1].process(springLp_[0][0].process(rm + width_ * (rl - rm)));

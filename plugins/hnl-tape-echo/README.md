@@ -6,7 +6,11 @@ by itself when you push it.
 
 ![HNL Tape Echo](docs/preview.png)
 
-*Rendered from the plugin's drawing code; not yet a screenshot from a host.*
+| Default | Help tips | Presets |
+| --- | --- | --- |
+| ![Default](docs/default.png) | ![Help tip on Intensity](docs/help.png) | ![Preset menu](docs/menu.png) |
+
+*Rendered from the plugin's drawing code; not yet screenshots from a host.*
 
 ## What it does
 
@@ -16,7 +20,7 @@ by itself when you push it.
   on the tape and the motor takes a moment to follow. Long times are darker than short ones.
 - **Saturating repeats:** the echo is recorded again and again through the tape, so every repeat is a little
   more compressed and coloured. Past about 60% intensity it feeds itself and howls, held in check by the tape.
-- **Spring reverb:** three springs with the splashy upward sweep of the real thing, next to the echo.
+- **Spring reverb:** three springs with the splashy upward sweep of the real thing. The echoes reverberate too.
 - **Wow, flutter and hiss:** an unsteady tape speed, and noise that is recorded along with the signal.
 - **Tempo sync:** the echo time can follow the song tempo.
 
@@ -32,7 +36,7 @@ by itself when you push it.
 | Time | Head 1, from 40 to 400 ms; head 3 reaches 1.2 s. |
 | Intensity | How much of the echo is recorded again. One head starts to sustain by itself somewhere past 60%; three heads do so below 50%. |
 | Echo | Echo level. At 100% the first repeat is as loud as the input. |
-| Reverb | Spring reverb level. The springs are driven by the input and decay in about 2 seconds. |
+| Reverb | Spring reverb level. The springs are driven by the input and by the echoes (as loud as Echo sets them) and decay in about 2 seconds. |
 | Bass, Treble | Tone of the echo, ±10 dB around 200 Hz and from 2.5 kHz. They sit inside the repeat loop, so each repeat gets them again. |
 | Wobble | Wow and flutter. 25% is a machine in good order (a few cents of pitch movement); 100% needs service. |
 | Noise | Tape hiss: off at 0, about 60 dB under the tape level at 50%, 20 dB more at 100%. With Intensity up it builds and can start the howl by itself. |

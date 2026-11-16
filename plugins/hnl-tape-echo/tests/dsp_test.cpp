@@ -287,6 +287,26 @@ static void testStereo() {
     for (size_t i = 0; i < l.size(); ++i) diff = std::max(diff, static_cast<double>(std::fabs(l[i] - r[i])));
     check(diff < 1e-6, "width 0%: mono", "largest difference %.1e", diff);
 
+    // The echoes reverberate too: echo and reverb together are more than the two apart.
+    {
+        Buf out[3];
+        for (int n = 0; n < 3; ++n) {
+            p = plain(0);
+            p.time = 0.2;
+            p.echo = n == 1 ? 0.0 : 100.0;
+            p.reverb = n == 0 ? 0.0 : 100.0;
+            m.setParams(p);
+            m.reset();
+            out[n] = burst(fs, 1.0, 0.05);
+            Buf other = out[n];
+            run(m, out[n], other);
+        }
+        Buf extra(out[0].size());
+        for (size_t i = 0; i < extra.size(); ++i) extra[i] = out[2][i] - out[0][i] - out[1][i];
+        const double before = rms(extra, fs, 0.0, 0.29), after = rms(extra, fs, 0.3, 0.6), direct = rms(out[1], fs, 0.1, 0.4);
+        check(before < 1e-6 && after > 0.4 * direct && after < 2.5 * direct, "echoes go through the springs", "%.1f dB against the input's reverb", linToDb(after / direct));
+    }
+
     // Dry passes left and right untouched; with dry off and nothing else on, silence.
     p = plain(0);
     p.echo = 0.0;

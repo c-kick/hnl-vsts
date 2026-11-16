@@ -16,7 +16,7 @@ inline const char* forParam(uint32_t id) {
     case kHead3: return "Playback head 3, at three times the time of head 1. With Width up it leans to the right.";
     case kIntensity: return "How much of the echo is recorded again: the number of repeats. Somewhere past 60% the echo feeds itself and howls, held in check only by the tape. More heads get there sooner.";
     case kEcho: return "Level of the echo. At 100% the first repeat is as loud as the input.";
-    case kReverb: return "Level of the spring reverb. It is driven by the input, next to the echo, and has the splashy sweep of real springs.";
+    case kReverb: return "Level of the spring reverb. The springs hear the input and the echoes, as loud as Echo sets them, and have the splashy sweep of real springs.";
     case kBass: return "Lows of the echo, around 200 Hz and below. It sits inside the repeat loop, so every repeat gets it again: cutting makes the repeats thin out, boosting makes them boom.";
     case kTreble: return "Highs of the echo, from about 2.5 kHz. Also inside the loop: cutting makes each repeat darker than the last.";
     case kWobble: return "Unsteadiness of the tape speed: slow wow and faster flutter. A little brings the echoes alive; a lot sounds like a machine that needs service.";
