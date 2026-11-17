@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Help texts, shown as tips when help is switched on in the UI.
 #pragma once
 

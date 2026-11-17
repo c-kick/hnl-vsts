@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // HNL Transient Shaper: the audio engine.
 //
 // Turns the hit of a sound up or down separately from what follows it, and

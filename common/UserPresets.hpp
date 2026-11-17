@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Presets the user saves, kept as small text files so that they are there in
 // every song. One file per preset:
 //

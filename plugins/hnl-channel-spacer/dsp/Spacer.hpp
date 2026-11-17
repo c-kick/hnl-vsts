@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // HNL Channel Spacer: makes room in one signal for another, per frequency band.
 //
 // The ducker (the sidechain) is split into bands and its level followed per

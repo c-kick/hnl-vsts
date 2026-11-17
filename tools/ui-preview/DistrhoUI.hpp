@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Stand-in for DPF's DistrhoUI.hpp that records the UI's NanoVG drawing as
 // SVG, so the layout can be checked on a machine without OpenGL or Windows.
 // Only the calls the plugins use are implemented; add more as needed.

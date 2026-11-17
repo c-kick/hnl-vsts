@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Fits a piano voice to reference recordings: measures, for every recorded note,
 // the noise of its attack and its partials (frequency, starting phase, and level
 // over time) and writes them as a data file for dsp/. The recordings themselves are

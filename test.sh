@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 # Runs the offline tests of the shared code and of all plugins (or the ones named) with the
 # host compiler. A plugin whose tests take longer than TEST_TIMEOUT seconds counts as failed.
 set -e

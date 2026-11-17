@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Guards against what a host may hand a plugin: samples and parameter values
 // that are not numbers, and arithmetic on numbers too small to matter.
 //

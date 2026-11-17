@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Saving, loading and deleting a preset through a plugin's real UI class, driven by clicks and
 // keys as a host window would send them. Built once per plugin by its tests/run.sh against the
 // drawing stand-in in tools/ui-preview, with -DPRESET_X=<the plugin's kPresetX>, or with

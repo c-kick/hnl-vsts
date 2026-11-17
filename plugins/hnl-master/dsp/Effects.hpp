@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // The optional colour stages of the mastering chain: three-band equaliser,
 // stereo widener and reverb. None of them adds latency.
 #pragma once

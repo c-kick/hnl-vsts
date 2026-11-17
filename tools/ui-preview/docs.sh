@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 # Renders the screenshots in plugins/<name>/docs/ again from the plugins' drawing code.
 #   tools/ui-preview/docs.sh <playwright index.mjs>               all plugins
 #   tools/ui-preview/docs.sh <playwright index.mjs> hnl-master    one plugin

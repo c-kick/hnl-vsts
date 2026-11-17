@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 # zig's archiver, for the Windows cross-build. Same zig as zwrap; override with ZIG=.
 ZIG=${ZIG:-$HOME/.local/opt/zig-x86_64-linux-0.17.1/zig}
 exec "$ZIG" ar "$@"

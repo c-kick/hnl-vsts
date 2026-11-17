@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // HNL Tape Master: user interface (NanoVG). All coordinates are in a fixed
 // UI_BASE_WIDTH x UI_BASE_HEIGHT design space, scaled by the host's UI scale.
 #include <cmath>

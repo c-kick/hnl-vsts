@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // HNL Bus Compressor: the audio engine.
 //
 // A stereo-linked VCA-style compressor for a mix or drum bus. The sidechain

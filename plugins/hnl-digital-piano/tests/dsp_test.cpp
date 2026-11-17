@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Offline measurements of the piano engine. Build and run with tests/run.sh.
 #include <chrono>
 #include <cstdint>

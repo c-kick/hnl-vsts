@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 # Runs zig as a Windows cross-compiler. Called through the zcc / zc++ symlinks.
 # Drops the GCC-only flags that DPF's makefiles pass for MinGW builds.
 ZIG=${ZIG:-$HOME/.local/opt/zig-x86_64-linux-0.17.1/zig}

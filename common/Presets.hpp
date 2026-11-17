@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Factory presets, shared by all plugins. A preset is the default value of
 // every parameter plus a list of overrides, so adding a parameter never
 // needs a change to existing presets.

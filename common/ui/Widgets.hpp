@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // UI parts shared by the plugins: the logo, the meters, the preset bar and the help tips.
 //
 // Include after DistrhoUI.hpp. The drawing functions are templates on the

@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 # Cross-compiles the plugins as Windows VST3 and CLAP with zig. Results land in dist/.
 #   ./build.sh               all plugins
 #   ./build.sh hnl-master    one plugin

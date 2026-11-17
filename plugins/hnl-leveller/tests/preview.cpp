@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|fet|arc|leds|help|menu|save]
 #include <fstream>
 #include <string>

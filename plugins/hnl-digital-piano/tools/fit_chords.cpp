@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Fits a piano voice when the only reference is a few recorded chords.
 //
 // Each chord is taken apart into the partials of its notes. A partial that two

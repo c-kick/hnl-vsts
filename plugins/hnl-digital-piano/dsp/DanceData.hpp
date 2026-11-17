@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // A piano made up from measurements of a few recorded chords, written by tools/fit_chords.cpp:
 // do not edit by hand.
 #pragma once

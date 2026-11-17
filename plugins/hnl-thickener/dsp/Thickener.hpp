@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // HNL Thickener: the audio engine.
 //
 // Adds a second copy of the signal on top of the untouched one. In that copy

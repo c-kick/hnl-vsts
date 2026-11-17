@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // What a fitted piano voice is made of: for every measured note, the noise of its attack and its
 // partials. Each partial has a frequency early and late in the note (as multiples of the note's own
 // frequency), a starting phase, and its level in tenths of a dB at the times of kTimeMs. The data

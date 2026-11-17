@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // The complete mastering chain:
 //   input gain -> 3-band compressor -> equaliser -> exciter -> widener
 //   -> reverb -> true-peak limiter -> meters

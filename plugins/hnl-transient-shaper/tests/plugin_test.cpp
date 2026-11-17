@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Drives the plugin through DPF's own host-side wrapper, natively on Linux.
 #include <algorithm>
 #include <cmath>

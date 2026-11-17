@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // The meter design: the arrows step through the three, the host is told by name, and a
 // song that stored a name gets that design back. Runs a plugin's UI class on the drawing
 // stand-in in tools/ui-preview, with -DMETER_LEFT and -DMETER_RIGHT (the ends of the strip

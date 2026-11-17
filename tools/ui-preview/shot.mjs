@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Renders SVG files to PNG with headless Chromium, each at its own size:
 //   node shot.mjs <playwright index.mjs> <in.svg> <out.png> [<in.svg> <out.png> ...]
 import { readFileSync } from 'node:fs';

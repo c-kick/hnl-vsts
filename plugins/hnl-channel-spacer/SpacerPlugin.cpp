@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // HNL Channel Spacer: plugin side. Wraps hnl::Spacer for DPF.
 #include <atomic>
 #include <cstdio>
@@ -25,7 +28,7 @@ protected:
     }
     const char* getMaker() const override { return "HNL Design"; }
     const char* getHomePage() const override { return "https://hnldesign.nl"; }
-    const char* getLicense() const override { return "ISC"; }
+    const char* getLicense() const override { return "GPL-3.0-or-later"; }
     uint32_t getVersion() const override { return d_version(HNL_VERSION_MAJOR, HNL_VERSION_MINOR, HNL_VERSION_PATCH); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override {

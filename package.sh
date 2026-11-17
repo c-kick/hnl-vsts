@@ -1,5 +1,8 @@
 #!/bin/sh
-# Zips the built plugins for the Downloads release: dist/<Plugin>-win64.zip holds <Plugin>.vst3 and <Plugin>.clap.
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+# Zips the built plugins for the Downloads release: dist/<Plugin>-win64.zip holds <Plugin>.vst3, <Plugin>.clap
+# and the licence (LICENSE.txt).
 # The name carries no version, so that the link to a plugin's download never changes; release.sh uploads them.
 # Run ./build.sh first.
 #   ./package.sh               all plugins
@@ -16,6 +19,7 @@ for p do
     done
     zip="$name-win64.zip"
     rm -f "dist/$zip"
-    (cd dist && python3 -m zipfile -c "$zip" "$name.vst3" "$name.clap")
+    cp LICENSE dist/LICENSE.txt
+    (cd dist && python3 -m zipfile -c "$zip" "$name.vst3" "$name.clap" LICENSE.txt)
     echo "dist/$zip ($version)"
 done

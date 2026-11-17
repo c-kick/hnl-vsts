@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // The four processors of the mastering chain: compressor band, exciter,
 // true-peak limiter and a BS.1770 loudness meter.
 #pragma once

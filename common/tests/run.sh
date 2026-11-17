@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 # Builds and runs the tests of the shared code with the host compiler, plainly
 # and with the flags the plugins are built with (DPF: -O3 -ffast-math).
 set -e

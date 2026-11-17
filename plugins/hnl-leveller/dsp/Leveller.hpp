@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // HNL Leveller: the audio engine.
 //
 // A levelling compressor for single sources such as a vocal or a bass, with

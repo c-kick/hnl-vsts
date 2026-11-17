@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // What a host may do to a plugin without being wrong, and a little beyond: unusual sample rates,
 // blocks of any length, parameters jumping about, garbage MIDI and tempo. One file for all plugins:
 // plugins/<name>/tests/abuse_test.cpp includes its Params.hpp and then this.

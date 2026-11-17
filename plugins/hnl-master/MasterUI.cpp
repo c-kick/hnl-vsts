@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // HNL Master: user interface (NanoVG).
 //
 // The window is a row of modules. A stage that is switched off collapses to

@@ -13,6 +13,8 @@ To install, copy the `.vst3` folder from the zip to `C:\Program Files\Common Fil
 that takes CLAP (Bitwig Studio, Reaper and others), the `.clap` file to `C:\Program Files\Common Files\CLAP\`.
 A host needs only one of the two. Each plugin shows its version behind its title.
 
+The plugins are free software under the GNU General Public License, version 3 or later: see [Licence](#licence).
+
 ## Effects
 
 <table>
@@ -203,3 +205,19 @@ release on GitHub, "Downloads". That release always holds the current zip of eve
 a version, so the download links above never change; its notes list plugin, version and date. Without a name it
 releases every plugin whose version has no tag yet; `--dry-run` shows what it would do. There is no release per
 version: older versions are built from their tags.
+
+## Licence
+
+Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink.
+
+These plugins are free software: you can redistribute them and/or modify them under the terms of the GNU General
+Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option)
+any later version. They are distributed in the hope that they will be useful, but without any warranty; without
+even the implied warranty of merchantability or fitness for a particular purpose. The full text is in
+[LICENSE](LICENSE), and in `LICENSE.txt` in every download.
+
+In short: use them for anything, music you sell included; study, change and share them. Whoever passes on a
+changed version passes on its source under the same licence.
+
+The [DISTRHO Plugin Framework](https://github.com/DISTRHO/DPF) in `dpf/` is not part of this work and keeps its
+own licence (ISC, see `dpf/LICENSING.md`).

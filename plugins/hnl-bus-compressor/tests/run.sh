@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 # Builds and runs this plugin's offline tests with the host compiler:
 #   dsp_test     measurements of the compressor
 #   plugin_test  the plugin driven through DPF's host-side wrapper

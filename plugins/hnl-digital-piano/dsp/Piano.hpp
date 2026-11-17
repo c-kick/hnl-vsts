@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Digital pianos of the 1980s and 1990s, one engine, several voices.
 //
 // WORKSTATION

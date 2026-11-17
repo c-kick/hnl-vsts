@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // A tape echo with three playback heads and a spring reverb.
 //
 //   input -> preamp -+-> record (+ feedback, + hiss) -> tape loop -> heads 1..3

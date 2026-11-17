@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Building blocks shared by all plugins: biquads and their designs, a
 // first-order shelf with an exact inverse,
 // Linkwitz-Riley crossover, delay, halfband oversampling and a true-peak

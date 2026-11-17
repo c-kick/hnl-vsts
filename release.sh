@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 # Releases plugins: everything from the tests to the download on GitHub, in one go.
 #   ./release.sh hnl-master hnl-leveller   these plugins
 #   ./release.sh                           every plugin whose version has no tag yet

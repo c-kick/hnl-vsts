@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Tests of common/dsp/Safety.hpp and the guards in common/dsp/Filters.hpp.
 // Built twice by run.sh: plainly, and with the flags the plugins are built with.
 #include <cstdint>

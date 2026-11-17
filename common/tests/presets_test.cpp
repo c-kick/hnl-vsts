@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
 // Tests of common/UserPresets.hpp (presets saved as files) and of the preset bar in
 // common/ui/Widgets.hpp (the list, typing a name, deleting). No plugin and no window needed.
 #include <cstdio>
