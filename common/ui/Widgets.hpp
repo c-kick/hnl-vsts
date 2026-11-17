@@ -472,9 +472,31 @@ public:
         return kHandled;
     }
 
-    /** Text was typed (UTF-8, one character). True when the bar took it. */
-    bool character(const char* utf8) {
+    /**
+     * Text was typed: one character, as UTF-8 and as its Unicode number. True when the bar took it.
+     * A host that hands the keys to the plugin itself (VST3) gives only the number, with `utf8` empty.
+     */
+    bool character(const char* utf8, unsigned code = 0) {
         if (!editing_) return false;
+        char made[5] = {0};
+        if (utf8[0] == '\0' && code != 0 && code <= 0x10FFFF && (code < 0xD800 || code > 0xDFFF)) {
+            if (code < 0x80) {
+                made[0] = static_cast<char>(code);
+            } else if (code < 0x800) {
+                made[0] = static_cast<char>(0xC0 | (code >> 6));
+                made[1] = static_cast<char>(0x80 | (code & 0x3F));
+            } else if (code < 0x10000) {
+                made[0] = static_cast<char>(0xE0 | (code >> 12));
+                made[1] = static_cast<char>(0x80 | ((code >> 6) & 0x3F));
+                made[2] = static_cast<char>(0x80 | (code & 0x3F));
+            } else {
+                made[0] = static_cast<char>(0xF0 | (code >> 18));
+                made[1] = static_cast<char>(0x80 | ((code >> 12) & 0x3F));
+                made[2] = static_cast<char>(0x80 | ((code >> 6) & 0x3F));
+                made[3] = static_cast<char>(0x80 | (code & 0x3F));
+            }
+            utf8 = made;
+        }
         const unsigned char c = static_cast<unsigned char>(utf8[0]);
         if (c < 0x20 || c == 0x7F) return true; // Enter, Backspace and the like also arrive as text
         for (const char* bad = "\\/:*?\"<>|"; *bad; ++bad)

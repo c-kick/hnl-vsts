@@ -55,6 +55,17 @@ static void type(DISTRHO::UI* ui, const char* text) {
         ui->onCharacterInput(ch);
     }
 }
+/** Typing as a VST3 host hands it over: the character's number, without its text. */
+static void typeFromHost(DISTRHO::UI* ui, const char* text) {
+    for (; *text; ++text) {
+        DISTRHO::KeyboardEvent key;
+        key.key = static_cast<unsigned char>(*text);
+        ui->onKeyboard(key);
+        DISTRHO::CharacterInputEvent ch;
+        ch.character = static_cast<unsigned char>(*text);
+        ui->onCharacterInput(ch);
+    }
+}
 static bool key(DISTRHO::UI* ui, unsigned code) {
     DISTRHO::KeyboardEvent ev;
     ev.key = code;
@@ -167,6 +178,14 @@ int main() {
     type(ui, "zzz");
     check(key(ui, 0x1B) && !fs::exists(dir / "Mix Azzz.hnlpreset") && shows(ui, "Mix A"), "Escape saves nothing");
     check(!key(ui, 0x1B) && !key(ui, 'a'), "keys go back to the host when no name is being typed");
+
+    // A host that hands over the keys itself gives each character as a number only.
+    click(ui, bar(ui).nameBox());
+    click(ui, bar(ui).rowBox(factory + 1, factory + 2));
+    for (int i = 0; i < 5; ++i) key(ui, 0x08);
+    typeFromHost(ui, "Bus/ 2");
+    check(shows(ui, "Bus 2|"), "a name can be typed when the host passes the keys on without their text");
+    key(ui, 0x1B);
 
     // Saving over the user's own preset keeps one file.
     ui->parameterChanged(a, info(a).max);

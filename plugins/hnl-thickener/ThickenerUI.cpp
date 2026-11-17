@@ -236,7 +236,7 @@ protected:
     }
 
     bool onCharacterInput(const CharacterInputEvent& ev) override {
-        if (!presetBar_.character(ev.string)) return false;
+        if (!presetBar_.character(ev.string, ev.character)) return false;
         repaint();
         return true;
     }
