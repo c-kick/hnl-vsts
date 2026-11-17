@@ -1,9 +1,11 @@
-// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|help|menu]
+// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|help|menu|save]
 #include <fstream>
 #include <string>
 
 #include "DistrhoUI.hpp"
 #include "../Params.hpp"
+#include "../Presets.hpp"
+#include "../../../common/ui/Widgets.hpp"
 
 /** A voice-like ducker: body around 250 Hz, presence around 3 kHz, some air. */
 static float voice(double f) {
@@ -49,6 +51,16 @@ int main(int argc, char** argv) {
         DISTRHO::MouseEvent click; // the preset name
         click.pos.x = 310;
         click.pos.y = 26;
+        ui->onMouse(click);
+    }
+    if (mode == "save") { // the name box, as after Save as... at the end of the preset list
+        DISTRHO::MouseEvent click; // the preset name
+        click.pos.x = 310;
+        click.pos.y = 26;
+        ui->onMouse(click);
+        const int row = presets::list().count(); // Save as... follows the last preset
+        click.pos.x += (row / hnl::ui::PresetBar::kMaxRows) * 170;
+        click.pos.y = 44 + (row % hnl::ui::PresetBar::kMaxRows) * hnl::ui::PresetBar::kRow + 11;
         ui->onMouse(click);
     }
     ui->onNanoDisplay();

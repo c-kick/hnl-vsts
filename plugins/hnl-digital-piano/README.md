@@ -5,9 +5,9 @@ An instrument with five pianos, each as its own voice, all in stereo: the digita
 
 ![HNL Digital Piano](docs/preview.png)
 
-| Grand | Help tips | Presets |
-| --- | --- | --- |
-| ![Grand voice](docs/grand.png) | ![Help tip on Width](docs/help.png) | ![Preset menu](docs/menu.png) |
+| Grand | Help tips | Presets | Saving a preset |
+| --- | --- | --- | --- |
+| ![Grand voice](docs/grand.png) | ![Help tip on Width](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
 *Rendered from the plugin's drawing code; not yet screenshots from a host.*
 

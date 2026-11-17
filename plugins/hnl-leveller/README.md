@@ -5,9 +5,9 @@ and a fast, firm FET.
 
 ![HNL Leveller](docs/preview.png)
 
-| FET type | Help tips | Presets |
-| --- | --- | --- |
-| ![FET type](docs/fet.png) | ![Help tip on Release](docs/help.png) | ![Preset menu](docs/menu.png) |
+| FET type | Help tips | Presets | Saving a preset |
+| --- | --- | --- | --- |
+| ![FET type](docs/fet.png) | ![Help tip on Release](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
 *Rendered from the plugin's drawing code; not yet a screenshot from a host.*
 

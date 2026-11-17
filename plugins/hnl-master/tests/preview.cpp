@@ -1,4 +1,4 @@
-// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|all|limiter|closed|menu|help]
+// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|all|limiter|closed|menu|save|help]
 //   default  as a new instance opens      busy    meters moving, a preset edited
 //   all      every stage switched on      closed  every stage switched off
 //   limiter  only the limiter switched on
@@ -9,6 +9,8 @@
 
 #include "DistrhoUI.hpp"
 #include "../Params.hpp"
+#include "../Presets.hpp"
+#include "../../../common/ui/Widgets.hpp"
 
 int main(int argc, char** argv) {
     const std::string mode = argc > 2 ? argv[2] : "default";
@@ -51,6 +53,16 @@ int main(int argc, char** argv) {
         move.pos.x = 644;
         move.pos.y = 394;
         ui->onMotion(move);
+    }
+    if (mode == "save") { // the name box, as after Save as... at the end of the preset list
+        DISTRHO::MouseEvent click; // the preset name
+        click.pos.x = 200;
+        click.pos.y = 26;
+        ui->onMouse(click);
+        const int row = presets::list().count(); // Save as... follows the last preset
+        click.pos.x += (row / hnl::ui::PresetBar::kMaxRows) * 170;
+        click.pos.y = 44 + (row % hnl::ui::PresetBar::kMaxRows) * hnl::ui::PresetBar::kRow + 11;
+        ui->onMouse(click);
     }
     ui->onNanoDisplay();
     std::ofstream out(argv[1]);

@@ -10,9 +10,9 @@ This VST plugin does the same with 32 bands.
 
 ![HNL Channel Spacer](docs/preview.png)
 
-| Default | Help tips | Presets |
-| --- | --- | --- |
-| ![Default](docs/default.png) | ![Help tip on Link](docs/help.png) | ![Preset menu](docs/menu.png) |
+| Default | Help tips | Presets | Saving a preset |
+| --- | --- | --- | --- |
+| ![Default](docs/default.png) | ![Help tip on Link](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
 *Rendered from the plugin's drawing code; not yet screenshots from a host.*
 

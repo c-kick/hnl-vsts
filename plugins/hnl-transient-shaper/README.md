@@ -5,9 +5,9 @@ or the other way round.
 
 ![HNL Transient Shaper](docs/preview.png)
 
-| Help tips | Presets |
-| --- | --- |
-| ![Help tip on Sustain](docs/help.png) | ![Preset menu](docs/menu.png) |
+| Help tips | Presets | Saving a preset |
+| --- | --- | --- |
+| ![Help tip on Sustain](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
 *Rendered from the plugin's drawing code; not yet a screenshot from a host.*
 
