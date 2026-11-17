@@ -19,3 +19,8 @@ g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1
 g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1 -o "$OUT/abuse_test" \
     tests/abuse_test.cpp PianoPlugin.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp
 "$OUT/abuse_test"
+# Saving, loading and deleting a preset through the UI class itself (common/tests/ui_presets_test.cpp).
+PRESET_X=$(sed -n 's/.*kPresetX = \([0-9]*\).*/\1/p' PianoUI.cpp)
+g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DPRESET_X=$PRESET_X -o "$OUT/ui_presets_test" \
+    $ROOT/common/tests/ui_presets_test.cpp PianoUI.cpp
+"$OUT/ui_presets_test"

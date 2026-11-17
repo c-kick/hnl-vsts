@@ -17,7 +17,7 @@ inline const char* forParam(uint32_t id) {
     }
 }
 
-const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen.";
+const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen. Save as... at the end of the list keeps the settings of this moment under a name of your own, for use in every song; the x behind such a preset deletes it.";
 const char* const kGain = "What the shaper is doing right now: the needle swings right when it turns the signal up and left when it turns it down. With Attack up it kicks right on every hit.";
 const char* const kLevels = "Peak levels going in and coming out, in dBFS, and the largest boost and cut of the last moment. Nothing limits the output: it can go over 0.";
 const char* const kHelp = "Help is on: rest the mouse on a control to read what it does. Click here again to switch it off.";

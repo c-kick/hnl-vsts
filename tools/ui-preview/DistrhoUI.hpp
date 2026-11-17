@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "DistrhoPluginInfo.h"
@@ -37,6 +38,9 @@ struct Pos { double x = 0, y = 0; double getX() const { return x; } double getY(
 struct MouseEvent { uint mod = 0, time = 0, button = 1; bool press = true; Pos pos; };
 struct MotionEvent { uint mod = 0, time = 0; Pos pos; };
 struct ScrollEvent { uint mod = 0, time = 0; Pos pos, delta; };
+struct KeyboardEvent { uint mod = 0, time = 0; bool press = true; uint key = 0, keycode = 0; };
+struct CharacterInputEvent { uint mod = 0, time = 0, keycode = 0, character = 0; char string[8] = {0}; };
+struct Window { bool focused = false; void focus() { focused = true; } };
 enum { kModifierShift = 1, kModifierControl = 2 };
 
 class UI {
@@ -54,8 +58,15 @@ public:
     virtual bool onMouse(const MouseEvent&) { return false; }
     virtual bool onMotion(const MotionEvent&) { return false; }
     virtual bool onScroll(const ScrollEvent&) { return false; }
+    virtual bool onKeyboard(const KeyboardEvent&) { return false; }
+    virtual bool onCharacterInput(const CharacterInputEvent&) { return false; }
 
     std::string svg;
+    // What the UI sent to the host, for the tests.
+    std::vector<std::pair<uint32_t, float>> sentParameters;
+    std::string sentState;
+    Window window;
+    Window& getWindow() { return window; }
 
     bool loadSharedResources() { return true; }
     double getScaleFactor() const { return 1.0; }
@@ -64,8 +75,8 @@ public:
     uint getHeight() const { return h_; }
     void setSize(uint w, uint h) { w_ = w; h_ = h; }
     void editParameter(uint32_t, bool) {}
-    void setParameterValue(uint32_t, float) {}
-    void setState(const char*, const char*) {}
+    void setParameterValue(uint32_t id, float value) { sentParameters.emplace_back(id, value); }
+    void setState(const char* key, const char* value) { sentState = std::string(key) + "=" + value; }
     void sendNote(uint8_t, uint8_t, uint8_t) {}
 
     void scale(float, float) {}

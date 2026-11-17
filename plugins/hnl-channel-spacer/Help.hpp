@@ -22,7 +22,7 @@ inline const char* forParam(uint32_t id) {
     }
 }
 
-const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen.";
+const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen. Save as... at the end of the list keeps the settings of this moment under a name of your own, for use in every song; the x behind such a preset deletes it.";
 const char* const kDisplay = "Bars from below: the level of the ducker per band. Dashed line: where ducking starts (Sensitivity). Curve from above: what is being cut from this channel right now. Thin line: the deepest each range may go (Depth and the four range controls).";
 const char* const kOutput = "Peak level leaving the plugin, in dBFS, and the deepest cut at this moment.";
 const char* const kHelp = "Help is on: rest the mouse on a control to read what it does. Click here again to switch it off.";

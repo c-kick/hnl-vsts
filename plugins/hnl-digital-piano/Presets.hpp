@@ -2,6 +2,7 @@
 #pragma once
 
 #include "../../common/Presets.hpp"
+#include "../../common/UserPresets.hpp"
 #include "Params.hpp"
 
 namespace presets {
@@ -133,5 +134,13 @@ inline bool inPreset(uint32_t id) { return id != kVolume && id != kTune; }
 
 /** The value a preset gives to an input parameter. */
 inline float value(int preset, uint32_t id) { return hnl::presetValue(kAll[preset], id, kParams[id].def); }
+
+/** The factory presets followed by the ones the user saved (common/UserPresets.hpp). */
+inline hnl::PresetList list() {
+    return hnl::PresetList("HNL Digital Piano", kAll, kCount, kInputParamCount, [](uint32_t id) {
+        const ParamInfo& p = kParams[id];
+        return hnl::PresetParam{p.symbol, p.min, p.max, p.def};
+    }, inPreset);
+}
 
 } // namespace presets

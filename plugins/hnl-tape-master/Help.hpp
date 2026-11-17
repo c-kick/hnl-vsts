@@ -23,7 +23,7 @@ inline const char* forParam(uint32_t id) {
     }
 }
 
-const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen.";
+const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen. Save as... at the end of the list keeps the settings of this moment under a name of your own, for use in every song; the x behind such a preset deletes it.";
 const char* const kVu = "Level on the tape. 0 VU is the level the machine is lined up for (see Calibration). Around 0 is gentle colour; resting in the red is heavy saturation.";
 const char* const kOutput = "Peak level leaving the plugin, in dBFS. The tape rounds peaks off but does not limit: keep an eye on this, or follow with a limiter.";
 const char* const kHelp = "Help is on: rest the mouse on a control to read what it does. Click here again to switch it off.";

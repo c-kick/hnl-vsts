@@ -113,9 +113,8 @@ protected:
     void stateChanged(const char* key, const char* value) override {
         if (std::strcmp(key, "preset") != 0) return;
         presetName_ = value;
-        preset_ = -1;
-        for (int i = 0; i < presets::kCount; ++i)
-            if (presetName_ == presets::kAll[i].name) preset_ = i;
+        list_.rescan();
+        preset_ = list_.find(presetName_);
         repaint();
     }
 
@@ -134,6 +133,7 @@ protected:
         label("HNL DIGITAL PIANO", 16, 27, 18, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
+        if (!presetNote_.empty()) presetText = presetNote_;
         presetBar_.drawBar(*this, kTheme, presetText.c_str());
         help_.drawButton(*this, kTheme);
 
@@ -144,7 +144,7 @@ protected:
         for (const Selector& sel : kSelectors) drawSelector(sel);
         drawKeyboard();
 
-        presetBar_.drawMenu(*this, kTheme, presets::kCount, preset_, [](int i) { return presets::kAll[i].name; });
+        presetBar_.drawMenu(*this, kTheme, list_.count(), preset_, list_.factoryCount(), canSavePreset(), [this](int i) { return list_.name(i); });
         if (!presetBar_.isOpen() && drag_ < 0 && mouseNote_ < 0) help_.drawTip(*this, kTheme, UI_BASE_WIDTH, UI_BASE_HEIGHT);
     }
 
@@ -166,10 +166,15 @@ protected:
             return true;
         }
 
-        const int picked = presetBar_.mouseDown(x, y, preset_, presets::kCount);
+        presetNote_.clear();
+        if (!presetBar_.isBusy() && presetBar_.nameBox().contains(x, y)) { // another window may have saved or deleted one
+            list_.rescan();
+            preset_ = list_.find(presetName_);
+        }
+        const int picked = presetBar_.mouseDown(x, y, preset_, list_.count(), list_.factoryCount(), canSavePreset());
         if (picked != hnl::ui::PresetBar::kNotMine) {
             help_.hide();
-            if (picked >= 0) applyPreset(picked);
+            presetAction(picked);
             repaint();
             return true;
         }
@@ -213,7 +218,7 @@ protected:
         const float s = static_cast<float>(getScaleFactor());
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
         if (presetBar_.isOpen()) {
-            if (presetBar_.motion(x, y, presets::kCount)) repaint();
+            if (presetBar_.motion(x, y, list_.count())) repaint();
             return true;
         }
         if (mouseNote_ >= 0) { // sliding over the keys
@@ -233,8 +238,23 @@ protected:
         return true;
     }
 
+    bool onKeyboard(const KeyboardEvent& ev) override {
+        if (!ev.press) return presetBar_.isEditing();
+        const int result = presetBar_.key(ev.key);
+        if (result == hnl::ui::PresetBar::kNotMine) return false;
+        presetAction(result);
+        repaint();
+        return true;
+    }
+
+    bool onCharacterInput(const CharacterInputEvent& ev) override {
+        if (!presetBar_.character(ev.string)) return false;
+        repaint();
+        return true;
+    }
+
     bool onScroll(const ScrollEvent& ev) override {
-        if (presetBar_.isOpen() || drag_ >= 0) return false;
+        if (presetBar_.isBusy() || drag_ >= 0) return false;
         const float s = static_cast<float>(getScaleFactor());
         const int hit = knobAt(static_cast<float>(ev.pos.getX()) / s, static_cast<float>(ev.pos.getY()) / s);
         if (hit < 0) return false;
@@ -262,11 +282,36 @@ private:
 
     // ------------------------------------------------------------ presets
 
+    bool canSavePreset() const { return list_.canSave() && !list_.full(); }
+
+    /** What the preset bar asks for: load a preset, start typing a name, save under it, or delete one. */
+    void presetAction(int picked) {
+        typedef hnl::ui::PresetBar Bar;
+        if (picked >= 0) {
+            applyPreset(picked);
+        } else if (picked == Bar::kEdit) {
+            presetBar_.startEdit(list_.suggestName(preset_));
+            getWindow().focus(); // so that the typing comes to this window
+        } else if (picked == Bar::kSave) {
+            const int saved = list_.save(presetBar_.text(), values_);
+            if (saved < 0) {
+                presetNote_ = "Could not save";
+                return;
+            }
+            preset_ = saved;
+            presetName_ = list_.name(saved);
+            setState("preset", presetName_.c_str());
+        } else if (picked == Bar::kDelete) {
+            if (!list_.remove(presetBar_.target())) presetNote_ = "Could not delete";
+            preset_ = list_.find(presetName_);
+        }
+    }
+
     void applyPreset(int index) {
         preset_ = index;
-        presetName_ = presets::kAll[index].name;
+        presetName_ = list_.name(index);
         for (uint32_t id = 0; id < kInputParamCount; ++id) {
-            const float v = presets::value(index, id);
+            const float v = list_.value(index, id);
             if (!presets::inPreset(id) || values_[id] == v) continue;
             editParameter(id, true);
             values_[id] = v;
@@ -282,7 +327,7 @@ private:
         if (preset_ < 0) return false;
         for (uint32_t id = 0; id < kInputParamCount; ++id) {
             const float tolerance = 1e-4f * (kParams[id].max - kParams[id].min);
-            if (presets::inPreset(id) && std::fabs(values_[id] - presets::value(preset_, id)) > tolerance) return true;
+            if (presets::inPreset(id) && std::fabs(values_[id] - list_.value(preset_, id)) > tolerance) return true;
         }
         return false;
     }
@@ -475,6 +520,8 @@ private:
     int preset_ = 0;
     std::string presetName_ = "Default";
     hnl::ui::PresetBar presetBar_{kPresetX, kHeaderY};
+    hnl::PresetList list_ = presets::list();
+    std::string presetNote_; // shown in place of the name until the next click
     hnl::ui::HelpTips help_;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PianoUI)

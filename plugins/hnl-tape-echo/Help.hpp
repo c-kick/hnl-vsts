@@ -27,7 +27,7 @@ inline const char* forParam(uint32_t id) {
     }
 }
 
-const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen.";
+const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen. Save as... at the end of the list keeps the settings of this moment under a name of your own, for use in every song; the x behind such a preset deletes it.";
 const char* const kTape = "Level going onto the tape, feedback included. Around 0 the tape starts to saturate clearly; far into the red the echoes are squashed and gritty.";
 const char* const kOutput = "Peak level leaving the plugin, in dBFS. A howling echo is loud: keep an eye on this.";
 const char* const kHelp = "Help is on: rest the mouse on a control to read what it does. Click here again to switch it off.";

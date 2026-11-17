@@ -56,7 +56,7 @@ inline const char* forParam(uint32_t id) {
     }
 }
 
-const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen.";
+const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen. Save as... at the end of the list keeps the settings of this moment under a name of your own, for use in every song; the x behind such a preset deletes it.";
 const char* const kInputMeter = "Peak level going into the chain, after Input Gain.";
 const char* const kOutputMeter = "Peak level leaving the plugin.";
 const char* const kGainReduction = "Gain reduction: how much this stage is turning the signal down right now.";

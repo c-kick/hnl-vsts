@@ -9,3 +9,7 @@ g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/safety_test" tests/safety_test.cpp
 "$OUT/safety_test"
 g++ -std=c++17 -O3 -ffast-math -Wall -Wextra -o "$OUT/safety_test_release" tests/safety_test.cpp
 "$OUT/safety_test_release"
+g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/presets_test" tests/presets_test.cpp
+"$OUT/presets_test"
+g++ -std=c++17 -O3 -ffast-math -Wall -Wextra -o "$OUT/presets_test_release" tests/presets_test.cpp
+"$OUT/presets_test_release"

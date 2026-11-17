@@ -40,8 +40,8 @@ Audio plugins by HNL Design (effects and an instrument), built as VST3 for Windo
   plugin and its NanoVG UI next to it, and offline tests in `tests/`.
 - `common/dsp/`: building blocks shared by the plugins (filters, oversampling, true-peak detection, a small reverb),
   and `Safety.hpp`: the guards every plugin puts between itself and the host (see "What a plugin must survive").
-- `common/ui/`: UI parts shared by the plugins (preset bar, help tips); `common/Presets.hpp`: how presets are
-  defined.
+- `common/ui/`: UI parts shared by the plugins (preset bar, help tips); `common/Presets.hpp`: how factory presets
+  are defined; `common/UserPresets.hpp`: the presets a user saves (see "Presets of your own").
 - `dpf/`: the [DISTRHO Plugin Framework](https://github.com/DISTRHO/DPF), as a git submodule.
 - `toolchain/`: wrappers that run zig as the Windows cross-compiler.
 - `tools/ui-preview/`: a stand-in for DPF's drawing API that writes a plugin UI as SVG, to check a layout on a
@@ -71,6 +71,28 @@ tests take longer than 15 minutes counts as failed (`TEST_TIMEOUT=<seconds>` cha
 into PNG with a Playwright Chromium.
 
 Install by copying the `<Plugin>.vst3` folder from `dist/` to `C:\Program Files\Common Files\VST3\`.
+
+## Presets of your own
+
+Every plugin can keep the settings of the moment as a preset: open the preset list, choose **Save as...** at its
+end, type a name and press Enter (or click the tick, which also works when the host keeps the keyboard to
+itself). Saved presets follow the factory ones in the list and in the arrows, and are there in every song.
+Saving under the name of one of your own presets replaces it; the cross behind a saved preset deletes it, after
+asking once. Factory presets cannot be replaced or deleted.
+
+A preset is a small text file, one per preset, so presets can be copied, shared and backed up:
+
+    %APPDATA%\HNL\<plugin name>\Presets\<preset name>.hnlpreset
+
+It holds `symbol = value` lines. A parameter that is not in the file gets its default, so a preset saved today
+still loads after a plugin gained a control; values outside a control's range are brought back into it. The list
+has room for 47 presets, factory ones included. A song stores the name of its preset and all control values
+itself, so it sounds the same on a computer that does not have the preset file.
+
+The code is shared: `common/UserPresets.hpp` (the files; no drawing code, tested by
+`common/tests/presets_test.cpp`) and the preset bar in `common/ui/Widgets.hpp`. `common/tests/ui_presets_test.cpp`
+saves, loads and deletes a preset through each plugin's own UI class. `HNL_PRESET_DIR`, when set, replaces the
+folder (the tests use it).
 
 ## What a plugin must survive
 

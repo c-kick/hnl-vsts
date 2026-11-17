@@ -18,7 +18,7 @@ inline const char* forParam(uint32_t id) {
     }
 }
 
-const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen.";
+const char* const kPresets = "Starting points. The arrows step through them. A * after the name means a control was changed since the preset was chosen. Save as... at the end of the list keeps the settings of this moment under a name of your own, for use in every song; the x behind such a preset deletes it.";
 const char* const kGr = "Gain reduction: how many dB the compressor is turning the signal down right now. Both channels always get the same reduction.";
 const char* const kLevels = "Peak levels going in and coming out, in dBFS. The compressor does not limit: with make-up gain the output can go over 0.";
 const char* const kHelp = "Help is on: rest the mouse on a control to read what it does. Click here again to switch it off.";
