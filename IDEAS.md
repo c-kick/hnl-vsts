@@ -9,6 +9,9 @@ plugins that have not been started.
   gain stage; it is clean as built.
 - **HNL Leveller:** oversampling for the colour stage, so that high Colour settings stay clean on bright
   material.
+- **HNL Thickener:** oversampling for Drive, more than one room character with a pre-delay (the room is
+  our own small model; a click recorded through the rack reverb it replaces would let it be matched), and a
+  goniometer next to the L/R bar.
 - **HNL Transient Shaper:** an output soft clipper for the boosted peaks, and shaping of only the range the
   detector listens to (multiband).
 - **HNL Digital Piano:** more voices, once there are reference recordings to fit them to (single notes across

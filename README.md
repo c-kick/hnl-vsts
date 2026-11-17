@@ -55,6 +55,13 @@ Reason 12.5+). To compile them on a Mac yourself, see [BUILDING-MACOS.md](BUILDI
   <tr>
     <td valign="top">Transient shaper for drums: attack and sustain of each hit up or down, whatever its level, with a detector that can listen to the lows, mids or highs only</td>
   </tr>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-thickener"><img src="plugins/hnl-thickener/docs/preview.png" alt="HNL Thickener" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-thickener">HNL Thickener</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Thickens drums, beats and anything else in the middle: adds a copy in which one channel is a few milliseconds late, through a small room, with a parallel compressor and saturator, on top of the untouched signal</td>
+  </tr>
 </table>
 
 ## Instruments
