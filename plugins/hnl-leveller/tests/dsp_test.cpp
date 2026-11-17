@@ -329,7 +329,7 @@ static float fromBits(uint32_t bits) {
     std::memcpy(&v, &bits, sizeof(v));
     return v;
 }
-static bool isNumber(float v) {
+[[maybe_unused]] static bool isNumber(float v) {
     uint32_t bits;
     std::memcpy(&bits, &v, sizeof(bits));
     return (bits & 0x7f800000u) != 0x7f800000u;
@@ -357,6 +357,30 @@ static void testDenormals() {
 #endif
 }
 
+/**
+ * BH-003. The Opto type holds part of the reduction in a slow stage. Switching to FET dropped that stage at once.
+ * The gain must carry on from where it was, not jump.
+ */
+static void testBh003Switch() {
+    const double fs = 48000;
+    LevellerParams p = clean(kOpto);
+    Lev m(fs, p);
+    auto loud = sine(1000, 0.5, fs, 4.0), loudR = loud;
+    run(m, loud, loudR); // long enough for the slow stage to fill
+    const auto gainOver = [&](double seconds) { // level of a quiet tone through the compressor, dB
+        auto l = sine(1000, 0.001, fs, seconds), r = l;
+        run(m, l, r);
+        double peak = 0;
+        for (size_t i = l.size() - 48; i < l.size(); ++i) peak = std::max(peak, static_cast<double>(std::fabs(l[i])));
+        return linToDb(peak / 0.001);
+    };
+    const double held = gainOver(0.3); // the quick stage has let go, the slow one holds on
+    p.type = kFet; // from Opto, whose slow stage holds on, to FET, which has none
+    m.setParams(p);
+    const double after = gainOver(0.002);
+    check(held < -2.0 && std::fabs(after - held) < 1.0, "BH-003 the gain does not jump at the switch", "%.2f dB before, %.2f dB two milliseconds after", held, after);
+}
+
 int main() {
     testStaticCurve();
     for (double fs : {44100.0, 48000.0, 96000.0}) testTiming(fs);
@@ -365,6 +389,7 @@ int main() {
     testSignal();
     testSilenceAndSpeed();
     testDenormals();
+    testBh003Switch();
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;
 }

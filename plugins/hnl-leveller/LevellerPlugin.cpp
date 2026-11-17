@@ -101,6 +101,7 @@ protected:
         if (!hnl::isClean(outputs[0], frames) || !hnl::isClean(outputs[1], frames)) {
             std::memset(outputs[0], 0, sizeof(float) * frames);
             std::memset(outputs[1], 0, sizeof(float) * frames);
+            hnl::guardTrips().fetch_add(1u, std::memory_order_relaxed);
             comp_.reset();
         }
 

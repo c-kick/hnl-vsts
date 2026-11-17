@@ -181,7 +181,12 @@ private:
         release_ = onePoleCoef(t.releaseMs, fs_);
         tail_ = onePoleCoef(t.tailMs, fs_);
         charge_ = onePoleCoef(1000.0 * kOptoChargeS, fs_);
-        if (p_.type != kOpto) slow_ = 0.0;
+        if (p_.type != kOpto) {
+            // Leaving Opto: the tail its slow stage still holds is handed to the quick one, so the
+            // gain carries on from where it is instead of jumping.
+            fast_ = std::max(fast_, kOptoTailShare * slow_);
+            slow_ = 0.0;
+        }
 
         kneeStart_ = dbToLin(p_.threshold - 0.5 * kLevKneesDb[p_.type][p_.ratio]);
         makeupTarget_ = dbToLin(p_.makeup);

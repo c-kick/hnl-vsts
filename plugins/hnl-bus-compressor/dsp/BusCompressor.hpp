@@ -141,7 +141,12 @@ private:
         release_ = onePoleCoef(1000.0 * (automatic ? kAutoFastS : kReleasesS[p_.release]), fs_);
         autoCharge_ = onePoleCoef(1000.0 * kAutoChargeS, fs_);
         autoSlow_ = onePoleCoef(1000.0 * kAutoSlowS, fs_);
-        if (!automatic) slow_ = 0.0;
+        if (!automatic) {
+            // Leaving Auto: what the slow stage still holds is handed to the quick one, so the
+            // gain carries on from where it is and lets go at the chosen release time.
+            fast_ = std::max(fast_, slow_);
+            slow_ = 0.0;
+        }
 
         kneeStart_ = dbToLin(p_.threshold - 0.5 * kKneesDb[p_.ratio]);
         makeupTarget_ = dbToLin(p_.makeup);

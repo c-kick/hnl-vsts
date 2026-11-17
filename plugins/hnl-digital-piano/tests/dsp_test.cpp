@@ -573,7 +573,12 @@ static void testRealtimeVoiceChange() {
         run(m, t, 0.005);
     }
     check(m.soundingVoice() == kDance && Bank::ready(kDance) != nullptr, "the new voice takes over when its waves are there", "after %.0f ms", waited);
-    check(m.activeVoices() == 1, "the note that was sounding rings on", "%.0f voices", static_cast<double>(m.activeVoices()));
+    // BH-004: how long the waves take depends on the machine, so nothing may be asked of the note that was
+    // sounding meanwhile (on a slow machine it has died away). A new note must get the new voice.
+    const int before = m.activeVoices();
+    m.noteOn(72, 100);
+    run(m, t, 0.05);
+    check(m.activeVoices() == before + 1, "BH-004 a note played after the change sounds", "%.0f voices before, %.0f after", static_cast<double>(before), static_cast<double>(m.activeVoices()));
 }
 
 /** Settings far outside their range must not take the engine outside its tables, nor silence it. */

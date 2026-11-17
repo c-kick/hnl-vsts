@@ -305,6 +305,44 @@ static void testMeters(double fs) {
     check(std::fabs(a - 3) < 0.3 && std::fabs(b + 3) < 0.3, "VU meters read the level on tape", "left %+.2f VU, right %+.2f VU", a, b);
 }
 
+/**
+ * BH-001. On the Input path the tape's filters are not run. Back on the tape they must not let
+ * out what they held when the path was switched away.
+ */
+static void testBh001PathSwitch() {
+    for (int back : {static_cast<int>(kRepro), static_cast<int>(kSync)}) {
+        const double fs = 48000;
+        TapeMachine m;
+        m.prepare(fs);
+        TapeParams p = steady();
+        m.setParams(p);
+        m.reset();
+        uint32_t s = 0x1234567u;
+        std::vector<float> l(static_cast<size_t>(0.5 * fs)), r(l.size());
+        for (size_t i = 0; i < l.size(); ++i) {
+            s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+            l[i] = r[i] = 0.25f * (static_cast<float>(s >> 8) / 8388608.0f - 1.0f);
+        }
+        run(m, l, r);
+        p.path = kInput; // away from the tape in the middle of the noise, then a second of silence
+        m.setParams(p);
+        l.assign(static_cast<size_t>(fs), 0.0f);
+        r.assign(l.size(), 0.0f);
+        run(m, l, r);
+        double before = 0;
+        for (size_t i = l.size() / 2; i < l.size(); ++i) before = std::max(before, static_cast<double>(std::max(std::fabs(l[i]), std::fabs(r[i]))));
+        p.path = back;
+        m.setParams(p);
+        l.assign(static_cast<size_t>(0.25 * fs), 0.0f);
+        r.assign(l.size(), 0.0f);
+        run(m, l, r);
+        double peak = 0;
+        for (size_t i = 0; i < l.size(); ++i) peak = std::max(peak, static_cast<double>(std::max(std::fabs(l[i]), std::fabs(r[i]))));
+        check(before < 1e-6 && peak < 1e-6, back == kRepro ? "BH-001 back to Repro: nothing left in the tape's filters" : "BH-001 back to Sync: nothing left in the tape's filters",
+              "peak %.2e (silent before: %.2e)", peak, before);
+    }
+}
+
 int main() {
     for (double fs : {44100.0, 48000.0, 96000.0}) {
         std::printf("--- %.0f Hz ---\n", fs);
@@ -319,6 +357,7 @@ int main() {
         testMeters(fs);
         testAliasingAndSpeed(fs);
     }
+    testBh001PathSwitch();
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;
 }

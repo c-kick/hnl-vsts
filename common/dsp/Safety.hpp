@@ -7,6 +7,7 @@
 // Header-only, no dependencies.
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 
@@ -55,6 +56,16 @@ inline bool isClean(const float* samples, uint32_t count) {
         all |= (bits & 0x7f800000u) == 0x7f800000u ? 1u : 0u;
     }
     return all == 0;
+}
+
+/**
+ * How often a plugin in this process had to throw a block away and start its engine again because
+ * the output was not a number. With clean input that should never happen: the tests check that it
+ * stays at zero, so the guard cannot hide a fault in an engine.
+ */
+inline std::atomic<uint32_t>& guardTrips() {
+    static std::atomic<uint32_t> count{0u};
+    return count;
 }
 
 /**

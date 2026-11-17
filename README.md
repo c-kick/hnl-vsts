@@ -61,7 +61,10 @@ git submodule update --init --recursive
 
 `./test.sh` builds every engine test twice: once plainly, and once with `-O3 -ffast-math`, the flags DPF builds the
 plugin itself with. Under those flags the compiler may assume that NaN and infinity never occur, so a test that
-only passes the first time shows code that behaves differently in the plugin than in its tests. A plugin whose
+only passes the first time shows code that behaves differently in the plugin than in its tests. Each plugin
+also has an `abuse_test`: `common/tests/HostAbuse.hpp` plays the part of a host that does everything a host may
+do (sample rates from 8 to 384 kHz, blocks of any length, parameters jumping about, garbage tempo and MIDI) and
+checks that the plugin stays bounded, comes to rest afterwards and never needed its own safety net. A plugin whose
 tests take longer than 15 minutes counts as failed (`TEST_TIMEOUT=<seconds>` changes that).
 
 `plugins/<name>/tests/preview.sh` writes the UI as SVG files into `build/`; `tools/ui-preview/shot.mjs` turns them
@@ -81,6 +84,9 @@ therefore does the following, and has a test for each in `tests/plugin_test.cpp`
   `reset()`), instead of staying broken until the host restarts it.
 - **Numbers too small to matter** count as zero while the engine runs (`hnl::ScopedNoDenormals` at the top of
   `process`), so filters ringing out into silence do not slow the processor down.
+- **A switch never lets out old sound or jumps in level.** A stage that is switched off does not run its
+  filters; when it comes back they are cleared (HNL Master's stages, Tape Master's path). State that a mode no
+  longer uses is handed over, not dropped (Bus Compressor's Auto release, Leveller's Opto tail).
 - **Nothing slow on the audio thread.** The piano computes a voice's waves on a thread of its own and keeps
   playing the voice it has until they are there (`Piano::setParamsRealtime`).
 

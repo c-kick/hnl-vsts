@@ -123,11 +123,9 @@ public:
     void reset() {
         for (int c = 0; c < 2; ++c) {
             a_[c].reset(); b_[c].reset(); delay_[c].reset();
-            pre_[c].reset(); de_[c].reset();
-            for (auto& f : head_[c]) f.reset();
-            for (auto& f : hiss_[c]) f.reset();
             vu_[c] = 0.0;
         }
+        resetTape();
         rec_ = recT_;
         out_ = outT_;
         lastDelay_ = kOversample * transport_;
@@ -146,6 +144,10 @@ public:
         ScopedNoDenormals guard;
         float* io[2] = {left, right};
         const bool tape = p_.path != kInput;
+        // On the Input path the tape's filters are not run. Back on the tape they start clean,
+        // instead of letting out what they held when the path was switched away.
+        if (tape && !tapeWasOn_) resetTape();
+        tapeWasOn_ = tape;
         const double base = kOversample * transport_;
         double outPk[2] = {0, 0};
 
@@ -195,6 +197,15 @@ public:
     }
 
 private:
+    /** Clears the filters that only run on the tape paths. */
+    void resetTape() {
+        for (int c = 0; c < 2; ++c) {
+            pre_[c].reset(); de_[c].reset();
+            for (auto& f : head_[c]) f.reset();
+            for (auto& f : hiss_[c]) f.reset();
+        }
+    }
+
     /** The tape's transfer curve. x and the result are in linear amplitude. */
     inline double magnetise(double x) const {
         const double u = x * satInv_;
@@ -309,6 +320,7 @@ private:
     TapeParams p_;
     double fs_ = 48000.0, smooth_ = 0.0, vuCoef_ = 0.0, driftCoef_ = 0.0;
     int transport_ = 48;
+    bool tapeWasOn_ = true;
     double rec_ = 1.0, recT_ = 1.0, out_ = 1.0, outT_ = 1.0;
     double ampInv2_ = 0.0, sat_ = 1.0, satInv_ = 1.0, soft_ = 0.0, under_ = 0.0;
     double wow_ = 0.0, flutter_ = 0.0, phase_[4] = {0.0, 1.0, 2.0, 3.0}, phaseInc_[4] = {}, drift_ = 0.0, lastDelay_ = 0.0;

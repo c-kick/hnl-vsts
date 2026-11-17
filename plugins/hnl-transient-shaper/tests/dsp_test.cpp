@@ -292,7 +292,7 @@ static float fromBits(uint32_t bits) {
     std::memcpy(&v, &bits, sizeof(v));
     return v;
 }
-static bool isNumber(float v) {
+[[maybe_unused]] static bool isNumber(float v) {
     uint32_t bits;
     std::memcpy(&bits, &v, sizeof(bits));
     return (bits & 0x7f800000u) != 0x7f800000u;
