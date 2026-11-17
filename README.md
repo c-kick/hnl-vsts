@@ -5,35 +5,69 @@ Reason 12.5+). To compile them on a Mac yourself, see [BUILDING-MACOS.md](BUILDI
 
 ## Effects
 
-| Plugin | What it is |
-| --- | --- |
-| [HNL Master](plugins/hnl-master) | Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets |
-| [HNL Tape Master](plugins/hnl-tape-master) | Two-track mastering tape machine: saturation, tape compression, head response by speed, formula and head width, wow, flutter, hiss |
-| [HNL Tape Echo](plugins/hnl-tape-echo) | Tape echo with three playback heads and a spring reverb: saturating repeats, pitch bends, wow and flutter, self-oscillation, tempo sync |
-| [HNL Bus Compressor](plugins/hnl-bus-compressor) | Stereo bus compressor: glue for a mix or drum bus, with stepped ratio, attack and release, auto release, sidechain high-pass and parallel mix |
-| [HNL Leveller](plugins/hnl-leveller) | Levelling compressor for vocals and bass: a smooth opto type with a two-stage release and a fast FET type, with colour, sidechain high-pass and parallel mix |
-| [HNL Transient Shaper](plugins/hnl-transient-shaper) | Transient shaper for drums: attack and sustain of each hit up or down, whatever its level, with a detector that can listen to the lows, mids or highs only |
-| [HNL Channel Spacer](plugins/hnl-channel-spacer) | Makes room in one channel for another: turns down only the frequency ranges where the sidechain signal is playing, in 32 bands; also works as a sidechain ducker |
-
-| HNL Master | HNL Tape Master |
-| --- | --- |
-| ![HNL Master](plugins/hnl-master/docs/preview.png) | ![HNL Tape Master](plugins/hnl-tape-master/docs/preview.png) |
-| **HNL Tape Echo** | **HNL Bus Compressor** |
-| ![HNL Tape Echo](plugins/hnl-tape-echo/docs/preview.png) | ![HNL Bus Compressor](plugins/hnl-bus-compressor/docs/preview.png) |
-| **HNL Leveller** | **HNL Transient Shaper** |
-| ![HNL Leveller](plugins/hnl-leveller/docs/preview.png) | ![HNL Transient Shaper](plugins/hnl-transient-shaper/docs/preview.png) |
-| **HNL Channel Spacer** | |
-| ![HNL Channel Spacer](plugins/hnl-channel-spacer/docs/preview.png) | |
+<table>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-master"><img src="plugins/hnl-master/docs/preview.png" alt="HNL Master" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-master">HNL Master</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets</td>
+  </tr>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-tape-master"><img src="plugins/hnl-tape-master/docs/preview.png" alt="HNL Tape Master" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-tape-master">HNL Tape Master</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Two-track mastering tape machine: saturation, tape compression, head response by speed, formula and head width, wow, flutter, hiss</td>
+  </tr>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-tape-echo"><img src="plugins/hnl-tape-echo/docs/preview.png" alt="HNL Tape Echo" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-tape-echo">HNL Tape Echo</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Tape echo with three playback heads and a spring reverb: saturating repeats, pitch bends, wow and flutter, self-oscillation, tempo sync</td>
+  </tr>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-bus-compressor"><img src="plugins/hnl-bus-compressor/docs/preview.png" alt="HNL Bus Compressor" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-bus-compressor">HNL Bus Compressor</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Stereo bus compressor: glue for a mix or drum bus, with stepped ratio, attack and release, auto release, sidechain high-pass and parallel mix</td>
+  </tr>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-leveller"><img src="plugins/hnl-leveller/docs/preview.png" alt="HNL Leveller" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-leveller">HNL Leveller</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Levelling compressor for vocals and bass: a smooth opto type with a two-stage release and a fast FET type, with colour, sidechain high-pass and parallel mix</td>
+  </tr>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-transient-shaper"><img src="plugins/hnl-transient-shaper/docs/preview.png" alt="HNL Transient Shaper" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-transient-shaper">HNL Transient Shaper</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Transient shaper for drums: attack and sustain of each hit up or down, whatever its level, with a detector that can listen to the lows, mids or highs only</td>
+  </tr>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-channel-spacer"><img src="plugins/hnl-channel-spacer/docs/preview.png" alt="HNL Channel Spacer" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-channel-spacer">HNL Channel Spacer</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Makes room in one channel for another: turns down only the frequency ranges where the sidechain signal is playing, in 32 bands; also works as a sidechain ducker</td>
+  </tr>
+</table>
 
 ## Instruments
 
-| Plugin | What it is |
-| --- | --- |
-| [HNL Digital Piano](plugins/hnl-digital-piano) | Five pianos in stereo (workstation, FM electric, 1980s stage, 1990s dance, concert grand), with doubling, reverb and an on-screen keyboard |
-
-| HNL Digital Piano |
-| --- |
-| ![HNL Digital Piano](plugins/hnl-digital-piano/docs/grand.png) |
+<table>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-digital-piano"><img src="plugins/hnl-digital-piano/docs/grand.png" alt="HNL Digital Piano" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-digital-piano">HNL Digital Piano</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Five pianos in stereo (workstation, FM electric, 1980s stage, 1990s dance, concert grand), with doubling, reverb and an on-screen keyboard</td>
+  </tr>
+</table>
 
 ## Layout
 
