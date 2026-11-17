@@ -14,6 +14,13 @@ Reason 12.5+). To compile them on a Mac yourself, see [BUILDING-MACOS.md](BUILDI
     <td valign="top">Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets</td>
   </tr>
   <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-channel-spacer"><img src="plugins/hnl-channel-spacer/docs/preview.png" alt="HNL Channel Spacer" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-channel-spacer">HNL Channel Spacer</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Makes room in one channel for another: turns down only the frequency ranges where the sidechain signal is playing, in 32 bands; also works as a sidechain ducker</td>
+  </tr>
+  <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-tape-master"><img src="plugins/hnl-tape-master/docs/preview.png" alt="HNL Tape Master" width="360"></a></td>
     <th align="left"><a href="plugins/hnl-tape-master">HNL Tape Master</a></th>
   </tr>
@@ -47,13 +54,6 @@ Reason 12.5+). To compile them on a Mac yourself, see [BUILDING-MACOS.md](BUILDI
   </tr>
   <tr>
     <td valign="top">Transient shaper for drums: attack and sustain of each hit up or down, whatever its level, with a detector that can listen to the lows, mids or highs only</td>
-  </tr>
-  <tr>
-    <td rowspan="2" width="380"><a href="plugins/hnl-channel-spacer"><img src="plugins/hnl-channel-spacer/docs/preview.png" alt="HNL Channel Spacer" width="360"></a></td>
-    <th align="left"><a href="plugins/hnl-channel-spacer">HNL Channel Spacer</a></th>
-  </tr>
-  <tr>
-    <td valign="top">Makes room in one channel for another: turns down only the frequency ranges where the sidechain signal is playing, in 32 bands; also works as a sidechain ducker</td>
   </tr>
 </table>
 
