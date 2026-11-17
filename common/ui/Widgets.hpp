@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -71,10 +72,24 @@ template <class C> float logo(C& c, float x, float y, float height, const DGL_NA
     return 1698.0f * k;
 }
 
-/** The header of a plugin: the logo with the plugin's name behind it. */
-template <class C> void title(C& c, const char* name, const DGL_NAMESPACE::Color& colour) {
-    const float end = 16 + logo(c, 16, 20.5f, 13, colour);
-    label(c, name, end + 7, 27, 18, colour, C::ALIGN_LEFT | C::ALIGN_MIDDLE);
+/**
+ * The header of a plugin: the logo, the plugin's name behind it and, small, its version
+ * (HNL_VERSION_* in the plugin's DistrhoPluginInfo.h).
+ */
+template <class C> void title(C& c, const char* name, const DGL_NAMESPACE::Color& colour, const DGL_NAMESPACE::Color& versionColour) {
+    const float start = 16 + logo(c, 16, 20.5f, 13, colour) + 7;
+    c.fontSize(18);
+    c.textAlign(C::ALIGN_LEFT | C::ALIGN_MIDDLE);
+    c.fillColor(colour);
+    const float end = c.text(start, 27, name, nullptr);
+#ifdef HNL_VERSION_MAJOR // not there in a test of the shared parts alone
+    char version[32];
+    std::snprintf(version, sizeof(version), "v%d.%d.%d", HNL_VERSION_MAJOR, HNL_VERSION_MINOR, HNL_VERSION_PATCH);
+    label(c, version, end + 8, 30, 10, versionColour, C::ALIGN_LEFT | C::ALIGN_MIDDLE); // on the name's baseline
+#else
+    (void)end;
+    (void)versionColour;
+#endif
 }
 
 // ---------------------------------------------------------------- meters

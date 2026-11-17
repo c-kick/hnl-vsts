@@ -103,7 +103,9 @@ checks that the plugin stays bounded, comes to rest afterwards and never needed 
 tests take longer than 15 minutes counts as failed (`TEST_TIMEOUT=<seconds>` changes that).
 
 `plugins/<name>/tests/preview.sh` writes the UI as SVG files into `build/`; `tools/ui-preview/shot.mjs` turns them
-into PNG with a Playwright Chromium.
+into PNG with a Playwright Chromium. `tools/ui-preview/docs.sh <playwright index.mjs> [name]` does both and puts
+the pictures into `plugins/<name>/docs/`; run it after a change to a UI or to a version number, which is in every
+picture.
 
 Install by copying the `<Plugin>.vst3` folder from `dist/` to `C:\Program Files\Common Files\VST3\`, or, for a
 host that takes CLAP (Bitwig Studio, Reaper and others), the `<Plugin>.clap` file to
@@ -174,6 +176,8 @@ tests. `build.sh` and `test.sh` pick it up by folder name.
 
 ## Versions
 
-Each plugin has its own version (`getVersion()` in its plugin source) and is tagged `<name>/v<version>`.
+Each plugin has its own version (`HNL_VERSION_MAJOR`, `_MINOR` and `_PATCH` in its `DistrhoPluginInfo.h`) and is
+tagged `<name>/v<version>`. The plugin reports it to the host and shows it behind its title, so a screenshot or a
+question about a plugin tells which build it is about.
 `./package.sh [name]`, after `./build.sh`, writes the zip for the release of that tag:
 `dist/<Plugin>-<version>-win64.zip`, with the VST3 and the CLAP build in it.

@@ -147,7 +147,7 @@ protected:
         fillColor(rgb(kBg));
         fill();
 
-        hnl::ui::title(*this, "TAPE MASTER", rgb(kText));
+        hnl::ui::title(*this, "TAPE MASTER", rgb(kText), rgb(kDim));
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         if (!presetNote_.empty()) presetText = presetNote_;

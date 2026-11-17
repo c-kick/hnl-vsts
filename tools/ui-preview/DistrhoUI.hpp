@@ -120,7 +120,15 @@ public:
                       (align_ & ALIGN_CENTER) ? "middle" : (align_ & ALIGN_RIGHT) ? "end" : "start");
         svg += std::string(head) + "dominant-baseline=\"" + ((align_ & ALIGN_TOP) ? "text-before-edge" : "central") + "\" fill=\"" + fill_ +
                "\">" + escape(s) + "</text>\n";
-        return x;
+        return (align_ & (ALIGN_CENTER | ALIGN_RIGHT)) ? x : x + width(s); // as NanoVG: where the text ends
+    }
+    /** The width of a text in DejaVu Sans at the current size (capitals, digits and the commonest signs; lower case by an average). */
+    float width(const char* s) const {
+        static const short kCapitals[26] = {1401, 1405, 1430, 1577, 1294, 1178, 1587, 1540, 604, 604, 1343, 1141, 1767,
+                                            1532, 1612, 1235, 1612, 1423, 1300, 1251, 1499, 1401, 2025, 1403, 1251, 1403};
+        float units = 0;
+        for (; *s; ++s) units += *s >= 'A' && *s <= 'Z' ? kCapitals[*s - 'A'] : (*s >= '0' && *s <= '9') ? 1303 : (*s == ' ' || *s == '.' || *s == ',') ? 651 : 1200;
+        return units / 2048.0f * size_;
     }
     // Wrapped text. Real NanoVG measures the font; this estimates the width of a character.
     void textLineHeight(float h) { lineHeight_ = h; }

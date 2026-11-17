@@ -133,7 +133,7 @@ protected:
         fillColor(rgb(kBg));
         fill();
 
-        hnl::ui::title(*this, "BUS COMPRESSOR", rgb(kText));
+        hnl::ui::title(*this, "BUS COMPRESSOR", rgb(kText), rgb(kDim));
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         if (!presetNote_.empty()) presetText = presetNote_;

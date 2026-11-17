@@ -130,7 +130,7 @@ protected:
         fillColor(rgb(kBg));
         fill();
 
-        hnl::ui::title(*this, "DIGITAL PIANO", rgb(kText));
+        hnl::ui::title(*this, "DIGITAL PIANO", rgb(kText), rgb(kDim));
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         if (!presetNote_.empty()) presetText = presetNote_;
