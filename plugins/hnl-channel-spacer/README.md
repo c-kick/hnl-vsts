@@ -62,3 +62,10 @@ Both channels of the main signal get the same cut; the two sidechain channels ar
 
 From the repository root: `./build.sh hnl-channel-spacer` (see the [main readme](../../README.md)); tests:
 `./test.sh hnl-channel-spacer`.
+
+## Installing
+
+[Download HNL-Channel-Spacer-win64.zip](https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Channel-Spacer-win64.zip): the current build, for 64-bit Windows.
+
+The zip holds the plugin as VST3 (copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP
+(copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). A host needs only one of the two.

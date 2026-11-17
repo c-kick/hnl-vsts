@@ -107,6 +107,8 @@ Level Match) was added here and is off in the Default preset. The plugin is not 
 
 ## Installing
 
-Download the zip from the [releases](https://github.com/c-kick/hnl-vsts/releases). It holds the plugin as VST3
+[Download HNL-Thickener-win64.zip](https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Thickener-win64.zip): the current build, for 64-bit Windows.
+
+The zip holds the plugin as VST3
 (copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to
 `C:\Program Files\Common Files\CLAP\`). A host needs only one of the two. Windows 64-bit.

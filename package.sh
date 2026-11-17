@@ -1,5 +1,6 @@
 #!/bin/sh
-# Zips the built plugins for a release: dist/<Plugin>-<version>-win64.zip holds <Plugin>.vst3 and <Plugin>.clap.
+# Zips the built plugins for the Downloads release: dist/<Plugin>-win64.zip holds <Plugin>.vst3 and <Plugin>.clap.
+# The name carries no version, so that the link to a plugin's download never changes; release.sh uploads them.
 # Run ./build.sh first.
 #   ./package.sh               all plugins
 #   ./package.sh hnl-master    one plugin
@@ -13,8 +14,8 @@ for p do
     for f in "dist/$name.vst3/Contents/x86_64-win/$name.vst3" "dist/$name.clap"; do
         [ -f "$f" ] || { echo "$p: $f is missing, run ./build.sh $p" >&2; exit 1; }
     done
-    zip="$name-$version-win64.zip"
+    zip="$name-win64.zip"
     rm -f "dist/$zip"
     (cd dist && python3 -m zipfile -c "$zip" "$name.vst3" "$name.clap")
-    echo "dist/$zip"
+    echo "dist/$zip ($version)"
 done
