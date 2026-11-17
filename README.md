@@ -1,6 +1,6 @@
 # hnl-vsts
 
-Audio plugins by HNL Design (effects and an instrument), built as VST3 and CLAP for Windows (the VST3 tested in
+Audio plugins by hnldesign (effects and instruments), built as VST3 and CLAP for Windows (the VST3 tested in
 Reason 12.5+). To compile them on a Mac yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
 
 ## Download
