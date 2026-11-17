@@ -349,14 +349,16 @@ private:
  * "Save as..." row; choosing it turns the name into a text box (Enter or the tick saves,
  * Escape or the cross leaves it). Presets from `firstUser` on are the user's own and have a
  * cross to delete them, which asks once more before it does. A list of more than kMaxRows
- * continues in further columns: to the right, or to the left when the bar stands so far to
- * the right that two more columns fit on its left (a bar next to the right edge). A bar that
- * was told the width of its window (moveTo) takes the side with the most room.
+ * is spread evenly over as many columns as it needs, read from left to right, so that no
+ * column is left with a row or two. The columns grow to the right of the bar, or to its left
+ * when the bar stands so far to the right that two more columns fit there (a bar next to the
+ * right edge). A bar that was told the width of its window (moveTo) takes the side with the
+ * most room.
  */
 class PresetBar {
 public:
     static constexpr float kWidth = 222, kHeight = 24, kRow = 22;
-    static constexpr int kMaxRows = 16; // a longer list continues in a further column
+    static constexpr int kMaxRows = 16; // a longer list is spread over more columns
     static constexpr size_t kMaxText = 20; // characters in a name
     /** mouseDown and key results below zero. kSave: text() is the name. kDelete: target() is the preset. kEdit: call startEdit(). */
     enum { kNotMine = -2, kHandled = -1, kSave = -3, kDelete = -4, kEdit = -5 };
@@ -379,13 +381,18 @@ public:
     const std::string& text() const { return text_; }
     int target() const { return target_; }
 
-    /** Where things are, for the tests. */
-    Box rowBox(int row) const {
-        const Box m = menuOrigin();
-        return {m.x + (leftward() ? -1 : 1) * (row / kMaxRows) * name_.w, m.y + 4 + (row % kMaxRows) * kRow, name_.w, kRow};
+    /** How many columns a list of `rows` rows (the presets and Save as...) takes, and how many rows stand in each. */
+    static int columnsFor(int rows) { return rows <= kMaxRows ? 1 : (rows + kMaxRows - 1) / kMaxRows; }
+    static int rowsPerColumn(int rows) { return (rows + columnsFor(rows) - 1) / columnsFor(rows); }
+
+    /** Where things are in a list of `rows` rows, for drawing and for the tests. */
+    Box rowBox(int row, int rows) const {
+        const Box m = menuBox(rows);
+        const int each = rowsPerColumn(rows);
+        return {m.x + (row / each) * name_.w, m.y + 4 + (row % each) * kRow, name_.w, kRow};
     }
-    Box deleteBox(int row) const {
-        const Box r = rowBox(row);
+    Box deleteBox(int row, int rows) const {
+        const Box r = rowBox(row, rows);
         return {r.x + r.w - 26, r.y, 22, kRow};
     }
     const Box& cancelBox() const { return prev_; }
@@ -410,7 +417,7 @@ public:
         }
         if (open_) {
             const int row = rowAt(x, y, count + 1);
-            if (row >= firstUser && row < count && deleteBox(row).contains(x, y)) {
+            if (row >= firstUser && row < count && deleteBox(row, count + 1).contains(x, y)) {
                 if (confirm_ != row) {
                     confirm_ = row;
                     return kHandled;
@@ -520,7 +527,7 @@ public:
         c.strokeWidth(1);
         c.stroke();
         for (int i = 0; i <= count; ++i) {
-            const Box r = rowBox(i);
+            const Box r = rowBox(i, count + 1);
             if (i == hover_) {
                 c.beginPath();
                 c.roundedRect(r.x + 4, r.y, r.w - 8, kRow, 3);
@@ -557,17 +564,17 @@ private:
     bool leftward() const { return canvas_ > 0 ? name_.x > canvas_ - name_.x - name_.w : name_.x >= 2 * name_.w; }
     Box menuOrigin() const { return {name_.x, name_.y + name_.h + 2, 0, 0}; }
     Box menuBox(int rows) const {
-        const int shown = rows < kMaxRows ? rows : kMaxRows, columns = (rows + kMaxRows - 1) / kMaxRows;
+        const int columns = columnsFor(rows);
         const Box o = menuOrigin();
-        return {leftward() ? o.x - name_.w * (columns - 1) : o.x, o.y, name_.w * columns, shown * kRow + 8};
+        return {leftward() ? o.x - name_.w * (columns - 1) : o.x, o.y, name_.w * columns, rowsPerColumn(rows) * kRow + 8};
     }
     int rowAt(float x, float y, int rows) const {
         const Box m = menuBox(rows);
         if (!m.contains(x, y)) return -1;
-        const int across = static_cast<int>((x - m.x) / name_.w), columns = (rows + kMaxRows - 1) / kMaxRows;
-        const int row = static_cast<int>((y - m.y - 4) / kRow), column = leftward() ? columns - 1 - across : across;
-        if (row < 0 || row >= kMaxRows) return -1;
-        const int index = column * kMaxRows + row;
+        const int column = static_cast<int>((x - m.x) / name_.w), each = rowsPerColumn(rows);
+        const int row = static_cast<int>((y - m.y - 4) / kRow);
+        if (row < 0 || row >= each) return -1;
+        const int index = column * each + row;
         return index < 0 || index >= rows ? -1 : index;
     }
 

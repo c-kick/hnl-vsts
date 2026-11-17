@@ -149,6 +149,28 @@ static void testNoFolder() {
     check(list.count() == 2 && list.save("Nowhere", values) == -1 && list.count() == 2, "a folder that cannot be made: saving fails, nothing else does");
 }
 
+/** A list too long for one column is spread evenly, so that Save as... never stands in a column of its own. */
+static void testLongList() {
+    typedef hnl::ui::PresetBar Bar;
+    check(Bar::columnsFor(Bar::kMaxRows) == 1 && Bar::rowsPerColumn(Bar::kMaxRows) == Bar::kMaxRows, "long list: up to the most rows, one column");
+    check(Bar::columnsFor(17) == 2 && Bar::rowsPerColumn(17) == 9, "long list: 17 rows are 9 and 8, not 16 and 1");
+    check(Bar::columnsFor(48) == 3 && Bar::rowsPerColumn(48) == 16, "long list: the fullest list is three full columns");
+    for (float barX : {100.0f, 552.0f}) { // columns to the right of the bar, and to its left
+        Bar bar(barX, 10);
+        const hnl::ui::Box name = bar.nameBox();
+        const int count = 16; // rows 0..15 presets, row 16 "Save as..."
+        const hnl::ui::Box first = bar.rowBox(0, count + 1), ninth = bar.rowBox(8, count + 1), tenth = bar.rowBox(9, count + 1), save = bar.rowBox(count, count + 1);
+        check(ninth.x == first.x && tenth.x == first.x + first.w && tenth.y == first.y, "long list: the tenth row starts the second column, to the right of the first");
+        check(save.x == tenth.x && save.y == first.y + 7 * Bar::kRow, "long list: Save as... is the eighth row of the second column");
+        bar.mouseDown(name.x + 20, name.y + 10, 0, count, count, true);
+        check(bar.mouseDown(save.x + 30, save.y + 11, 0, count, count, true) == Bar::kEdit, "long list: a click on it asks for a name");
+        bar.mouseDown(name.x + 20, name.y + 10, 0, count, count, true);
+        check(bar.mouseDown(tenth.x + 30, tenth.y + 11, 0, count, count, true) == 9, "long list: a click on the tenth row picks the tenth preset");
+        bar.mouseDown(name.x + 20, name.y + 10, 0, count, count, true);
+        check(bar.mouseDown(save.x + 30, save.y + Bar::kRow + 11, 0, count, count, true) < 0 && !bar.isOpen(), "long list: the empty place under it picks nothing");
+    }
+}
+
 static void testBar() {
     typedef hnl::ui::PresetBar Bar;
     Bar bar(100, 10);
@@ -160,25 +182,25 @@ static void testBar() {
 
     check(bar.mouseDown(5, 5, 0, count, firstUser, true) == Bar::kNotMine, "bar: a click elsewhere is not its business");
     check(bar.mouseDown(nx, ny, 0, count, firstUser, true) == Bar::kHandled && bar.isOpen(), "bar: the name opens the list");
-    centre(bar.rowBox(4), x, y);
+    centre(bar.rowBox(4, count + 1), x, y);
     check(bar.mouseDown(x, y, 0, count, firstUser, true) == 4 && !bar.isOpen(), "bar: a row picks its preset");
 
     bar.mouseDown(nx, ny, 0, count, firstUser, true);
-    centre(bar.deleteBox(4), x, y);
-    x = bar.deleteBox(4).x + 11;
+    centre(bar.deleteBox(4, count + 1), x, y);
+    x = bar.deleteBox(4, count + 1).x + 11;
     check(bar.mouseDown(x, y, 0, count, firstUser, true) == Bar::kHandled && bar.isOpen(), "bar: the cross asks first");
     check(bar.mouseDown(x, y, 0, count, firstUser, true) == Bar::kDelete && bar.target() == 4 && !bar.isOpen(), "bar: the cross again deletes");
     bar.mouseDown(nx, ny, 0, count, firstUser, true);
     bar.mouseDown(x, y, 0, count, firstUser, true);
-    centre(bar.rowBox(3), x, y);
+    centre(bar.rowBox(3, count + 1), x, y);
     check(bar.mouseDown(x, y, 0, count, firstUser, true) == 3, "bar: after the question a click on another row just picks it");
     bar.mouseDown(nx, ny, 0, count, firstUser, true);
-    x = bar.deleteBox(1).x + 11;
-    y = bar.deleteBox(1).y + 11;
+    x = bar.deleteBox(1, count + 1).x + 11;
+    y = bar.deleteBox(1, count + 1).y + 11;
     check(bar.mouseDown(x, y, 0, count, firstUser, true) == 1, "bar: a factory preset has no cross");
 
     bar.mouseDown(nx, ny, 0, count, firstUser, false);
-    centre(bar.rowBox(count), x, y);
+    centre(bar.rowBox(count, count + 1), x, y);
     check(bar.mouseDown(x, y, 0, count, firstUser, false) == Bar::kHandled && !bar.isEditing(), "bar: Save as does nothing when the list is full");
     bar.mouseDown(nx, ny, 0, count, firstUser, true);
     check(bar.mouseDown(x, y, 0, count, firstUser, true) == Bar::kEdit, "bar: Save as asks for a name");
@@ -226,6 +248,7 @@ int main() {
     testList(dir);
     testNoFolder();
     testBar();
+    testLongList();
     fs::remove_all(dir);
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;

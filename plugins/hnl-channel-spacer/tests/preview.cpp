@@ -59,8 +59,8 @@ int main(int argc, char** argv) {
         click.pos.y = 26;
         ui->onMouse(click);
         const int row = presets::list().count(); // Save as... follows the last preset
-        click.pos.x -= (row / hnl::ui::PresetBar::kMaxRows) * 170; // further columns lie to the left
-        click.pos.y = 44 + (row % hnl::ui::PresetBar::kMaxRows) * hnl::ui::PresetBar::kRow + 11;
+        // The last row stands in the last column, which is the one under the name (further columns lie to its left).
+        click.pos.y = 44 + (row % hnl::ui::PresetBar::rowsPerColumn(row + 1)) * hnl::ui::PresetBar::kRow + 11;
         ui->onMouse(click);
     }
     ui->onNanoDisplay();
