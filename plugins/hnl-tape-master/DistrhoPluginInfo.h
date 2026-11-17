@@ -20,6 +20,7 @@
 #define DISTRHO_UI_USE_NANOVG       1
 
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|Mastering|Distortion|Stereo"
+#define DISTRHO_PLUGIN_CLAP_FEATURES   "audio-effect", "mastering", "distortion", "stereo"
 
 #define UI_BASE_WIDTH  820
 #define UI_BASE_HEIGHT 440

@@ -1,6 +1,7 @@
 # hnl-vsts
 
-Audio plugins by HNL Design (effects and an instrument), built as VST3 for Windows (tested in Reason 12.5+).
+Audio plugins by HNL Design (effects and an instrument), built as VST3 and CLAP for Windows (the VST3 tested in
+Reason 12.5+). To compile them on a Mac yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
 
 ## Effects
 
@@ -55,7 +56,7 @@ Needs `make`, a host `g++` for the tests, and [zig](https://ziglang.org) for the
 ```sh
 git submodule update --init --recursive
 ./test.sh               # offline tests, native
-./build.sh              # dist/<Plugin>.vst3 for 64-bit Windows
+./build.sh              # dist/<Plugin>.vst3 and dist/<Plugin>.clap for 64-bit Windows
 ./build.sh hnl-master   # one plugin
 ```
 
@@ -70,7 +71,12 @@ tests take longer than 15 minutes counts as failed (`TEST_TIMEOUT=<seconds>` cha
 `plugins/<name>/tests/preview.sh` writes the UI as SVG files into `build/`; `tools/ui-preview/shot.mjs` turns them
 into PNG with a Playwright Chromium.
 
-Install by copying the `<Plugin>.vst3` folder from `dist/` to `C:\Program Files\Common Files\VST3\`.
+Install by copying the `<Plugin>.vst3` folder from `dist/` to `C:\Program Files\Common Files\VST3\`, or, for a
+host that takes CLAP (Bitwig Studio, Reaper and others), the `<Plugin>.clap` file to
+`C:\Program Files\Common Files\CLAP\`. Both hold the same plugin; a host needs only one of them.
+
+There are no builds for macOS, but the code should compile there: [BUILDING-MACOS.md](BUILDING-MACOS.md) has the
+steps, with the warning that nobody has tried them yet.
 
 ## Presets of your own
 
@@ -135,3 +141,5 @@ tests. `build.sh` and `test.sh` pick it up by folder name.
 ## Versions
 
 Each plugin has its own version (`getVersion()` in its plugin source) and is tagged `<name>/v<version>`.
+`./package.sh [name]`, after `./build.sh`, writes the zip for the release of that tag:
+`dist/<Plugin>-<version>-win64.zip`, with the VST3 and the CLAP build in it.

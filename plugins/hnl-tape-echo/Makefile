@@ -13,6 +13,6 @@ include ../../dpf/Makefile.plugins.mk
 
 BUILD_CXX_FLAGS += -std=gnu++17
 
-TARGETS = vst3
+TARGETS = vst3 clap
 
 all: $(TARGETS)

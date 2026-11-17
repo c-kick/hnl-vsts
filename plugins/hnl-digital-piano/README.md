@@ -107,6 +107,8 @@ with the renamed plugin.
 
 ## Installing
 
-Download the zip from the [releases](https://github.com/c-kick/hnl-vsts/releases) and unzip it into
-`C:\Program Files\Common Files\VST3\`. Windows 64-bit, VST3. It is an instrument: in Reason, add it from the
+Download the zip from the [releases](https://github.com/c-kick/hnl-vsts/releases). It holds the plugin as VST3
+(copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and, from the first release after 17 November
+2026 on, as CLAP (copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). A host needs only one of the
+two. Windows 64-bit. It is an instrument: in Reason, add it from the
 instruments, not the effects.

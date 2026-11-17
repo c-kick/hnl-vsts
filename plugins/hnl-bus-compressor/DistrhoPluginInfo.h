@@ -20,6 +20,7 @@
 #define DISTRHO_UI_USE_NANOVG       1
 
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|Dynamics|Stereo"
+#define DISTRHO_PLUGIN_CLAP_FEATURES   "audio-effect", "compressor", "stereo"
 
 #define UI_BASE_WIDTH  820
 #define UI_BASE_HEIGHT 440

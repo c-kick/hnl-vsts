@@ -20,6 +20,7 @@
 #define DISTRHO_UI_USE_NANOVG       1
 
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|Mastering|Dynamics|Stereo"
+#define DISTRHO_PLUGIN_CLAP_FEATURES   "audio-effect", "mastering", "compressor", "limiter", "stereo"
 
 // Window size with the default settings. The UI resizes itself when stages
 // are switched on or off (see layout() in MasterUI.cpp).

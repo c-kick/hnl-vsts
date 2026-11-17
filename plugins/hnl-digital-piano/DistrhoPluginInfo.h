@@ -22,6 +22,7 @@
 #define DISTRHO_UI_USE_NANOVG          1
 
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Instrument|Piano|Stereo"
+#define DISTRHO_PLUGIN_CLAP_FEATURES   "instrument", "synthesizer", "stereo"
 
 #define UI_BASE_WIDTH  820
 #define UI_BASE_HEIGHT 440
