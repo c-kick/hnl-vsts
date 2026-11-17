@@ -66,6 +66,8 @@ notes=$(mktemp)
     echo "needs only one of the two. Copy the \`.vst3\` folder to \`C:\\Program Files\\Common Files\\VST3\\\`, or the"
     echo "\`.clap\` file to \`C:\\Program Files\\Common Files\\CLAP\\\`."
     echo
+    echo "Free software under the GNU General Public License, version 3 or later; the text is in \`LICENSE.txt\` in every zip."
+    echo
     echo "| Plugin | Version | Released | Download |"
     echo "| --- | --- | --- | --- |"
     for p in $(ls plugins); do
