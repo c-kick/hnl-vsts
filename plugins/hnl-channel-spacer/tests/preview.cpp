@@ -49,17 +49,17 @@ int main(int argc, char** argv) {
     }
     if (mode == "menu") {
         DISTRHO::MouseEvent click; // the preset name
-        click.pos.x = 310;
+        click.pos.x = 640;
         click.pos.y = 26;
         ui->onMouse(click);
     }
     if (mode == "save") { // the name box, as after Save as... at the end of the preset list
         DISTRHO::MouseEvent click; // the preset name
-        click.pos.x = 310;
+        click.pos.x = 640;
         click.pos.y = 26;
         ui->onMouse(click);
         const int row = presets::list().count(); // Save as... follows the last preset
-        click.pos.x += (row / hnl::ui::PresetBar::kMaxRows) * 170;
+        click.pos.x -= (row / hnl::ui::PresetBar::kMaxRows) * 170; // further columns lie to the left
         click.pos.y = 44 + (row % hnl::ui::PresetBar::kMaxRows) * hnl::ui::PresetBar::kRow + 11;
         ui->onMouse(click);
     }

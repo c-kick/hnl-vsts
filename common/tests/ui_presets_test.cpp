@@ -1,6 +1,7 @@
 // Saving, loading and deleting a preset through a plugin's real UI class, driven by clicks and
 // keys as a host window would send them. Built once per plugin by its tests/run.sh against the
-// drawing stand-in in tools/ui-preview, with -DPRESET_X=<the plugin's kPresetX>.
+// drawing stand-in in tools/ui-preview, with -DPRESET_X=<the plugin's kPresetX>, or with
+// -DPRESET_FROM_RIGHT=<its kPresetRight> for a UI whose bar follows the right edge of a window that changes width.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -22,7 +23,16 @@ static void check(bool ok, const char* what) {
     if (!ok) ++failures;
 }
 
-static const Bar kBar(PRESET_X, 14); // the same place as the UI's own, for where to click
+// The bar in the same place as the UI's own, for where to click.
+#ifdef PRESET_FROM_RIGHT
+static Bar bar(DISTRHO::UI* ui) {
+    Bar b(0, 14);
+    b.moveTo(ui->getWidth() - PRESET_FROM_RIGHT, ui->getWidth());
+    return b;
+}
+#else
+static Bar bar(DISTRHO::UI*) { return Bar(PRESET_X, 14); }
+#endif
 
 static void click(DISTRHO::UI* ui, const hnl::ui::Box& box, float along = 0.4f) {
     DISTRHO::MouseEvent ev;
@@ -96,9 +106,9 @@ int main() {
     if (outside < kInputParamCount) ui->parameterChanged(outside, info(outside).max);
 
     // Save as..., type a name, Enter.
-    click(ui, kBar.nameBox());
+    click(ui, bar(ui).nameBox());
     check(shows(ui, "Save as..."), "the list ends with Save as...");
-    click(ui, kBar.rowBox(factory));
+    click(ui, bar(ui).rowBox(factory));
     check(shows(ui, "My preset|") && ui->window.focused, "Save as... opens a name box with a suggestion and takes the keyboard");
     for (int i = 0; i < 9; ++i) key(ui, 0x08);
     type(ui, "Mix/ A");
@@ -111,16 +121,16 @@ int main() {
     ui->parameterChanged(a, info(a).def);
     check(shows(ui, "Mix A *"), "a moved control puts a * after the user's preset too");
     ui->sentParameters.clear();
-    click(ui, kBar.nameBox());
-    click(ui, kBar.rowBox(factory));
+    click(ui, bar(ui).nameBox());
+    click(ui, bar(ui).rowBox(factory));
     check(sent(ui, a, -1e9f) == aSaved && shows(ui, "Mix A"), "choosing the saved preset sends the saved value");
 
     // A factory preset, then the user's one through the arrows.
-    click(ui, kBar.nameBox());
-    click(ui, kBar.rowBox(0));
+    click(ui, bar(ui).nameBox());
+    click(ui, bar(ui).rowBox(0));
     check(ui->sentState == std::string("preset=") + presets::kAll[0].name, "factory presets still load");
     ui->sentParameters.clear();
-    click(ui, kBar.cancelBox()); // the previous arrow: from the first to the last, the saved one
+    click(ui, bar(ui).cancelBox()); // the previous arrow: from the first to the last, the saved one
     check(ui->sentState == "preset=Mix A" && sent(ui, a, -1e9f) == aSaved && sent(ui, b, -1e9f) == bSaved, "the arrows step into the saved presets");
     if (outside < kInputParamCount)
         check(sent(ui, outside, -1e9f) == -1e9f, "a control that presets leave alone is left alone");
@@ -135,30 +145,30 @@ int main() {
     check(shows(other, "Gone Missing"), "a preset whose file is gone: the name stays, nothing breaks");
 
     // Without a keyboard: the tick saves under the suggested name.
-    click(other, kBar.nameBox());
-    click(other, kBar.rowBox(factory + 1));
-    click(other, kBar.saveBox());
+    click(other, bar(other).nameBox());
+    click(other, bar(other).rowBox(factory + 1));
+    click(other, bar(other).saveBox());
     check(fs::exists(dir / "My preset.hnlpreset") && other->sentState == "preset=My preset", "the tick saves without a single key");
 
     // The first window sees it when its list is opened, and can delete it.
-    click(ui, kBar.nameBox());
+    click(ui, bar(ui).nameBox());
     check(shows(ui, "My preset"), "the first window lists what the second saved");
-    click(ui, kBar.deleteBox(factory + 1), 0.5f);
+    click(ui, bar(ui).deleteBox(factory + 1), 0.5f);
     check(fs::exists(dir / "My preset.hnlpreset") && shows(ui, "Delete? Click x again"), "the cross asks before it deletes");
-    click(ui, kBar.deleteBox(factory + 1), 0.5f);
+    click(ui, bar(ui).deleteBox(factory + 1), 0.5f);
     check(!fs::exists(dir / "My preset.hnlpreset") && fs::exists(dir / "Mix A.hnlpreset"), "the cross again deletes that preset and no other");
 
     // Escape and a click elsewhere leave the name box without saving.
-    click(ui, kBar.nameBox());
-    click(ui, kBar.rowBox(factory + 1));
+    click(ui, bar(ui).nameBox());
+    click(ui, bar(ui).rowBox(factory + 1));
     type(ui, "zzz");
     check(key(ui, 0x1B) && !fs::exists(dir / "Mix Azzz.hnlpreset") && shows(ui, "Mix A"), "Escape saves nothing");
     check(!key(ui, 0x1B) && !key(ui, 'a'), "keys go back to the host when no name is being typed");
 
     // Saving over the user's own preset keeps one file.
     ui->parameterChanged(a, info(a).max);
-    click(ui, kBar.nameBox());
-    click(ui, kBar.rowBox(factory + 1));
+    click(ui, bar(ui).nameBox());
+    click(ui, bar(ui).rowBox(factory + 1));
     check(shows(ui, "Mix A|"), "Save as... on the user's preset suggests its own name");
     key(ui, 0x0D);
     int files = 0;

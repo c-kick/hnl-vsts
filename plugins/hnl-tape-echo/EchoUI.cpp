@@ -64,7 +64,7 @@ const Selector kSelectors[] = {
     {kDry, {646, 262, 150, 26}, "DRY SIGNAL", kDryNames, 2},
 };
 
-const float kPresetX = 204, kHeaderY = 14;
+const float kPresetX = 552, kHeaderY = 14; // the preset bar ends 10 px before the help button
 const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x242b28, 0x3c4843, kText, kDim, kMint};
 
 std::string upper(const char* s) {
@@ -126,7 +126,7 @@ protected:
         fillColor(rgb(kBg));
         fill();
 
-        label("HNL TAPE ECHO", 16, 27, 18, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
+        hnl::ui::title(*this, "TAPE ECHO", rgb(kText));
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         if (!presetNote_.empty()) presetText = presetNote_;

@@ -39,7 +39,23 @@ struct Rect {
 
 const Rect kMeterPanel = {12, 52, 300, 170}, kLevelPanel = {320, 52, 488, 170};
 const Rect kTimePanel = {12, 230, 796, 70}, kKnobPanel = {12, 308, 796, 120};
-const Rect kFace_ = {24, 68, 276, 138};
+const Rect kFace_ = {24, 62, 276, 138};
+
+const float kMeterSwitchY = 204; // the strip between the face and the lower edge of its panel
+const hnl::ui::MeterColours kMeterColours = {kFace, kFaceEdge, kInk, kFaceRed, kWell, kPanelEdge, kTrack, kText, kDim, kAccent, kYellow, kRed};
+
+/** 0 to 20 dB of reduction: half dB marks where the needle usually is, red from 12 dB. */
+hnl::ui::MeterScale reductionScale() {
+    hnl::ui::MeterScale s;
+    for (int half = 0; half <= static_cast<int>(kMeterTop) * 2; ++half) {
+        if (half % 2 != 0 && half > 16) continue;
+        s.marks.push_back({half / (kMeterTop * 2), half % 8 == 0 ? 2 : (half % 2 == 0 ? 1 : 0), std::to_string(half / 2)});
+    }
+    s.hot = 12.0f / kMeterTop;
+    s.warn = 8.0f / kMeterTop;
+    s.hotLabel = "HARD";
+    return s;
+}
 
 struct Knob { uint32_t id; float x, y, r; const char* label; };
 const Knob kKnobs[] = {
@@ -54,7 +70,7 @@ const Selector kSelectors[] = {
     {kType, {24, 262, 200, 26}, "TYPE"}, {kRatio, {236, 262, 280, 26}, "RATIO"},
 };
 
-const float kPresetX = 170, kHeaderY = 14;
+const float kPresetX = 552, kHeaderY = 14; // the preset bar ends 10 px before the help button
 const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x262d29, 0x414c46, kText, kDim, kAccent};
 
 std::string upper(const char* s) {
@@ -78,6 +94,7 @@ public:
         help_.add(help_.buttonBox(), "HELP", help::kHelp);
         help_.add(presetBar_.nameBox(), "PRESETS", help::kPresets);
         help_.add({kFace_.x, kFace_.y, kFace_.w, kFace_.h}, "GAIN REDUCTION", help::kGr);
+        help_.add(meter_.area(), "METER DESIGN", hnl::ui::MeterSwitch::help());
         help_.add({kLevelPanel.x, kLevelPanel.y, kLevelPanel.w, kLevelPanel.h}, "LEVELS", help::kLevels);
         for (const Selector& sel : kSelectors)
             help_.add({sel.box.x, sel.box.y - 20, sel.box.w, sel.box.h + 20}, kParams[sel.id].name, help::forParam(sel.id));
@@ -93,6 +110,11 @@ protected:
     }
 
     void stateChanged(const char* key, const char* value) override {
+        if (std::strcmp(key, "meter") == 0) {
+            meter_.set(value);
+            repaint();
+            return;
+        }
         if (std::strcmp(key, "preset") != 0) return;
         presetName_ = value;
         list_.rescan();
@@ -112,7 +134,7 @@ protected:
         fillColor(rgb(kBg));
         fill();
 
-        label("HNL LEVELLER", 16, 27, 18, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
+        hnl::ui::title(*this, "LEVELLER", rgb(kText));
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         if (!presetNote_.empty()) presetText = presetNote_;
@@ -121,7 +143,10 @@ protected:
 
         for (const Rect* p : {&kMeterPanel, &kLevelPanel, &kTimePanel, &kKnobPanel}) panel(*p);
 
-        drawReduction(kFace_, values_[kMeterGr]);
+        char figure[16];
+        std::snprintf(figure, sizeof(figure), "%.1f", values_[kMeterGr] < 0.0f ? 0.0f : values_[kMeterGr]);
+        hnl::ui::drawMeter(*this, meter_.style(), {kFace_.x, kFace_.y, kFace_.w, kFace_.h}, scale_, kMeterColours, values_[kMeterGr] / kMeterTop, figure, "GAIN REDUCTION");
+        meter_.draw(*this, kTheme);
         drawLevels();
 
         for (const Selector& sel : kSelectors) drawSelector(sel);
@@ -164,6 +189,11 @@ protected:
         if (picked != hnl::ui::PresetBar::kNotMine) {
             help_.hide();
             presetAction(picked);
+            repaint();
+            return true;
+        }
+        if (meter_.mouseDown(x, y)) {
+            setState("meter", meter_.name());
             repaint();
             return true;
         }
@@ -332,69 +362,6 @@ private:
     // ---------------------------------------------- gain reduction meter
 
     /** A needle that rests at 0 on the left and swings right with the reduction, linear in dB. */
-    void drawReduction(const Rect& f, float db) {
-        beginPath();
-        roundedRect(f.x, f.y, f.w, f.h, 5);
-        fillColor(rgb(kFace));
-        fill();
-        strokeColor(rgb(kFaceEdge));
-        strokeWidth(1.5f);
-        stroke();
-
-        const float cx = f.x + f.w * 0.5f, py = f.y + f.h + 40, radius = 134, span = 0.78f; // radians each side of vertical
-        const auto angle = [&](float pos) { return -kPi / 2 - span + pos * 2 * span; };
-        const auto point = [&](float pos, float r, float& x, float& y) {
-            x = cx + std::cos(angle(pos)) * r;
-            y = py + std::sin(angle(pos)) * r;
-        };
-
-        beginPath();
-        arc(cx, py, radius, angle(0.0f), angle(1.0f), CW);
-        strokeColor(rgb(kInk));
-        strokeWidth(1.5f);
-        lineCap(BUTT);
-        stroke();
-        // Past 12 dB the compressor is working hard.
-        beginPath();
-        arc(cx, py, radius - 2, angle(12.0f / kMeterTop), angle(1.0f), CW);
-        strokeColor(rgb(kFaceRed));
-        strokeWidth(5.5f);
-        stroke();
-
-        for (int mark = 0; mark <= static_cast<int>(kMeterTop); ++mark) {
-            const float pos = mark / kMeterTop;
-            const bool major = mark % 4 == 0;
-            if (!major && mark % 2 != 0 && mark > 8) continue; // single dB marks only where the needle usually is
-            float x0, y0, x1, y1;
-            point(pos, radius, x0, y0);
-            point(pos, radius + (major ? 9 : (mark % 2 == 0 ? 6 : 4)), x1, y1);
-            beginPath();
-            moveTo(x0, y0);
-            lineTo(x1, y1);
-            strokeColor(rgb(kInk));
-            strokeWidth(major ? 1.5f : 1.0f);
-            stroke();
-            if (!major) continue;
-            char text[8];
-            std::snprintf(text, sizeof(text), "%d", mark);
-            point(pos, radius + 19, x1, y1);
-            label(text, x1, y1, 9, rgb(kInk), ALIGN_CENTER | ALIGN_MIDDLE);
-        }
-        label("GAIN REDUCTION", f.x + 12, f.y + 14, 9, rgb(kInk, 0.7f), ALIGN_LEFT | ALIGN_MIDDLE);
-        label("dB", f.x + f.w - 12, f.y + 14, 10, rgb(kInk, 0.7f), ALIGN_RIGHT | ALIGN_MIDDLE);
-
-        float x0, y0, x1, y1;
-        const float t = db / kMeterTop, pos = t < 0.0f ? 0.0f : (t > 1.03f ? 1.03f : t);
-        point(pos, (py - (f.y + f.h - 8)) / -std::sin(angle(pos)), x0, y0); // from just above the lower edge of the face
-        point(pos, radius + 6, x1, y1);
-        beginPath();
-        moveTo(x0, y0);
-        lineTo(x1, y1);
-        strokeColor(rgb(kInk));
-        strokeWidth(1.6f);
-        stroke();
-    }
-
     // ------------------------------------------------------------- levels
 
     static float levelPos(float db) { // -48..+6 dB -> 0..1
@@ -547,6 +514,8 @@ private:
     int preset_ = 0;
     std::string presetName_ = "Default";
     hnl::ui::PresetBar presetBar_{kPresetX, kHeaderY};
+    const hnl::ui::MeterScale scale_ = reductionScale();
+    hnl::ui::MeterSwitch meter_{kFace_.x, kFace_.x + kFace_.w, kMeterSwitchY};
     hnl::PresetList list_ = presets::list();
     std::string presetNote_; // shown in place of the name until the next click
     hnl::ui::HelpTips help_;

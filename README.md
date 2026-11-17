@@ -94,6 +94,17 @@ The code is shared: `common/UserPresets.hpp` (the files; no drawing code, tested
 saves, loads and deletes a preset through each plugin's own UI class. `HNL_PRESET_DIR`, when set, replaces the
 folder (the tests use it).
 
+## Meter designs
+
+The Bus Compressor, the Leveller, the Transient Shaper and the Tape Master show their main meter in one of three
+designs: a needle over a printed card (Classic), an arc that fills with the reading as a figure (Arc) and a row of
+lights (LEDs). Two arrows under the meter step through them. The choice is stored with the song as plugin state
+(`meter`, next to `preset`), so a song opens with the design it was saved with; presets do not change it.
+
+The designs and the switch are shared: `hnl::ui::drawMeter` and `MeterSwitch` in `common/ui/Widgets.hpp`. A plugin
+only describes its scale (`MeterScale`: the marks, where the red begins, where a bar starts).
+`common/tests/ui_meter_test.cpp` steps through the designs in each of these plugins' own UI class.
+
 ## What a plugin must survive
 
 A host can hand a plugin anything, and a plugin that goes wrong takes the whole song with it. Every plugin here

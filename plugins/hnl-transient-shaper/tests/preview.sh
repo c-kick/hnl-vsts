@@ -10,5 +10,5 @@ g++ -std=gnu++17 -O1 -I$ROOT/tools/ui-preview -I. -o "$OUT/preview" tests/previe
 export HNL_PRESET_DIR="$PWD/$OUT/presets"
 mkdir -p "$HNL_PRESET_DIR"
 printf 'HNL preset\n' > "$HNL_PRESET_DIR/My preset.hnlpreset"
-for mode in default busy help menu save; do "$OUT/preview" "$OUT/$mode.svg" $mode; done
+for mode in default busy arc leds help menu save; do "$OUT/preview" "$OUT/$mode.svg" $mode; done
 ls "$OUT"/*.svg

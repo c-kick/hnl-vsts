@@ -69,7 +69,7 @@ int main() {
             presetsOk = presetsOk && v.id < kInputParamCount && presets::inPreset(v.id) && v.value >= kParams[v.id].min && v.value <= kParams[v.id].max;
         }
     check(presetsOk, "preset values are within range", presets::kCount);
-    check(plugin.getStateCount() == 1 && plugin.getStateKey(0) == "preset", "preset name is saved as state", plugin.getStateCount());
+    check(plugin.getStateCount() == 2 && plugin.getStateKey(0) == "preset" && plugin.getStateKey(1) == "meter", "preset name and meter design are saved as state", plugin.getStateCount());
     check(kNoise == 10 && kCalibration == 11, "0.1.0 parameter indices unchanged", kNoise);
 
     plugin.setParameterValue(kRecord, 6.0f);

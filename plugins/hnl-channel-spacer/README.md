@@ -41,7 +41,7 @@ the display says so, and the plugin passes its input through untouched.
 The display shows the level of the ducker per band (bars), where ducking starts (dashed line), what is being cut
 right now (curve from the top) and how deep each range may go (thin line).
 
-Eleven presets are in the menu next to the name. The **?** button switches help on: rest the mouse on any control
+Eleven presets are in the menu at the top right. The **?** button switches help on: rest the mouse on any control
 to read what it does.
 
 Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to

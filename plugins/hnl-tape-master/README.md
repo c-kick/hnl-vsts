@@ -9,6 +9,10 @@ and playing it back.
 | --- | --- | --- |
 | ![Help tip on Calibration](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
+| Meter design: Arc | Meter design: LEDs |
+| --- | --- |
+| ![Arc meter](docs/arc.png) | ![LED meter](docs/leds.png) |
+
 *Rendered from the plugin's drawing code; not yet a screenshot from a host.*
 
 ## What it does
@@ -38,7 +42,11 @@ and playing it back.
 | Wow, Flutter | 10% is a well-kept machine (about 0.04% pitch movement); 100% is a tired one (about 0.3%). |
 | Noise | 0 is off, 50% is the level of real tape, 100% is 20 dB more. |
 
-Eleven presets are in the menu next to the name; they leave Calibration alone. The **?** button switches help on:
+The two arrows under the VU meters step through three designs: a needle over a printed card (Classic), an arc that
+fills with the reading as a figure (Arc) and a row of lights (LEDs). The choice is kept with the song and changes
+nothing about the sound; a new instance starts on Classic.
+
+Eleven presets are in the menu at the top right; they leave Calibration alone. The **?** button switches help on:
 rest the mouse on any control to read what it does.
 
 Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to

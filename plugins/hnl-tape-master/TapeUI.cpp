@@ -37,7 +37,34 @@ struct Rect {
 
 const Rect kMeterPanel = {12, 52, 536, 170}, kOutPanel = {556, 52, 252, 170};
 const Rect kTapePanel = {12, 230, 796, 70}, kKnobPanel = {12, 308, 796, 120};
-const Rect kFaces[2] = {{24, 68, 250, 138}, {286, 68, 250, 138}};
+const Rect kFaces[2] = {{24, 62, 250, 138}, {286, 62, 250, 138}};
+
+const float kMeterSwitchY = 204; // the strip between the faces and the lower edge of their panel
+const hnl::ui::MeterColours kMeterColours = {kFace, kFaceEdge, kInk, kFaceRed, kWell, kPanelEdge, kTrack, kText, kDim, kCopper, kYellow, kRed};
+
+/** Needle position 0..1 for a level in VU: linear in voltage, like the real thing. */
+float vuPos(float db) {
+    const float t = std::pow(10.0f, db / 20.0f) / 1.4125f; // +3 VU at the end of the scale
+    return t < 0.0f ? 0.0f : (t > 1.06f ? 1.06f : t);
+}
+
+/** -20 to +3 VU, red above 0. */
+hnl::ui::MeterScale vuScale() {
+    hnl::ui::MeterScale s;
+    for (int mark : {-20, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3}) {
+        const bool major = mark == -20 || mark == -10 || mark == -7 || mark == -5 || mark == -3 || mark == 0 || mark == 3;
+        char text[8];
+        std::snprintf(text, sizeof(text), mark > 0 ? "+%d" : "%d", mark < 0 ? -mark : mark);
+        s.marks.push_back({vuPos(static_cast<float>(mark)), major ? 2 : 1, text});
+    }
+    s.hot = vuPos(0);
+    s.warn = s.hot; // no yellow lights: they would hardly differ from the copper ones
+    s.inkFrom = vuPos(-20);
+    s.high = 1.06f;
+    s.span = 0.66f;
+    s.unit = "VU";
+    return s;
+}
 
 struct Knob { uint32_t id; float x, y, r; const char* label; };
 const Knob kKnobs[] = {
@@ -54,7 +81,7 @@ const Selector kSelectors[] = {
 };
 
 const float kLinkX = 160, kLinkY = 372;
-const float kPresetX = 204, kHeaderY = 14;
+const float kPresetX = 552, kHeaderY = 14; // the preset bar ends 10 px before the help button
 const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x2b2825, 0x45403a, kText, kDim, kCopper};
 
 std::string upper(const char* s) {
@@ -78,6 +105,7 @@ public:
         help_.setButton(UI_BASE_WIDTH - 24, kHeaderY + 12);
         help_.add(help_.buttonBox(), "HELP", help::kHelp);
         help_.add(presetBar_.nameBox(), "PRESETS", help::kPresets);
+        help_.add(meter_.area(), "METER DESIGN", hnl::ui::MeterSwitch::help());
         for (const Rect& f : kFaces) help_.add({f.x, f.y, f.w, f.h}, "VU METER", help::kVu);
         help_.add({kOutPanel.x, kOutPanel.y, kOutPanel.w, kOutPanel.h}, "OUTPUT", help::kOutput);
         for (const Selector& sel : kSelectors)
@@ -95,6 +123,11 @@ protected:
     }
 
     void stateChanged(const char* key, const char* value) override {
+        if (std::strcmp(key, "meter") == 0) {
+            meter_.set(value);
+            repaint();
+            return;
+        }
         if (std::strcmp(key, "preset") != 0) return;
         presetName_ = value;
         list_.rescan();
@@ -114,7 +147,7 @@ protected:
         fillColor(rgb(kBg));
         fill();
 
-        label("HNL TAPE MASTER", 16, 27, 18, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
+        hnl::ui::title(*this, "TAPE MASTER", rgb(kText));
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         if (!presetNote_.empty()) presetText = presetNote_;
@@ -123,8 +156,13 @@ protected:
 
         for (const Rect* p : {&kMeterPanel, &kOutPanel, &kTapePanel, &kKnobPanel}) panel(*p);
 
-        drawVu(kFaces[0], values_[kMeterVuL], "L");
-        drawVu(kFaces[1], values_[kMeterVuR], "R");
+        for (int ch = 0; ch < 2; ++ch) {
+            const float vu = values_[ch == 0 ? kMeterVuL : kMeterVuR];
+            char figure[16] = "--"; // nothing on tape
+            if (vu > -40.0f) std::snprintf(figure, sizeof(figure), "%+.1f", vu);
+            hnl::ui::drawMeter(*this, meter_.style(), {kFaces[ch].x, kFaces[ch].y, kFaces[ch].w, kFaces[ch].h}, scale_, kMeterColours, vuPos(vu), figure, ch == 0 ? "LEFT" : "RIGHT");
+        }
+        meter_.draw(*this, kTheme);
         drawOutput();
 
         for (const Selector& sel : kSelectors) drawSelector(sel);
@@ -167,6 +205,11 @@ protected:
         if (picked != hnl::ui::PresetBar::kNotMine) {
             help_.hide();
             presetAction(picked);
+            repaint();
+            return true;
+        }
+        if (meter_.mouseDown(x, y)) {
+            setState("meter", meter_.name());
             repaint();
             return true;
         }
@@ -338,74 +381,6 @@ private:
 
     // ----------------------------------------------------------- VU meter
 
-    /** Needle position 0..1 for a level in VU: linear in voltage, like the real thing. */
-    static float vuPos(float db) {
-        const float t = std::pow(10.0f, db / 20.0f) / 1.4125f; // +3 VU at the end of the scale
-        return t < 0.0f ? 0.0f : (t > 1.06f ? 1.06f : t);
-    }
-
-    void drawVu(const Rect& f, float db, const char* channel) {
-        beginPath();
-        roundedRect(f.x, f.y, f.w, f.h, 5);
-        fillColor(rgb(kFace));
-        fill();
-        strokeColor(rgb(kFaceEdge));
-        strokeWidth(1.5f);
-        stroke();
-
-        const float cx = f.x + f.w * 0.5f, py = f.y + f.h + 40, radius = 134, span = 0.66f; // radians each side of vertical
-        const auto angle = [&](float pos) { return -kPi / 2 - span + pos * 2 * span; };
-        const auto point = [&](float pos, float r, float& x, float& y) {
-            x = cx + std::cos(angle(pos)) * r;
-            y = py + std::sin(angle(pos)) * r;
-        };
-
-        beginPath();
-        arc(cx, py, radius, angle(vuPos(-20)), angle(vuPos(0)), CW);
-        strokeColor(rgb(kInk));
-        strokeWidth(1.5f);
-        lineCap(BUTT);
-        stroke();
-        beginPath();
-        arc(cx, py, radius - 2, angle(vuPos(0)), angle(1.0f), CW);
-        strokeColor(rgb(kFaceRed));
-        strokeWidth(5.5f);
-        stroke();
-
-        static const int kMarks[] = {-20, -10, -7, -5, -3, -2, -1, 0, 1, 2, 3};
-        for (int mark : kMarks) {
-            const float pos = vuPos(static_cast<float>(mark));
-            const bool major = mark == -20 || mark == -10 || mark == -7 || mark == -5 || mark == -3 || mark == 0 || mark == 3;
-            float x0, y0, x1, y1;
-            point(pos, radius, x0, y0);
-            point(pos, radius + (major ? 9 : 5), x1, y1);
-            beginPath();
-            moveTo(x0, y0);
-            lineTo(x1, y1);
-            strokeColor(rgb(mark > 0 ? kFaceRed : kInk));
-            strokeWidth(major ? 1.5f : 1.0f);
-            stroke();
-            if (!major) continue;
-            char text[8];
-            std::snprintf(text, sizeof(text), mark > 0 ? "+%d" : "%d", mark < 0 ? -mark : mark);
-            point(pos, radius + 19, x1, y1);
-            label(text, x1, y1, 9, rgb(mark > 0 ? kFaceRed : kInk), ALIGN_CENTER | ALIGN_MIDDLE);
-        }
-        label("VU", f.x + f.w - 12, f.y + 14, 10, rgb(kInk, 0.7f), ALIGN_RIGHT | ALIGN_MIDDLE);
-        label(channel, f.x + 12, f.y + 14, 10, rgb(kInk, 0.7f), ALIGN_LEFT | ALIGN_MIDDLE);
-
-        float x0, y0, x1, y1;
-        const float pos = vuPos(db);
-        point(pos, 52, x0, y0);
-        point(pos, radius + 6, x1, y1);
-        beginPath();
-        moveTo(x0, y0);
-        lineTo(x1, y1);
-        strokeColor(rgb(kInk));
-        strokeWidth(1.6f);
-        stroke();
-    }
-
     // ------------------------------------------------------------- output
 
     static float levelPos(float db) { // -48..+6 dB -> 0..1
@@ -556,6 +531,8 @@ private:
     int preset_ = 0;
     std::string presetName_ = "Default";
     hnl::ui::PresetBar presetBar_{kPresetX, kHeaderY};
+    const hnl::ui::MeterScale scale_ = vuScale();
+    hnl::ui::MeterSwitch meter_{kFaces[0].x, kFaces[1].x + kFaces[1].w, kMeterSwitchY};
     hnl::PresetList list_ = presets::list();
     std::string presetNote_; // shown in place of the name until the next click
     hnl::ui::HelpTips help_;

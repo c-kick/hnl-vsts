@@ -9,6 +9,10 @@ and a fast, firm FET.
 | --- | --- | --- | --- |
 | ![FET type](docs/fet.png) | ![Help tip on Release](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
+| Meter design: Arc | Meter design: LEDs |
+| --- | --- |
+| ![Arc meter](docs/arc.png) | ![LED meter](docs/leds.png) |
+
 *Rendered from the plugin's drawing code; not yet a screenshot from a host.*
 
 ## The two types
@@ -37,10 +41,14 @@ passage the gain comes back slowly, so the level does not jump up in the gaps be
 | Sidechain HP | Off, or up to 300 Hz (12 dB per octave), on the detector only: keeps plosives or the lowest bass notes from pulling the level down. |
 | Mix | 0% is the untouched signal, 100% only the compressed one. |
 
-The needle shows the gain reduction in dB. The bars show the peak level going in and coming out; the compressor
+The meter shows the gain reduction in dB. The bars show the peak level going in and coming out; the compressor
 does not limit, so with make-up gain the output can go over 0 dBFS. Both channels always get the same reduction.
 
-Eleven presets are in the menu next to the name. They assume a track that peaks around -6 dBFS: set the threshold
+The two arrows under the meter step through three designs: a needle over a printed card (Classic), an arc that
+fills with the reading as a figure (Arc) and a row of lights (LEDs). The choice is kept with the song and changes
+nothing about the sound; a new instance starts on Classic.
+
+Eleven presets are in the menu at the top right. They assume a track that peaks around -6 dBFS: set the threshold
 to your own level. The **?** button switches help on: rest the mouse on any control to read what it does.
 
 Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to

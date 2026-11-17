@@ -72,7 +72,7 @@ float keyX(int note) {
     return kKeys.x + (octave * 7 + white) * kWhiteW;
 }
 
-const float kPresetX = 244, kHeaderY = 14;
+const float kPresetX = 552, kHeaderY = 14; // the preset bar ends 10 px before the help button
 const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x272536, 0x423f58, kText, kDim, kAccent};
 
 std::string upper(const char* s) {
@@ -130,7 +130,7 @@ protected:
         fillColor(rgb(kBg));
         fill();
 
-        label("HNL DIGITAL PIANO", 16, 27, 18, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
+        hnl::ui::title(*this, "DIGITAL PIANO", rgb(kText));
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         if (!presetNote_.empty()) presetText = presetNote_;

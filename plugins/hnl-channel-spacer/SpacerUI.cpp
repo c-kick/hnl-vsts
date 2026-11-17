@@ -58,7 +58,7 @@ const Selector kSelectors[] = {
     {kListen, {268, 302, 330, 26}, "LISTEN TO", kListenNames, 3},
 };
 
-const float kPresetX = 252, kHeaderY = 14;
+const float kPresetX = 552, kHeaderY = 14; // the preset bar ends 10 px before the help button
 const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x252836, 0x3e4257, kText, kDim, kBlue};
 
 std::string upper(const char* s) {
@@ -116,7 +116,7 @@ protected:
         fillColor(rgb(kBg));
         fill();
 
-        label("HNL CHANNEL SPACER", 16, 27, 18, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
+        hnl::ui::title(*this, "CHANNEL SPACER", rgb(kText));
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         if (!presetNote_.empty()) presetText = presetNote_;

@@ -33,17 +33,17 @@ int main(int argc, char** argv) {
         for (uint32_t id : {kCompOn, kEqOn, kExcOn, kWideOn, kRevOn}) ui->parameterChanged(id, 0.0f);
     if (mode == "menu") {
         DISTRHO::MouseEvent click;
-        click.pos.x = 200; // the preset name
+        click.pos.x = ui->getWidth() - 180; // the preset name, at the right
         click.pos.y = 26;
         ui->onMouse(click);
         DISTRHO::MotionEvent move;
-        move.pos.x = 220;
+        move.pos.x = ui->getWidth() - 160;
         move.pos.y = 118;
         ui->onMotion(move);
     }
     if (mode == "help") {
         DISTRHO::MouseEvent click; // the ? button
-        click.pos.x = 394;
+        click.pos.x = ui->getWidth() - 24;
         click.pos.y = 26;
         ui->onMouse(click);
         DISTRHO::MouseEvent release = click;
@@ -56,11 +56,11 @@ int main(int argc, char** argv) {
     }
     if (mode == "save") { // the name box, as after Save as... at the end of the preset list
         DISTRHO::MouseEvent click; // the preset name
-        click.pos.x = 200;
+        click.pos.x = ui->getWidth() - 180;
         click.pos.y = 26;
         ui->onMouse(click);
         const int row = presets::list().count(); // Save as... follows the last preset
-        click.pos.x += (row / hnl::ui::PresetBar::kMaxRows) * 170;
+        click.pos.x -= (row / hnl::ui::PresetBar::kMaxRows) * 170; // further columns lie to the left
         click.pos.y = 44 + (row % hnl::ui::PresetBar::kMaxRows) * hnl::ui::PresetBar::kRow + 11;
         ui->onMouse(click);
     }

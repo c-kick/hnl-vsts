@@ -11,7 +11,7 @@ START_NAMESPACE_DISTRHO
 
 class BusCompPlugin : public Plugin {
 public:
-    BusCompPlugin() : Plugin(kParamCount, 0, 1) {
+    BusCompPlugin() : Plugin(kParamCount, 0, 2) {
         for (uint32_t i = 0; i < kInputParamCount; ++i) values_[i].store(kParams[i].def);
         for (uint32_t i = kInputParamCount; i < kParamCount; ++i) meters_[i - kInputParamCount] = kParams[i].def;
         prepare(getSampleRate());
@@ -25,7 +25,7 @@ protected:
     const char* getMaker() const override { return "HNL Design"; }
     const char* getHomePage() const override { return "https://hnldesign.nl"; }
     const char* getLicense() const override { return "ISC"; }
-    uint32_t getVersion() const override { return d_version(0, 2, 0); }
+    uint32_t getVersion() const override { return d_version(0, 3, 0); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override {
         port.groupId = kPortGroupStereo;
@@ -60,11 +60,17 @@ protected:
         }
     }
 
-    /** The name of the preset last chosen in the UI, saved with the song. */
-    void initState(uint32_t, State& state) override {
-        state.key = "preset";
-        state.label = "Preset";
-        state.defaultValue = "Default";
+    /** What the UI keeps with the song: the name of the preset last chosen and the meter design. */
+    void initState(uint32_t index, State& state) override {
+        if (index == 0) {
+            state.key = "preset";
+            state.label = "Preset";
+            state.defaultValue = "Default";
+        } else {
+            state.key = "meter";
+            state.label = "Meter";
+            state.defaultValue = "classic";
+        }
     }
     void setState(const char*, const char*) override {} // only stored by the host
 

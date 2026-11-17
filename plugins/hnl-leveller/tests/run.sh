@@ -24,3 +24,7 @@ PRESET_X=$(sed -n 's/.*kPresetX = \([0-9]*\).*/\1/p' LevellerUI.cpp)
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DPRESET_X=$PRESET_X -o "$OUT/ui_presets_test" \
     $ROOT/common/tests/ui_presets_test.cpp LevellerUI.cpp
 "$OUT/ui_presets_test"
+# The switchable meter design, through the UI class as well (common/tests/ui_meter_test.cpp).
+g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DMETER_LEFT=24 -DMETER_RIGHT=300 -DMETER_PARAM=kMeterGr -o "$OUT/ui_meter_test" \
+    $ROOT/common/tests/ui_meter_test.cpp LevellerUI.cpp
+"$OUT/ui_meter_test"

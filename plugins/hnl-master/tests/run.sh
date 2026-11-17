@@ -20,7 +20,7 @@ g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1
     tests/abuse_test.cpp MasterPlugin.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp
 "$OUT/abuse_test"
 # Saving, loading and deleting a preset through the UI class itself (common/tests/ui_presets_test.cpp).
-PRESET_X=$(sed -n 's/.*kPresetX = \([0-9]*\).*/\1/p' MasterUI.cpp)
-g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DPRESET_X=$PRESET_X -o "$OUT/ui_presets_test" \
+PRESET_RIGHT=$(sed -n 's/.*kPresetRight = \([0-9]*\).*/\1/p' MasterUI.cpp)
+g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DPRESET_FROM_RIGHT=$PRESET_RIGHT -o "$OUT/ui_presets_test" \
     $ROOT/common/tests/ui_presets_test.cpp MasterUI.cpp
 "$OUT/ui_presets_test"

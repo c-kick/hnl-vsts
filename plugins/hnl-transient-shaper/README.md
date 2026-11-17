@@ -9,6 +9,10 @@ or the other way round.
 | --- | --- | --- |
 | ![Help tip on Sustain](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
+| Meter design: Arc | Meter design: LEDs |
+| --- | --- |
+| ![Arc meter](docs/arc.png) | ![LED meter](docs/leds.png) |
+
 *Rendered from the plugin's drawing code; not yet a screenshot from a host.*
 
 ## What it does
@@ -35,11 +39,15 @@ or the other way round.
 | Output | -12 to +12 dB on the shaped signal. More attack means higher peaks. |
 | Mix | 0% is the untouched signal, 100% only the shaped one. |
 
-The needle shows what the shaper is doing: right when it turns the signal up, left when down. Beside the level
+The meter shows what the shaper is doing: right when it turns the signal up, left when down. Beside the level
 bars are the largest boost and cut of the last moment. Nothing limits the output, so it can go over 0 dBFS:
 turn Output down, or follow with a limiter.
 
-Twelve presets are in the menu next to the name. The **?** button switches help on: rest the mouse on any control
+The two arrows under the meter step through three designs: a needle over a printed card (Classic), an arc that
+fills with the reading as a figure (Arc) and a row of lights (LEDs). The choice is kept with the song and changes
+nothing about the sound; a new instance starts on Classic.
+
+Twelve presets are in the menu at the top right. The **?** button switches help on: rest the mouse on any control
 to read what it does.
 
 Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to

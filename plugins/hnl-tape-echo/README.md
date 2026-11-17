@@ -42,7 +42,7 @@ by itself when you push it.
 | Noise | Tape hiss: off at 0, about 60 dB under the tape level at 50%, 20 dB more at 100%. With Intensity up it builds and can start the howl by itself. |
 | Width | Spreads head 1 to the left, head 3 to the right and the springs apart. At 0% everything is mono. |
 
-Thirteen presets are in the menu next to the name. The **?** button switches help on: rest the mouse on any
+Thirteen presets are in the menu at the top right. The **?** button switches help on: rest the mouse on any
 control to read what it does.
 
 Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to

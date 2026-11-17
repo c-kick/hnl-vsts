@@ -71,7 +71,7 @@ struct Control {
 };
 
 const float kBandWidth = 162.0f;
-const float kPresetX = 150, kHeaderY = 14;
+const float kPresetRight = 268, kHeaderY = 14; // the preset bar starts this far from the right edge, which moves as modules open and close
 const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x262a33, 0x3a404c, kText, kDim, kAmber};
 const Rect kModeBox = {12, 36, 188, 22}; // exciter character, relative to its module
 const Rect kResetBox = {20, 448, 142, 28};
@@ -83,7 +83,6 @@ public:
     MasterUI() : UI(UI_BASE_WIDTH, UI_BASE_HEIGHT, false) {
         for (uint32_t i = 0; i < kParamCount; ++i) values_[i] = kParams[i].def;
         loadSharedResources();
-        help_.setButton(kPresetX + hnl::ui::PresetBar::kWidth + 22, kHeaderY + 12);
 
         knob(kInputGain, kModInput, 42, 448, 19, "GAIN");
 
@@ -159,7 +158,7 @@ protected:
         fillColor(rgb(kBg));
         fill();
 
-        label("HNL MASTER", 16, 27, 18, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
+        hnl::ui::title(*this, "MASTER", rgb(kText));
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         if (!presetNote_.empty()) presetText = presetNote_;
@@ -334,6 +333,8 @@ private:
         const double s = getScaleFactor();
         const uint w = static_cast<uint>(std::lround(width_ * s)), h = static_cast<uint>(std::lround(kHeight * s));
         if (getWidth() != w || getHeight() != h) setSize(w, h);
+        presetBar_.moveTo(width_ - kPresetRight, width_);
+        help_.setButton(width_ - 24, kHeaderY + 12);
         placeHelp();
     }
 
@@ -694,7 +695,7 @@ private:
 
     int preset_ = 0;
     std::string presetName_ = "Default";
-    hnl::ui::PresetBar presetBar_{kPresetX, kHeaderY};
+    hnl::ui::PresetBar presetBar_{UI_BASE_WIDTH - kPresetRight, kHeaderY};
     hnl::PresetList list_ = presets::list();
     std::string presetNote_; // shown in place of the name until the next click
     hnl::ui::HelpTips help_;

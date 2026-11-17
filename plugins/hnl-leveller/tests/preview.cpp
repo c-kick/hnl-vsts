@@ -1,4 +1,4 @@
-// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|fet|help|menu|save]
+// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|fet|arc|leds|help|menu|save]
 #include <fstream>
 #include <string>
 
@@ -24,6 +24,10 @@ int main(int argc, char** argv) {
         ui->parameterChanged(kColour, 25.0f);
         ui->parameterChanged(kScHp, 80.0f);
     }
+    if (mode == "arc" || mode == "leds") { // the other two meter designs, as a song that stored one opens
+        ui->stateChanged("meter", mode.c_str());
+        ui->parameterChanged(kMeterGr, 7.8f);
+    }
     if (mode == "fet") {
         ui->parameterChanged(kType, 1.0f);
         ui->parameterChanged(kThreshold, -26.0f);
@@ -48,17 +52,17 @@ int main(int argc, char** argv) {
     }
     if (mode == "menu") {
         DISTRHO::MouseEvent click; // the preset name
-        click.pos.x = 260;
+        click.pos.x = 640;
         click.pos.y = 26;
         ui->onMouse(click);
     }
     if (mode == "save") { // the name box, as after Save as... at the end of the preset list
         DISTRHO::MouseEvent click; // the preset name
-        click.pos.x = 260;
+        click.pos.x = 640;
         click.pos.y = 26;
         ui->onMouse(click);
         const int row = presets::list().count(); // Save as... follows the last preset
-        click.pos.x += (row / hnl::ui::PresetBar::kMaxRows) * 170;
+        click.pos.x -= (row / hnl::ui::PresetBar::kMaxRows) * 170; // further columns lie to the left
         click.pos.y = 44 + (row % hnl::ui::PresetBar::kMaxRows) * hnl::ui::PresetBar::kRow + 11;
         ui->onMouse(click);
     }

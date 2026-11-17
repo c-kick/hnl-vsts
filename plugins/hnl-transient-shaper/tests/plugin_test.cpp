@@ -69,7 +69,7 @@ int main() {
             if (kParams[v.id].kind == kChoice) presetsOk = presetsOk && v.value == std::floor(v.value);
         }
     check(presetsOk, "preset values are within range", presets::kCount);
-    check(plugin.getStateCount() == 1 && plugin.getStateKey(0) == "preset", "preset name is saved as state", plugin.getStateCount());
+    check(plugin.getStateCount() == 2 && plugin.getStateKey(0) == "preset" && plugin.getStateKey(1) == "meter", "preset name and meter design are saved as state", plugin.getStateCount());
     check(kAttack == 0 && kMix == 5 && kInputParamCount == 6, "0.1.0 parameter indices unchanged", kMix);
     check(plugin.getLatency() == 48, "reported latency at 48 kHz (samples)", plugin.getLatency());
 

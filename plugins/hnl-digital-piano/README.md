@@ -90,7 +90,7 @@ physics alone; it did not sound convincing and was replaced.
 | Octave | Shifts the keyboard by up to two octaves. |
 | Voice | Which piano plays. |
 
-Twenty-seven presets are in the menu next to the name; they leave Volume and Tune alone. The **?** button switches
+Twenty-seven presets are in the menu at the top right; they leave Volume and Tune alone. The **?** button switches
 help on: rest the mouse on any control to read what it does.
 
 The keyboard on screen plays notes for trying a sound: click a key (lower on the key is harder), drag to slide.

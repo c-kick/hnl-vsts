@@ -1,4 +1,4 @@
-// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|help|menu|save]
+// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|arc|leds|help|menu|save]
 #include <fstream>
 #include <string>
 
@@ -10,7 +10,7 @@
 int main(int argc, char** argv) {
     const std::string mode = argc > 2 ? argv[2] : "default";
     DISTRHO::UI* ui = DISTRHO::createUI();
-    if (mode == "busy") {
+    if (mode == "busy" || mode == "arc" || mode == "leds") {
         ui->parameterChanged(kMeterVuL, 1.2f);
         ui->parameterChanged(kMeterVuR, -1.5f);
         ui->parameterChanged(kMeterOutL, -7.5f);
@@ -37,20 +37,21 @@ int main(int argc, char** argv) {
     }
     if (mode == "menu") {
         DISTRHO::MouseEvent click; // the preset name
-        click.pos.x = 260;
+        click.pos.x = 640;
         click.pos.y = 26;
         ui->onMouse(click);
     }
     if (mode == "save") { // the name box, as after Save as... at the end of the preset list
         DISTRHO::MouseEvent click; // the preset name
-        click.pos.x = 260;
+        click.pos.x = 640;
         click.pos.y = 26;
         ui->onMouse(click);
         const int row = presets::list().count(); // Save as... follows the last preset
-        click.pos.x += (row / hnl::ui::PresetBar::kMaxRows) * 170;
+        click.pos.x -= (row / hnl::ui::PresetBar::kMaxRows) * 170; // further columns lie to the left
         click.pos.y = 44 + (row % hnl::ui::PresetBar::kMaxRows) * hnl::ui::PresetBar::kRow + 11;
         ui->onMouse(click);
     }
+    if (mode == "arc" || mode == "leds") ui->stateChanged("meter", mode.c_str()); // the other two meter designs, as a song that stored one opens
     ui->onNanoDisplay();
     std::ofstream out(argv[1]);
     out << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" << ui->getWidth() << "\" height=\"" << ui->getHeight()

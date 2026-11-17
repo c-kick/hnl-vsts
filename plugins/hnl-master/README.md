@@ -23,7 +23,7 @@ Signal flow, left to right:
 | Limiter | Gain, ceiling and release; look-ahead with true-peak detection |
 | Output | Level meters, momentary / short-term / integrated loudness (LUFS), true-peak maximum |
 
-Twelve presets are in the menu next to the name. A `*` after the preset name means a control was changed since it
+Twelve presets are in the menu at the top right. A `*` after the preset name means a control was changed since it
 was chosen.
 
 The **?** button next to the presets switches help on: rest the mouse on any control or meter to read what it

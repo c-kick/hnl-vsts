@@ -9,6 +9,10 @@ the simple, single-band counterpart of the multiband compressor in HNL Master.
 | --- | --- | --- |
 | ![Help tip on Release](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
+| Meter design: Arc | Meter design: LEDs |
+| --- | --- |
+| ![Arc meter](docs/arc.png) | ![LED meter](docs/leds.png) |
+
 *Rendered from the plugin's drawing code; not yet a screenshot from a host.*
 
 ## What it does
@@ -35,10 +39,14 @@ the simple, single-band counterpart of the multiband compressor in HNL Master.
 | Sidechain high-pass | Off, or up to 300 Hz (12 dB per octave), on the detector only. |
 | Mix | 0% is the untouched signal, 100% only the compressed one. |
 
-The needle shows the gain reduction in dB. The bars show the peak level going in and coming out; the compressor
+The meter shows the gain reduction in dB. The bars show the peak level going in and coming out; the compressor
 does not limit, so with make-up gain the output can go over 0 dBFS.
 
-Ten presets are in the menu next to the name. They assume a mix that peaks a few dB under 0 dBFS: set the
+The two arrows under the meter step through three designs: a needle over a printed card (Classic), an arc that
+fills with the reading as a figure (Arc) and a row of lights (LEDs). The choice is kept with the song and changes
+nothing about the sound; a new instance starts on Classic.
+
+Ten presets are in the menu at the top right. They assume a mix that peaks a few dB under 0 dBFS: set the
 threshold to your own level. The **?** button switches help on: rest the mouse on any control to read what it
 does.
 
