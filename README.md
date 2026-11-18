@@ -185,7 +185,9 @@ therefore does the following, and has a test for each in `tests/plugin_test.cpp`
   playing the voice it has until they are there (`Piano::setParamsRealtime`).
 
 Tests of whether something is a number look at its bits (`hnl::isFinite`): `std::isfinite` and `x != x` are
-removed by the compiler under `-ffast-math`.
+removed by the compiler under `-ffast-math`. clang removes a plain test on the bits as well, so the bits first pass
+through `hnl::hidden`; `common/tests/run.sh` checks this with clang too when zig is there, because g++ alone does
+not show it.
 
 ## Adding a plugin
 
