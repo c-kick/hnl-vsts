@@ -1,0 +1,147 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+#
+# Builds the plugins for macOS as VST3, CLAP and Audio Unit, for Intel and Apple silicon in one binary
+# (macOS 10.15 and later). Experimental: it is started by hand only and publishes nothing. The result is one
+# workflow artifact that holds a <Plugin>-macos.zip per plugin; release.sh and the Downloads release are not
+# touched.
+#
+# The builds carry a local ("ad hoc") signature only. They are not notarised, so a Mac that downloads them
+# blocks them until the download mark is removed; README-macOS.txt in every zip says how.
+name: macOS build (experimental)
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugins:
+        description: "Plugins to build, separated by spaces, for example: hnl-leveller hnl-master (empty: all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      REQUESTED: ${{ inputs.plugins }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Choose the plugins
+        run: |
+          list=${REQUESTED:-$(ls plugins)}
+          for p in $list; do
+            [ -f "plugins/$p/Makefile" ] || { echo "::error::$p: no such plugin"; exit 1; }
+          done
+          echo "PLUGINS=$(echo $list)" >> "$GITHUB_ENV"
+
+      # DPF's own rule for a universal build: both processors, macOS 10.15 as the oldest system, and no
+      # pkg-config, so that nothing from the runner's Homebrew is linked in.
+      - name: Build
+        run: |
+          for p in $PLUGINS; do
+            echo "::group::$p"
+            make -C "plugins/$p" macos-universal-10.15 TARGETS="vst3 clap au" -j"$(sysctl -n hw.ncpu)"
+            echo "::endgroup::"
+          done
+
+      - name: Sign locally and check
+        run: |
+          for p in $PLUGINS; do
+            name=$(sed -n 's/^NAME = //p' "plugins/$p/Makefile")
+            for ext in vst3 clap component; do
+              bundle="dist/$name.$ext"
+              [ -f "$bundle/Contents/MacOS/$name" ] || { echo "::error::$bundle was not built"; exit 1; }
+              archs=$(lipo -archs "$bundle/Contents/MacOS/$name")
+              case "$archs" in
+                *x86_64*arm64*|*arm64*x86_64*) ;;
+                *) echo "::error::$bundle holds only: $archs"; exit 1 ;;
+              esac
+              codesign --force --deep --sign - "$bundle"
+              codesign --verify --deep --strict "$bundle"
+              echo "$bundle: $archs"
+            done
+          done
+
+      # Zipped here, with ditto, because a workflow artifact does not keep the executable bit of the files
+      # in a bundle. The name carries no version, like the Windows zips.
+      - name: Package
+        run: |
+          for p in $PLUGINS; do
+            name=$(sed -n 's/^NAME = //p' "plugins/$p/Makefile")
+            version=$(sed -n 's/^#define HNL_VERSION_[A-Z]* \([0-9]*\)$/\1/p' "plugins/$p/DistrhoPluginInfo.h" | paste -sd. -)
+            stage="build/macos-zip/$name"
+            rm -rf "$stage" && mkdir -p "$stage" zips
+            cp -R "dist/$name.vst3" "dist/$name.clap" "dist/$name.component" "$stage/"
+            cp LICENSE "$stage/LICENSE.txt"
+            cat > "$stage/README-macOS.txt" <<EOF
+          $name $version for macOS 10.15 and later, Intel and Apple silicon.
+          Built from commit $GITHUB_SHA.
+
+          EXPERIMENTAL. These builds were made on a build server and have not been tried on a real Mac.
+          If something does not work, please report it: https://github.com/c-kick/hnl-vsts/issues
+
+          Install: copy what your host needs to the folder of your user account, then let the host scan again.
+
+            $name.vst3         ~/Library/Audio/Plug-Ins/VST3/
+            $name.clap         ~/Library/Audio/Plug-Ins/CLAP/
+            $name.component    ~/Library/Audio/Plug-Ins/Components/    (Audio Unit: Logic Pro, GarageBand)
+
+          The builds are not signed with an Apple developer account, so macOS blocks them after a download.
+          Remove the download mark once, in Terminal, after copying:
+
+            xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/$name.vst3
+            xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/CLAP/$name.clap
+            xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/$name.component
+          EOF
+            ditto -c -k --sequesterRsrc "$stage" "zips/$name-macos.zip"
+            echo "zips/$name-macos.zip ($version)"
+          done
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: hnl-plugins-macos
+          path: zips/*.zip
+          if-no-files-found: error
+
+      # The steps below only check; the zips are already uploaded when one of them fails.
+
+      # Apple's own validation of each Audio Unit: it loads the plugin and runs it through a fixed set of checks.
+      - name: Validate the Audio Units (auval)
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          for p in $PLUGINS; do
+            name=$(sed -n 's/^NAME = //p' "plugins/$p/Makefile")
+            cp -R "dist/$name.component" ~/Library/Audio/Plug-Ins/Components/
+          done
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          failed=""
+          for p in $PLUGINS; do
+            name=$(sed -n 's/^NAME = //p' "plugins/$p/Makefile")
+            plist="dist/$name.component/Contents/Info.plist"
+            code() { /usr/libexec/PlistBuddy -c "Print :AudioComponents:0:$1" "$plist"; }
+            echo "::group::$name"
+            auval -v "$(code type)" "$(code subtype)" "$(code manufacturer)" || failed="$failed $name"
+            echo "::endgroup::"
+          done
+          [ -z "$failed" ] || { echo "::error::auval failed for:$failed"; exit 1; }
+
+      # The offline tests, with Apple's compiler. test.sh is not used: it needs `timeout`, which macOS lacks.
+      - name: Offline tests
+        if: ${{ !cancelled() }}
+        run: |
+          failed=""
+          echo "::group::common"
+          common/tests/run.sh || failed="$failed common"
+          echo "::endgroup::"
+          for p in $PLUGINS; do
+            echo "::group::$p"
+            "plugins/$p/tests/run.sh" || failed="$failed $p"
+            echo "::endgroup::"
+          done
+          [ -z "$failed" ] || { echo "::error::tests failed for:$failed"; exit 1; }
