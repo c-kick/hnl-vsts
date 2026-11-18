@@ -1,7 +1,9 @@
 # hnl-vsts
 
 Audio plugins by hnldesign (effects and instruments), built as VST3 and CLAP for Windows (the VST3 tested in
-Reason 12.5+). To compile them on a Mac yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
+Reason 12.5+). For macOS there are experimental
+[test builds](https://github.com/c-kick/hnl-vsts/releases/tag/macos-test) (VST3, CLAP and Audio Unit) that nobody has tried on a real Mac yet; to compile them on a Mac
+yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
 
 ## Download
 
@@ -130,8 +132,12 @@ Install by copying the `<Plugin>.vst3` folder from `dist/` to `C:\Program Files\
 host that takes CLAP (Bitwig Studio, Reaper and others), the `<Plugin>.clap` file to
 `C:\Program Files\Common Files\CLAP\`. Both hold the same plugin; a host needs only one of them.
 
-There are no builds for macOS, but the code should compile there: [BUILDING-MACOS.md](BUILDING-MACOS.md) has the
-steps, with the warning that nobody has tried them yet.
+For macOS there are experimental [test builds](https://github.com/c-kick/hnl-vsts/releases/tag/macos-test), for Intel and Apple silicon, as VST3, CLAP and Audio Unit.
+They are made on a build server (`.github/workflows/macos.yml`, started by hand) and pass Apple's validation of
+Audio Units there, but nobody has tried them on a real Mac yet, and they are not signed with an Apple developer
+account: the release page says how to get them past the block macOS puts on downloads. `release.sh` does not make
+them, so they can be older than the Windows builds. [BUILDING-MACOS.md](BUILDING-MACOS.md) has the steps to compile
+them yourself.
 
 ## Presets of your own
 
@@ -144,6 +150,8 @@ asking once. Factory presets cannot be replaced or deleted.
 A preset is a small text file, one per preset, so presets can be copied, shared and backed up:
 
     %APPDATA%\HNL\<plugin name>\Presets\<preset name>.hnlpreset
+
+On a Mac that is `~/Library/Application Support/HNL/<plugin name>/Presets/`.
 
 It holds `symbol = value` lines. A parameter that is not in the file gets its default, so a preset saved today
 still loads after a plugin gained a control; values outside a control's range are brought back into it. The list

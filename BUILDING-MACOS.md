@@ -1,12 +1,13 @@
 # Building the plugins on macOS
 
-The plugins are released for 64-bit Windows only. The code itself is not tied to Windows: the audio engines are
-plain C++17 and the plugin and UI layer is [DPF](https://github.com/DISTRHO/DPF), which also builds on macOS. So
-you can compile them yourself on a Mac.
+The plugins are released for 64-bit Windows. For macOS there are only experimental
+[test builds](https://github.com/c-kick/hnl-vsts/releases/tag/macos-test). The code itself is not tied to Windows: the audio engines are plain C++17 and the plugin and UI
+layer is [DPF](https://github.com/DISTRHO/DPF), which also builds on macOS. So you can compile them yourself on a
+Mac.
 
-**This has not been tried.** There is no Mac among the machines the plugins are built and tested on, so take what
-follows as the route that should work, not one that is known to. If a step fails, an issue with the compiler
-output is welcome.
+**This has only been tried on a build server.** The test builds are made there in much the same way
+(`.github/workflows/macos.yml`), but there is no Mac among the machines the plugins are developed and tested on, so
+the steps below have not been run by hand. If a step fails, an issue with the compiler output is welcome.
 
 ## What you need
 
@@ -87,8 +88,8 @@ developer account. That is the reason there are no ready-made Mac builds.
 
 ## What differs from Windows
 
-- **Your own presets** are kept in `~/.config/HNL/<plugin name>/Presets/` (or under `$XDG_CONFIG_HOME` when that
-  is set), not in `%APPDATA%`. The files are the same, so presets can be copied between a Mac and a Windows PC.
+- **Your own presets** are kept in `~/Library/Application Support/HNL/<plugin name>/Presets/`, not in `%APPDATA%`.
+  The files are the same, so presets can be copied between a Mac and a Windows PC.
 - **Songs** saved on one system should open on the other with the same settings: parameters and state are the
   same in every build.
 

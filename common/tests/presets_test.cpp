@@ -152,6 +152,26 @@ static void testNoFolder() {
     check(list.count() == 2 && list.save("Nowhere", values) == -1 && list.count() == 2, "a folder that cannot be made: saving fails, nothing else does");
 }
 
+/** Where the presets go when nothing says otherwise: the place the system has for it. */
+static void testDefaultFolder() {
+    const char* was = std::getenv("HOME");
+    const std::string home = was != nullptr ? was : "";
+    unsetenv("HNL_PRESET_DIR");
+    setenv("HOME", "/somewhere/home", 1);
+    setenv("XDG_CONFIG_HOME", "/somewhere/xdg", 1);
+#ifdef __APPLE__
+    check(hnl::presetfile::folder("Plug") == fs::path("/somewhere/home/Library/Application Support/HNL/Plug/Presets"), "default folder: Application Support in the user's Library");
+#else
+    check(hnl::presetfile::folder("Plug") == fs::path("/somewhere/xdg/HNL/Plug/Presets"), "default folder: XDG_CONFIG_HOME when it is set");
+    unsetenv("XDG_CONFIG_HOME");
+    check(hnl::presetfile::folder("Plug") == fs::path("/somewhere/home/.config/HNL/Plug/Presets"), "default folder: ~/.config otherwise");
+#endif
+    unsetenv("XDG_CONFIG_HOME");
+    unsetenv("HOME");
+    check(hnl::presetfile::folder("Plug").empty(), "default folder: none when there is no home");
+    if (was != nullptr) setenv("HOME", home.c_str(), 1);
+}
+
 /** A list too long for one column is spread evenly, so that Save as... never stands in a column of its own. */
 static void testLongList() {
     typedef hnl::ui::PresetBar Bar;
@@ -253,6 +273,7 @@ int main() {
     testBar();
     testLongList();
     fs::remove_all(dir);
+    testDefaultFolder(); // last: it takes HNL_PRESET_DIR away
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;
 }

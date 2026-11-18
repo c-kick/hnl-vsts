@@ -5,6 +5,7 @@
 // every song. One file per preset:
 //
 //   Windows:  %APPDATA%\HNL\<plugin>\Presets\<name>.hnlpreset
+//   macOS:    ~/Library/Application Support/HNL/<plugin>/Presets/
 //   elsewhere: $XDG_CONFIG_HOME (or ~/.config)/HNL/<plugin>/Presets/
 //   HNL_PRESET_DIR, when set, replaces all of that (the tests use it).
 //
@@ -179,11 +180,17 @@ inline fs::path folder(const char* plugin) {
 #else
     if (const char* dir = std::getenv("HNL_PRESET_DIR"))
         if (dir[0] != '\0') return fs::path(dir);
+#ifndef __APPLE__
     if (const char* base = std::getenv("XDG_CONFIG_HOME"))
         if (base[0] != '\0') return fs::path(base) / "HNL" / plugin / "Presets";
+#endif
     const char* home = std::getenv("HOME");
     if (home == nullptr || home[0] == '\0') return fs::path();
+#ifdef __APPLE__
+    return fs::path(home) / "Library" / "Application Support" / "HNL" / plugin / "Presets";
+#else
     return fs::path(home) / ".config" / "HNL" / plugin / "Presets";
+#endif
 #endif
 }
 
