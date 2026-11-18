@@ -6,7 +6,11 @@
 //
 // The plugins are built with -ffast-math, which lets the compiler assume
 // that NaN and infinity never occur and remove tests such as std::isfinite
-// or x != x. The tests here look at the bits instead, which it cannot remove.
+// or x != x. The tests here look at the bits instead. That alone is not
+// enough: clang (17 and later) recognises a test on the exponent bits of a
+// float as "is this finite" and removes it all the same. So the bits, or the
+// pointer to the samples, first pass through hidden(), after which the
+// compiler no longer knows that they came from a float.
 // Header-only, no dependencies.
 #pragma once
 
@@ -20,17 +24,29 @@
 
 namespace hnl {
 
+/** Gives the value back unchanged, in a way the compiler cannot see through. */
+template <typename T>
+inline T hidden(T value) {
+#if defined(__GNUC__) || defined(__clang__)
+    __asm__ volatile("" : "+r"(value) : : "memory");
+    return value;
+#else
+    volatile T copy = value;
+    return copy;
+#endif
+}
+
 /** False for NaN and for plus or minus infinity. */
 inline bool isFinite(float v) {
     uint32_t bits;
     std::memcpy(&bits, &v, sizeof(bits));
-    return (bits & 0x7f800000u) != 0x7f800000u;
+    return (hidden(bits) & 0x7f800000u) != 0x7f800000u;
 }
 
 inline bool isFinite(double v) {
     uint64_t bits;
     std::memcpy(&bits, &v, sizeof(bits));
-    return (bits & 0x7ff0000000000000ull) != 0x7ff0000000000000ull;
+    return (hidden(bits) & 0x7ff0000000000000ull) != 0x7ff0000000000000ull;
 }
 
 /** A parameter value as the engine may use it: within its range, the default when it is not a number. */
@@ -41,17 +57,23 @@ inline float cleanParam(float value, float min, float max, float def) {
 
 /** Replaces samples that are not numbers by silence. Returns how many there were. */
 inline uint32_t cleanInput(float* samples, uint32_t count) {
+    samples = hidden(samples);
     uint32_t bad = 0;
-    for (uint32_t i = 0; i < count; ++i)
-        if (!isFinite(samples[i])) {
-            samples[i] = 0.0f;
+    for (uint32_t i = 0; i < count; ++i) {
+        uint32_t bits;
+        std::memcpy(&bits, &samples[i], sizeof(bits));
+        if ((bits & 0x7f800000u) == 0x7f800000u) {
+            bits = 0u;
+            std::memcpy(&samples[i], &bits, sizeof(bits));
             ++bad;
         }
+    }
     return bad;
 }
 
 /** True when every sample is a number. */
 inline bool isClean(const float* samples, uint32_t count) {
+    samples = hidden(samples);
     uint32_t all = 0;
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t bits;

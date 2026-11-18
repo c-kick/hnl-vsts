@@ -11,6 +11,13 @@ g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/safety_test" tests/safety_test.cpp
 "$OUT/safety_test"
 g++ -std=c++17 -O3 -ffast-math -Wall -Wextra -o "$OUT/safety_test_release" tests/safety_test.cpp
 "$OUT/safety_test_release"
+# And with clang, when zig is here: it builds the plugins for Windows, and with -ffast-math it removes
+# tests on NaN that g++ leaves in.
+ZIG=${ZIG:-$HOME/.local/opt/zig-x86_64-linux-0.17.1/zig}
+if [ -x "$ZIG" ]; then
+    "$ZIG" c++ -std=c++17 -O3 -ffast-math -Wall -Wextra -o "$OUT/safety_test_clang" tests/safety_test.cpp
+    "$OUT/safety_test_clang"
+fi
 g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/presets_test" tests/presets_test.cpp
 "$OUT/presets_test"
 g++ -std=c++17 -O3 -ffast-math -Wall -Wextra -o "$OUT/presets_test_release" tests/presets_test.cpp
