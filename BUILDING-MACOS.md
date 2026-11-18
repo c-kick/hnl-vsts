@@ -44,6 +44,9 @@ All of them at once:
 for p in plugins/*/; do make -C "$p" TARGETS="vst3 clap au" || break; done
 ```
 
+HNL Channel Spacer is the exception: leave `au` out for it. DPF's Audio Unit wrapper knows no sidechain input, so
+its Audio Unit builds but does not work (Apple's `auval` rejects it). Its VST3 and CLAP builds have the sidechain.
+
 The results are bundles in `dist/`: `HNL-Leveller.vst3`, `HNL-Leveller.clap` and `HNL-Leveller.component`.
 `make -C plugins/<name> clean` removes them again.
 
