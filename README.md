@@ -76,6 +76,13 @@ The plugins are free software under the GNU General Public License, version 3 or
   <tr>
     <td valign="top">Thickens drums, beats and anything else in the middle: adds a copy in which one channel is a few milliseconds late, through a small room, with a parallel compressor and saturator, on top of the untouched signal<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Thickener-win64.zip"><b>Download</b></a> · <!-- version:hnl-thickener -->v0.1.2<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
   </tr>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-widener"><img src="plugins/hnl-widener/docs/preview.png" alt="HNL Widener" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-widener">HNL Widener</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Stereo widener that also makes a mono sound wide: Haas, diffusion, detuning, a slow drift and a focus that keeps the hits in the middle, all added to the side signal, so that a mono speaker plays exactly what went in<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Widener-win64.zip"><b>Download</b></a> · <!-- version:hnl-widener -->v0.1.0<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+  </tr>
 </table>
 
 ## Instruments

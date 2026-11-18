@@ -73,6 +73,7 @@ public:
 
     bool loadSharedResources() { return true; }
     double getScaleFactor() const { return 1.0; }
+    double getSampleRate() const { return 48000.0; }
     void repaint() {}
     uint getWidth() const { return w_; }
     uint getHeight() const { return h_; }

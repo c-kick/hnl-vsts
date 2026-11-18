@@ -12,6 +12,8 @@ plugins that have not been started.
 - **HNL Thickener:** oversampling for Drive, more than one room character with a pre-delay (the room is
   our own small model; a click recorded through the rack reverb it replaces would let it be matched), and a
   goniometer next to the L/R bar.
+- **HNL Widener:** the response plot moving along with Drift, a full goniometer in place of the fan, and a
+  second Diffuse pattern to choose from.
 - **HNL Transient Shaper:** an output soft clipper for the boosted peaks, and shaping of only the range the
   detector listens to (multiband).
 - **HNL Digital Piano:** more voices, once there are reference recordings to fit them to (single notes across
@@ -46,7 +48,8 @@ Built: the bus compressor, the levelling compressor and the transient shaper.
 
 ## Utility
 
-- **Stereo tool:** mid/side balance, mono below a frequency, correlation meter.
+- **Stereo tool:** mid/side balance on its own. Mono below a frequency and a correlation meter are in HNL
+  Widener.
 - **Loudness and spectrum meter** as a plugin of its own.
 
 ## Instruments
