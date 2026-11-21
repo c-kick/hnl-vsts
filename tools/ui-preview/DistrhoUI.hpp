@@ -63,6 +63,7 @@ public:
     virtual bool onScroll(const ScrollEvent&) { return false; }
     virtual bool onKeyboard(const KeyboardEvent&) { return false; }
     virtual bool onCharacterInput(const CharacterInputEvent&) { return false; }
+    virtual void uiIdle() {}
 
     std::string svg;
     // What the UI sent to the host, for the tests.
@@ -82,6 +83,12 @@ public:
     void setParameterValue(uint32_t id, float value) { sentParameters.emplace_back(id, value); }
     void setState(const char* key, const char* value) { sentState = std::string(key) + "=" + value; }
     void sendNote(uint8_t, uint8_t, uint8_t) {}
+    /** What a UI that reaches into its plugin is given: nothing, unless a test or preview put something here. */
+    static void*& instancePointer() {
+        static void* pointer = nullptr;
+        return pointer;
+    }
+    void* getPluginInstancePointer() const { return instancePointer(); }
 
     void scale(float, float) {}
     void fontFace(const char*) {}

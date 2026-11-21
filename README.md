@@ -95,6 +95,13 @@ The plugins are free software under the GNU General Public License, version 3 or
   <tr>
     <td valign="top">Five pianos in stereo (workstation, FM electric, 1980s stage, 1990s dance, concert grand), with doubling, reverb and an on-screen keyboard<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Digital-Piano-win64.zip"><b>Download</b></a> · <!-- version:hnl-digital-piano -->v0.9.3<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
   </tr>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-sampler"><img src="plugins/hnl-sampler/docs/preview.png" alt="HNL Sampler" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-sampler">HNL Sampler</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Sampler in eight parts: WAV, AIFF, FLAC, SFZ and SoundFont sounds over keys and velocities, loops with crossfade, unison, an oscillator, a filter and saturation for every note, envelopes, LFOs, a modulation matrix with eight macros, MPE, tunings, eight stereo outputs. A first version, not yet played in a host<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Sampler-win64.zip"><b>Download</b></a> · <!-- version:hnl-sampler -->v0.1.0<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+  </tr>
 </table>
 
 ## Layout
@@ -127,7 +134,8 @@ plugin itself with. Under those flags the compiler may assume that NaN and infin
 only passes the first time shows code that behaves differently in the plugin than in its tests. Each plugin
 also has an `abuse_test`: `common/tests/HostAbuse.hpp` plays the part of a host that does everything a host may
 do (sample rates from 8 to 384 kHz, blocks of any length, parameters jumping about, garbage tempo and MIDI) and
-checks that the plugin stays bounded, comes to rest afterwards and never needed its own safety net. A plugin whose
+checks that the plugin stays bounded, comes to rest afterwards and never needed its own safety net (it looks at the
+first two outputs; a plugin with more is given room for all of them). A plugin whose
 tests take longer than 15 minutes counts as failed (`TEST_TIMEOUT=<seconds>` changes that).
 
 `plugins/<name>/tests/preview.sh` writes the UI as SVG files into `build/`; `tools/ui-preview/shot.mjs` turns them

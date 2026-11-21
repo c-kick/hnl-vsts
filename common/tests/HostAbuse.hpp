@@ -45,6 +45,7 @@ struct Rng {
 };
 
 constexpr int kIns = DISTRHO_PLUGIN_NUM_INPUTS;
+constexpr int kOuts = DISTRHO_PLUGIN_NUM_OUTPUTS; // the checks look at the first two; a plugin with more gets room for all
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
 constexpr bool kSynth = true;
 #else
@@ -54,8 +55,12 @@ constexpr bool kSynth = false;
 /** Runs one block of any length; inputs are copied so the caller's signal is kept. */
 struct Host {
     PluginExporter plugin;
-    std::vector<float> buf[4], out[2];
-    Host() : plugin(nullptr, nullptr, nullptr, nullptr) {}
+    std::vector<float> buf[4], out[kOuts];
+    Host() : plugin(nullptr, nullptr, nullptr, nullptr) {
+#ifdef HNL_ABUSE_SETUP
+        HNL_ABUSE_SETUP(plugin); // a plugin that is silent as it starts (a sampler with nothing loaded) is given something to play
+#endif
+    }
 
     void run(const float* const* in, uint32_t frames, const MidiEvent* events = nullptr, uint32_t eventCount = 0) {
         for (int c = 0; c < 4; ++c) {
@@ -64,7 +69,8 @@ struct Host {
         }
         for (auto& o : out) o.assign(frames + 1, 0.0f);
         const float* ins[4] = {buf[0].data(), buf[1].data(), buf[2].data(), buf[3].data()};
-        float* outs[2] = {out[0].data(), out[1].data()};
+        float* outs[kOuts];
+        for (int c = 0; c < kOuts; ++c) outs[c] = out[c].data();
 #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
         plugin.run(kIns > 0 ? ins : nullptr, outs, frames, events, eventCount);
 #else

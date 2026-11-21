@@ -21,6 +21,12 @@ plugins that have not been started.
   workstation organ. The Dance 90s voice would gain most from proper single-note references. The emulator used
   for the Stage 80s voice also holds that machine's electric pianos, harpsichord, clavi and vibraphone.
 
+- **HNL Sampler:** what its first version leaves out: streaming long sounds from disk, recording and
+  resampling, drawing and editing the sound itself, a phrase sequencer with MIDI out, envelopes with more
+  stages, envelopes and filters per zone, every preset of a SoundFont, finding moved sounds again, a button
+  for the tempo detection that is already in its code, favourite folders and a search in its file page, and
+  files dropped on its window (DPF passes none on).
+
 ## Dynamics
 
 Built: the bus compressor, the levelling compressor and the transient shaper.
@@ -54,7 +60,7 @@ Built: the bus compressor, the levelling compressor and the transient shaper.
 
 ## Instruments
 
-Built: the digital piano.
+Built: the digital piano and the sampler.
 
 - **Synth or drum machine.**
 
