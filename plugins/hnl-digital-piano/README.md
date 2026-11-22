@@ -113,3 +113,67 @@ The zip holds the plugin as VST3
 (copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). A host needs only one of the
 two. Windows 64-bit. It is an instrument: in Reason, add it from the
 instruments, not the effects.
+
+## Changelog
+
+### 0.9.3 (2026-11-18)
+
+- Fixed: samples and parameter values that are not numbers are caught again in the builds made with clang.
+
+### 0.9.2 (2026-11-17)
+
+- Fixed: a preset's name can be typed in a host that hands over the keys without their text.
+- The licence text (GPL-3.0-or-later) comes with the download.
+
+### 0.9.1 (2026-11-17)
+
+- The version is shown behind the title, next to the HNL logo; the preset bar stands at the right.
+- The preset menu spreads a long list evenly over its columns.
+- A CLAP build next to the VST3.
+
+### 0.9.0 (2026-11-17)
+
+- New: presets of your own, saved, replaced and deleted from the preset menu.
+
+### 0.8.2 (2026-11-17)
+
+- The waves of a voice are computed away from the audio thread; the voice in use plays on until they are there.
+- Guards against samples and parameter values that are not numbers, and against whatever else a host may send.
+
+### 0.8.1 (2026-11-16)
+
+- The workstation voice is wider in stereo.
+
+### 0.8.0 (2026-11-16)
+
+- The workstation voice is fitted again to a closer reference, with a note measured every three keys.
+
+### 0.7.0 (2026-11-16)
+
+- The grand is measured in stereo; its lowest and highest keys come from nearer notes.
+
+### 0.6.0 (2026-11-16)
+
+- The grand is fitted to recordings of a real grand.
+
+### 0.5.0 (2026-11-16)
+
+- New: stage, dance and grand voices.
+- The preset menu is laid out in columns.
+
+### 0.4.0 (2026-11-16)
+
+- Renamed from HNL House Piano.
+- New: the FM electric piano voice.
+
+### 0.3.0 (2026-11-16)
+
+- As HNL House Piano: fitted to reference measurements.
+
+### 0.2.0 (2026-11-16)
+
+- As HNL House Piano: longer release and sustain.
+
+### 0.1.0 (2026-11-16)
+
+- First version, as HNL House Piano: a stereo digital piano.

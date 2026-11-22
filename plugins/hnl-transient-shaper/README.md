@@ -68,3 +68,33 @@ any existing unit.
 The zip holds the plugin as VST3
 (copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). A host needs only one of the
 two. Windows 64-bit.
+
+## Changelog
+
+### 0.3.2 (2026-11-18)
+
+- Fixed: samples and parameter values that are not numbers are caught again in the builds made with clang.
+
+### 0.3.1 (2026-11-17)
+
+- Fixed: a preset's name can be typed in a host that hands over the keys without their text.
+- The licence text (GPL-3.0-or-later) comes with the download.
+
+### 0.3.0 (2026-11-17)
+
+- The version is shown behind the title, next to the HNL logo; the preset bar stands at the right.
+- The preset menu spreads a long list evenly over its columns.
+- The meter comes in three designs (classic, arc, leds).
+- A CLAP build next to the VST3.
+
+### 0.2.0 (2026-11-17)
+
+- New: presets of your own, saved, replaced and deleted from the preset menu.
+
+### 0.1.1 (2026-11-17)
+
+- Guards against samples and parameter values that are not numbers, and against whatever else a host may send.
+
+### 0.1.0 (2026-11-16)
+
+- First version: attack and sustain shaping for drums, without a threshold.

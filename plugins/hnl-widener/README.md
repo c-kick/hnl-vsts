@@ -128,3 +128,9 @@ its default. There is no latency.
 The zip holds the plugin as VST3
 (copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to
 `C:\Program Files\Common Files\CLAP\`). A host needs only one of the two. Windows 64-bit.
+
+## Changelog
+
+### 0.1.0 (2026-11-18)
+
+- First version: widening by adding to the side signal only (Haas, diffusion, detuning, Drift, Focus), so that the mono sum stays as it went in.

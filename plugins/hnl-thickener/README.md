@@ -112,3 +112,18 @@ Level Match) was added here and is off in the Default preset. The plugin is not 
 The zip holds the plugin as VST3
 (copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to
 `C:\Program Files\Common Files\CLAP\`). A host needs only one of the two. Windows 64-bit.
+
+## Changelog
+
+### 0.1.2 (2026-11-18)
+
+- Fixed: samples and parameter values that are not numbers are caught again in the builds made with clang.
+
+### 0.1.1 (2026-11-17)
+
+- Fixed: a preset's name can be typed in a host that hands over the keys without their text.
+- The licence text (GPL-3.0-or-later) comes with the download.
+
+### 0.1.0 (2026-11-17)
+
+- First version: a copy with one channel a few milliseconds late, through a small room, on top of the signal.

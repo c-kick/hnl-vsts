@@ -69,3 +69,32 @@ From the repository root: `./build.sh hnl-channel-spacer` (see the [main readme]
 
 The zip holds the plugin as VST3 (copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP
 (copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). A host needs only one of the two.
+
+## Changelog
+
+### 0.2.3 (2026-11-18)
+
+- Fixed: samples and parameter values that are not numbers are caught again in the builds made with clang.
+
+### 0.2.2 (2026-11-17)
+
+- Fixed: a preset's name can be typed in a host that hands over the keys without their text.
+- The licence text (GPL-3.0-or-later) comes with the download.
+
+### 0.2.1 (2026-11-17)
+
+- The version is shown behind the title, next to the HNL logo; the preset bar stands at the right.
+- The preset menu spreads a long list evenly over its columns.
+- A CLAP build next to the VST3.
+
+### 0.2.0 (2026-11-17)
+
+- New: presets of your own, saved, replaced and deleted from the preset menu.
+
+### 0.1.1 (2026-11-17)
+
+- Guards against samples and parameter values that are not numbers, and against whatever else a host may send.
+
+### 0.1.0 (2026-11-16)
+
+- First version: a 32-band ducker driven by a sidechain input.
