@@ -76,7 +76,7 @@ yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
     <th align="left"><a href="plugins/hnl-patina">HNL Patina</a></th>
   </tr>
   <tr>
-    <td valign="top">Makes a clean sound old: a gain stage, a record that does not run true, the surface of that record, a noise bed, a filter and a room, each of which can react to the music, with two scenes per preset and a morph between them.<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Patina-win64.zip"><b>Download</b></a> · <!-- version:hnl-patina -->v0.2.0<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Makes a clean sound old: a gain stage, a record that does not run true, the surface of that record, a noise bed, a filter and a room, each of which can react to the music, with two scenes per preset and a morph between them.<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Patina-win64.zip"><b>Download</b></a> · <!-- version:hnl-patina -->v0.2.1<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
 </table>
 
