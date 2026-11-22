@@ -189,7 +189,10 @@ public:
 
 protected:
     void parameterChanged(uint32_t index, float value) override {
-        if (index >= kParamCount || values_[index] == value) return;
+        if (index >= kParamCount) return;
+        // Within the parameter's range, whatever the host sends, as the plugin itself does.
+        value = hnl::cleanParam(value, kParams[index].min, kParams[index].max, kParams[index].def);
+        if (values_[index] == value) return;
         values_[index] = value;
         repaint();
     }
@@ -948,7 +951,7 @@ private:
         if (zones.empty()) label("No sounds in this part yet.", m.x + m.w * 0.5f, m.y + m.h * 0.5f - 8, 11, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
         const Zone* z = zone();
         const Sample* s = z != nullptr ? doc_->findSample(z->sample) : nullptr;
-        if (s != nullptr) fitted(s->missing ? "Not found: " + s->path : s->path, kPageArea.x + 50, m.y + m.h + 17, 9, 900, rgb(s->missing ? kRed : kText));
+        if (s != nullptr) fitted(s->missing ? missingText(*s) + ": " + s->path : s->path, kPageArea.x + 50, m.y + m.h + 17, 9, 900, rgb(s->missing ? kRed : kText));
     }
 
     bool mapDown(float x, float y) {
@@ -1007,7 +1010,10 @@ private:
         const AudioData* d = zoneData();
         if (z == nullptr || d == nullptr || d->frames() < 2) {
             const Sample* s = z != nullptr ? doc_->findSample(z->sample) : nullptr;
-            label(z == nullptr ? "No sounds in this part yet." : (s != nullptr && s->missing ? "This zone's sound was not found on disk." : "Reading the sound..."),
+            const std::string why = z == nullptr ? "No sounds in this part yet."
+                                    : s == nullptr || !s->missing ? "Reading the sound..."
+                                    : missingText(*s) == "Not found" ? "This zone's sound was not found on disk." : "This zone's sound was not loaded: " + s->error + ".";
+            label(why.c_str(),
                   w.x + w.w * 0.5f, w.y + w.h * 0.5f - 8, 11, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
             return;
         }
@@ -1290,6 +1296,14 @@ private:
     Box listBox() const { return {kPageArea.x, kPageArea.y, 634, 480}; }
     static constexpr int kRows = 22;
 
+    static constexpr int kMaxSeen = 1000000;      // entries of a folder that are looked at
+    static constexpr size_t kMaxEntries = 100000; // and those among them that are shown
+
+    /** Why a sound is not there: not found on disk, or found and not read, with the reader's reason. */
+    static std::string missingText(const Sample& s) {
+        return s.error.empty() || s.error == "could not open the file" ? "Not found" : "Not loaded, " + s.error;
+    }
+
     void readFolder() {
         entries_.clear();
         scroll_ = 0;
@@ -1307,13 +1321,17 @@ private:
             if (folder_.empty()) return;
         }
         folder_ = fs::u8path(folder_).lexically_normal().u8string();
+        // The whole folder is read, so that what is shown is in order and nothing is left out without a word.
+        // The two limits are there for a folder beyond any use, and the page says so when one is reached.
+        folderCut_ = false;
         fs::directory_iterator it(fs::u8path(folder_), fs::directory_options::skip_permission_denied, ec), end;
-        for (int seen = 0; !ec && it != end && seen < 5000; it.increment(ec), ++seen) {
+        for (int seen = 0; !ec && it != end; it.increment(ec), ++seen) {
+            if (seen >= kMaxSeen || entries_.size() >= kMaxEntries) { folderCut_ = true; break; }
             const std::string name = it->path().filename().u8string();
             if (name.empty() || name[0] == '.') continue;
             std::error_code type;
             if (it->is_directory(type)) entries_.push_back({name, true});
-            else {
+            else if (it->is_regular_file(type)) { // not a pipe or a device, which may never answer when it is opened
                 const std::string ext = extension(name);
                 if (isAudioFileName(name) || ext == ".sfz" || ext == ".sf2" || ext == ".scl" || ext == Library::kExt) entries_.push_back({name, false});
             }
@@ -1329,7 +1347,8 @@ private:
 
     void drawFiles() {
         const Box b = listBox();
-        fitted(folder_.empty() ? "This computer" : folder_, b.x + 160, b.y + 16, 10, b.w - 170, rgb(kText));
+        fitted(folder_.empty() ? "This computer" : folder_, b.x + 160, b.y + 16, 10, b.w - (folderCut_ ? 330 : 170), rgb(kText));
+        if (folderCut_) label("Too many to show them all", b.x + b.w - 10, b.y + 16, 9, rgb(kWarm), ALIGN_RIGHT | ALIGN_MIDDLE);
         for (int row = 0; row < kRows; ++row) {
             const int i = scroll_ + row;
             if (i >= static_cast<int>(entries_.size())) break;
@@ -1380,6 +1399,7 @@ private:
             AudioInfo info;
             AudioData meta;
             std::string error;
+            bool usable = true;
             if (probeAudioFile(fs::u8path(path), info, &meta, error)) {
                 char text[200];
                 std::snprintf(text, sizeof(text), "%s, %.0f Hz, %d bit%s, %d channel%s, %.2f s", info.format.c_str(), info.sampleRate, info.bits, info.isFloat ? " float" : "", info.channels,
@@ -1388,8 +1408,11 @@ private:
                 if (meta.rootKey >= 0) fileFacts_ += ". Root " + keyName(std::min(127, meta.rootKey));
                 if (!meta.loops.empty()) fileFacts_ += ". Has a loop";
                 if (meta.tempo > 0) { std::snprintf(text, sizeof(text), ". %.1f bpm", meta.tempo); fileFacts_ += text; }
-            } else fileFacts_ = "Cannot be read: " + error;
-            if (twice) useFile(false);
+                // A file can be described without being read; what it would take in memory is known from that.
+                if (!hnl::sampler::audiofile::fitsInMemory(info.frames, info.channels)) { fileFacts_ += ".\nCannot be used: " + std::string(hnl::sampler::audiofile::kTooLarge); usable = false; }
+            } else { fileFacts_ = "Cannot be read: " + error; usable = false; }
+            if (!usable) sampler_->preview("");
+            else if (twice) useFile(false);
             else sampler_->preview(path);
         } else {
             const std::string ext = extension(entry.name);
@@ -1475,19 +1498,24 @@ private:
                 for (const Zone& z : part().zones) lo = std::max(lo, static_cast<int>(z.v[kZHiKey]) + 1);
                 lo = hi = root = std::min(127, lo);
             }
-            sampler_->addZone(part_, path, lo, hi, root);
-            if (nextKey) { // on one key a sound plays as it is, whatever note its file names
-                const int p = part_, key = lo;
-                sampler_->edit([=](Instrument& doc) {
-                    if (doc.parts[p].zones.empty()) return;
-                    Zone& z = doc.parts[p].zones.back();
-                    z.take &= ~Zone::kTakeRoot;
-                    z.v[kZRoot] = key;
-                });
+            if (!sampler_->addZone(part_, path, lo, hi, root)) {
+                // Its path would not come back from a saved instrument (a line end or a tab in a name), or there is no room.
+                notes_.push_back(hnl::sampler::text::oneLine(path, hnl::sampler::text::kMaxPath) != path ? "Not added: its name or folder has a line end or a tab in it, or is too long."
+                                                                                                             : "Not added: this part or this instrument is full.");
+            } else {
+                if (nextKey) { // on one key a sound plays as it is, whatever note its file names
+                    const int p = part_, key = lo;
+                    sampler_->edit([=](Instrument& doc) {
+                        if (doc.parts[p].zones.empty()) return;
+                        Zone& z = doc.parts[p].zones.back();
+                        z.take &= ~Zone::kTakeRoot;
+                        z.v[kZRoot] = key;
+                    });
+                }
+                refresh();
+                zone_ = std::max(0, static_cast<int>(part().zones.size()) - 1);
+                notes_.push_back(nextKey ? "Added on " + keyName(lo) + "." : "Added to part " + std::to_string(part_ + 1) + ".");
             }
-            refresh();
-            zone_ = std::max(0, static_cast<int>(part().zones.size()) - 1);
-            notes_.push_back(nextKey ? "Added on " + keyName(lo) + "." : "Added to part " + std::to_string(part_ + 1) + ".");
         } else if (ext == ".sfz" || ext == ".sf2") {
             if (sampler_->import(part_, path, 0, error)) {
                 notes_ = sampler_->notes();
@@ -1607,6 +1635,7 @@ private:
 
     std::string folder_, home_, fileFacts_, toolNote_, note_;
     std::vector<Entry> entries_;
+    bool folderCut_ = false; // the folder has more than is shown
     std::vector<std::string> notes_;
     int scroll_ = 0, chosen_ = -1;
 

@@ -147,7 +147,7 @@ inline float polyBlep(double t, double dt) {
 
 class Engine {
 public:
-    static constexpr int kVoices = 64, kPlayers = 16, kMaxCtl = 256, kChunk = 128, kHeld = 8;
+    static constexpr int kVoices = 64, kPlayers = 16, kMaxCtl = 256, kChunk = 128, kHeld = 8, kPreviewsReleased = 4;
 
     struct Meters {
         std::atomic<float> outPeak[2];
@@ -177,8 +177,7 @@ public:
     /** Silence, and everything as at the start. The document stays. */
     void reset() {
         for (Voice& v : voices_) v.active = false;
-        if (preview_.data != nullptr) previewReleased_ = preview_.data;
-        preview_.data = nullptr;
+        releasePreview();
         fxIdle_ = 1LL << 60;
         for (Chan& c : chan_) c = Chan();
         for (PartState& p : part_) p = PartState();
@@ -223,19 +222,20 @@ public:
 
     /** Plays a sound as it is, apart from the document, for listening to a file before using it. Null stops it. */
     void setPreview(const AudioData* data) {
-        if (preview_.data != nullptr) previewReleased_ = preview_.data;
+        releasePreview();
         preview_.data = data;
         preview_.pos = 0.0;
         preview_.gain = 1.0f;
         preview_.stopping = false;
     }
     void stopPreview() { preview_.stopping = true; }
-    /** A previewed sound the engine has finished with, or null. */
-    const AudioData* takeReleasedPreview() {
-        const AudioData* p = previewReleased_;
-        previewReleased_ = nullptr;
-        return p;
-    }
+    /**
+     * A previewed sound the engine has finished with, or null. Call until it gives null. A sound that was
+     * handed over twice comes back twice: once for each time.
+     */
+    const AudioData* takeReleasedPreview() { return previewReleasedCount_ > 0 ? previewReleased_[--previewReleasedCount_] : nullptr; }
+    /** Whether a next sound can be taken: not while the ones let go of are still waiting to be handed back. */
+    bool previewRoom() const { return previewReleasedCount_ + 2 <= kPreviewsReleased; }
 
     // --------------------------------------------------------------- inputs
 
@@ -403,8 +403,16 @@ private:
 
     // ---------------------------------------------------------------- notes
 
+    /**
+     * How many voices one note may start in a part: as many as the part may sound at once. A zone beyond that
+     * would only take the place of one this same note has just started, at the cost of starting it: with
+     * thousands of zones on one key that took longer than a block of sound.
+     */
+    static int noteRoom(const Part& part) { return std::clamp(static_cast<int>(part.v[kPVoices]), 1, static_cast<int>(kVoices)); }
+
     void partNoteOn(int p, int channel, int key, int velocity) {
         const Part& part = doc_->parts[p];
+        int room = noteRoom(part);
         PartState& ps = part_[p];
         ps.down[key & 127] = static_cast<unsigned char>(velocity);
         const int mode = static_cast<int>(part.v[kPMode]);
@@ -432,10 +440,11 @@ private:
         for (size_t i = 0; i < part.zones.size(); ++i) {
             const Zone& z = part.zones[i];
             if (z.v[kZTrigger] >= 0.5 || !covers(z, pitchKey, velocity, turn)) continue;
-            startVoice(p, channel, key, pitchKey, velocity, static_cast<int>(i), !any, glideFrom);
+            if (room <= 0) break;
+            if (startVoice(p, channel, key, pitchKey, velocity, static_cast<int>(i), !any, glideFrom) != nullptr) --room;
             any = true;
         }
-        if (!any && (part.v[kPOscLevel] > 0.0 || part.v[kPNoiseLevel] > 0.0)) startVoice(p, channel, key, pitchKey, velocity, -1, true, glideFrom);
+        if (!any && room > 0 && (part.v[kPOscLevel] > 0.0 || part.v[kPNoiseLevel] > 0.0)) startVoice(p, channel, key, pitchKey, velocity, -1, true, glideFrom);
     }
 
     static bool covers(const Zone& z, int key, int velocity, int turn) {
@@ -446,6 +455,7 @@ private:
 
     void partNoteOff(int p, int channel, int key, int velocity) {
         const Part& part = doc_->parts[p];
+        int room = noteRoom(part);
         PartState& ps = part_[p];
         (void)velocity;
         if (static_cast<int>(part.v[kPMode]) != 0) {
@@ -471,8 +481,11 @@ private:
         for (size_t i = 0; i < part.zones.size(); ++i) {
             const Zone& z = part.zones[i];
             if (z.v[kZTrigger] < 0.5 || !covers(z, pitchKey, heldVelocity, 0)) continue;
+            if (room <= 0) break;
             Voice* v = startVoice(p, channel, key, pitchKey, heldVelocity, static_cast<int>(i), false, 0.0f);
-            if (v != nullptr) v->released = true; // no key holds it: it plays out by itself
+            if (v == nullptr) continue;
+            --room;
+            v->released = true; // no key holds it: it plays out by itself
         }
     }
 
@@ -1094,6 +1107,12 @@ private:
         chorus_.set(G[kGChorusRate], 0.01 * G[kGChorusDepth]);
     }
 
+    /** Lets go of the previewed sound. There is always room: setPreview is only called when previewRoom says so. */
+    void releasePreview() {
+        if (preview_.data != nullptr && previewReleasedCount_ < kPreviewsReleased) previewReleased_[previewReleasedCount_++] = preview_.data;
+        preview_.data = nullptr;
+    }
+
     void renderPreview(float* outL, float* outR, int n) {
         const AudioData& d = *preview_.data;
         const long long frames = static_cast<long long>(d.frames());
@@ -1105,8 +1124,7 @@ private:
         const float fade = static_cast<float>(1.0 / (0.005 * fs_));
         for (int i = 0; i < n; ++i) {
             if (preview_.pos >= static_cast<double>(frames) || preview_.gain <= 0.0f) {
-                previewReleased_ = preview_.data;
-                preview_.data = nullptr;
+                releasePreview();
                 return;
             }
             const float l = readAt(d.samples[0].data(), 0, 1, w, preview_.pos, k);
@@ -1168,7 +1186,8 @@ private:
     Chan chan_[16];
     PartState part_[kParts];
     Preview preview_;
-    const AudioData* previewReleased_ = nullptr;
+    const AudioData* previewReleased_[kPreviewsReleased] = {};
+    int previewReleasedCount_ = 0;
     float macro_[kMacros] = {};
     float master_ = 1.0f, masterTarget_ = 1.0f, smooth_ = 0.01f;
     Rng rng_;

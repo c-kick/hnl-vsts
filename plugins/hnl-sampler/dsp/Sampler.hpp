@@ -42,6 +42,18 @@ namespace fs = std::filesystem;
 /** Every sound in memory, by path. A sound stays as long as something uses it. */
 class SampleCache {
 public:
+    /**
+     * What all sounds together may take in memory, in this process: 4 GiB. A project file names its sounds
+     * by path and may name thousands, so that without a limit a small file decides how much memory the host loses.
+     */
+    static constexpr uint64_t kMaxBytes = uint64_t(4) << 30;
+    static uint64_t bytesOf(const AudioData& d) { return (static_cast<uint64_t>(d.samples[0].capacity()) + d.samples[1].capacity()) * sizeof(float); }
+    /** The memory of every sound that is in use now. */
+    uint64_t bytes() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return held();
+    }
+
     static SampleCache& get() {
         static SampleCache cache;
         return cache;
@@ -57,6 +69,10 @@ public:
     /** Reads a sound, or gives the one already in memory. Waits for the disk: never call it on the audio thread. Null when it cannot be read. */
     std::shared_ptr<const AudioData> load(const std::string& path, std::string& error) {
         if (std::shared_ptr<const AudioData> have = find(path)) return have;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (held() >= limit_) { error = kFull; return nullptr; } // before reading: no room whatever its size
+        }
         std::shared_ptr<AudioData> data = std::make_shared<AudioData>();
         const size_t mark = path.rfind('#');
         bool ok = false;
@@ -87,11 +103,19 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         std::weak_ptr<const AudioData>& slot = sounds_[path];
         if (std::shared_ptr<const AudioData> raced = slot.lock()) return raced;
-        slot = data;
         for (auto it = sounds_.begin(); it != sounds_.end();) // forget the ones nobody uses any more
             it = it->second.expired() ? sounds_.erase(it) : std::next(it);
+        if (held() + bytesOf(*data) > limit_) { error = kFull; return nullptr; }
+        sounds_[path] = data;
         return data;
     }
+
+    /** For tests: another limit than kMaxBytes. */
+    void setLimit(uint64_t bytes) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        limit_ = bytes;
+    }
+    static constexpr const char* kFull = "no room: the sounds in memory are over 4 GB together";
 
     static std::string lower(std::string s) {
         for (char& c : s) c = c >= 'A' && c <= 'Z' ? static_cast<char>(c + 32) : c;
@@ -99,6 +123,15 @@ public:
     }
 
 private:
+    /** With mutex_ held. */
+    uint64_t held() const {
+        uint64_t sum = 0;
+        for (const auto& s : sounds_)
+            if (const std::shared_ptr<const AudioData> d = s.second.lock()) sum += bytesOf(*d);
+        return sum;
+    }
+
+    uint64_t limit_ = kMaxBytes;
     std::mutex mutex_, sf2Mutex_;
     std::map<std::string, std::weak_ptr<const AudioData>> sounds_;
     Sf2File sf2_;
@@ -290,8 +323,13 @@ public:
         return true;
     }
 
-    /** A zone for a sound file over the given keys, at the end of a part. Root key and loop come from the file once it is read. */
-    void addZone(int part, const std::string& path, int loKey, int hiKey, int root) {
+    /**
+     * A zone for a sound file over the given keys, at the end of a part. Root key and loop come from the file
+     * once it is read. False, and nothing changes, when the part or the instrument is full or the path cannot
+     * be saved (Instrument::useSample).
+     */
+    bool addZone(int part, const std::string& path, int loKey, int hiKey, int root) {
+        bool added = false;
         edit([&](Instrument& doc) {
             Part& p = doc.parts[std::clamp(part, 0, kParts - 1)];
             const int sample = doc.useSample(path);
@@ -304,7 +342,9 @@ public:
             z.v[kZRoot] = std::clamp(root, 0, 127);
             z.take = Zone::kTakeRoot | Zone::kTakeLoop;
             p.zones.push_back(z);
+            added = true;
         });
+        return added;
     }
 
     /** Reads an SFZ file or a preset of a SoundFont into a part. False with a reason when it cannot. */
@@ -357,7 +397,8 @@ public:
     /** Takes up a new document or a sound to listen to. Call at the start of a block, before its notes. */
     void begin() {
         if (const Instrument* doc = pending_.exchange(nullptr, std::memory_order_acq_rel)) engine.setDocument(doc);
-        if (const AudioData* sound = pendingPreview_.exchange(nullptr, std::memory_order_acq_rel)) engine.setPreview(sound);
+        if (engine.previewRoom())
+            if (const AudioData* sound = pendingPreview_.exchange(nullptr, std::memory_order_acq_rel)) engine.setPreview(sound);
         if (stopPreview_.exchange(false, std::memory_order_acq_rel)) engine.stopPreview();
     }
 
@@ -395,17 +436,28 @@ private:
             if (doc == nullptr) break;
             retired_.push(doc);
         }
-        if (!retiredSounds_.full())
-            if (const AudioData* sound = engine.takeReleasedPreview()) retiredSounds_.push(sound);
+        while (!retiredSounds_.full()) {
+            const AudioData* sound = engine.takeReleasedPreview();
+            if (sound == nullptr) break;
+            retiredSounds_.push(sound);
+        }
     }
 
     /** With docMutex_ held: frees the documents and previewed sounds that came back. */
     void collect() {
         while (const Instrument* doc = retired_.pop())
             alive_.erase(std::remove_if(alive_.begin(), alive_.end(), [doc](const std::shared_ptr<const Instrument>& a) { return a.get() == doc; }), alive_.end());
-        while (const AudioData* sound = retiredSounds_.pop())
-            previews_.erase(std::remove_if(previews_.begin(), previews_.end(), [sound](const std::shared_ptr<const AudioData>& a) { return a.get() == sound; }),
-                            previews_.end());
+        while (const AudioData* sound = retiredSounds_.pop()) dropPreview(sound);
+    }
+
+    /**
+     * With docMutex_ held: takes one entry for this sound out of previews_. One, not all of them: a file that
+     * is listened to twice is in the list twice, and the audio thread may be playing it for the second time
+     * when it hands it back for the first.
+     */
+    void dropPreview(const AudioData* sound) {
+        for (auto it = previews_.begin(); it != previews_.end(); ++it)
+            if (it->get() == sound) { previews_.erase(it); return; }
     }
 
     /** With docMutex_ held: gives a new document the sounds that are in memory already, and lists the ones to read. */
@@ -457,10 +509,8 @@ private:
                     std::lock_guard<std::mutex> lock(docMutex_);
                     collect();
                     previews_.push_back(sound);
-                    if (const AudioData* skipped = pendingPreview_.exchange(sound.get(), std::memory_order_acq_rel))
-                        if (skipped != sound.get())
-                            previews_.erase(std::remove_if(previews_.begin(), previews_.end(), [skipped](const std::shared_ptr<const AudioData>& a) { return a.get() == skipped; }),
-                                            previews_.end());
+                    // The one that was waiting and that the audio thread never took can go at once.
+                    if (const AudioData* skipped = pendingPreview_.exchange(sound.get(), std::memory_order_acq_rel)) dropPreview(skipped);
                 }
                 continue;
             }
@@ -475,6 +525,7 @@ private:
                         if (s.path != path || s.data != nullptr) continue;
                         s.data = data;
                         s.missing = data == nullptr;
+                        s.error = data == nullptr ? error : std::string();
                         if (data == nullptr) continue;
                         for (Part& p : next->parts)
                             for (Zone& z : p.zones)
@@ -490,7 +541,7 @@ private:
     mutable std::mutex docMutex_;
     std::shared_ptr<const Instrument> current_;
     std::vector<std::shared_ptr<const Instrument>> alive_;   // every document the audio thread may still use
-    std::vector<std::shared_ptr<const AudioData>> previews_; // and every previewed sound
+    std::vector<std::shared_ptr<const AudioData>> previews_; // and every previewed sound, once for each time it was handed over
     std::vector<std::string> notes_;
     std::atomic<const Instrument*> pending_{nullptr};
     std::atomic<const AudioData*> pendingPreview_{nullptr};

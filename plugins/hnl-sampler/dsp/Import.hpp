@@ -30,6 +30,7 @@
 
 #include "../../../common/dsp/Safety.hpp"
 #include "AudioData.hpp"
+#include "Files.hpp"
 
 namespace hnl {
 namespace sampler {
@@ -226,13 +227,7 @@ private:
     std::map<std::string, size_t> index_;
 };
 
-inline std::FILE* openRead(const fs::path& file) {
-#ifdef _WIN32
-    return _wfopen(file.c_str(), L"rb");
-#else
-    return std::fopen(file.c_str(), "rb");
-#endif
-}
+inline std::FILE* openRead(const fs::path& file) { return openPlainFile(file); }
 
 inline bool seekTo(std::FILE* f, uint64_t offset) {
 #ifdef _WIN32

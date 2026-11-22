@@ -10,6 +10,10 @@
 #include <thread>
 #include <vector>
 
+#ifndef _WIN32
+#include <sys/stat.h>
+#endif
+
 #include "../dsp/Sampler.hpp"
 
 using namespace hnl;
@@ -963,6 +967,178 @@ static void core() {
     fs::remove_all(dir, ec);
 }
 
+// ------------------------------------------------- what an abuse test found
+
+/** A FLAC file of one block of 65535 frames of silence that says it has `total` frames: about 60 bytes. */
+static std::vector<uint8_t> flacClaiming(uint64_t total) {
+    const auto crc = [](const std::vector<uint8_t>& b, size_t from, unsigned poly, unsigned top) {
+        unsigned c = 0;
+        for (size_t i = from; i < b.size(); ++i) {
+            c ^= static_cast<unsigned>(b[i]) << (top - 7);
+            for (int k = 0; k < 8; ++k) c = (c & (1u << top)) ? ((c << 1) ^ poly) : (c << 1);
+        }
+        return c & ((2u << top) - 1);
+    };
+    std::vector<uint8_t> b = {'f', 'L', 'a', 'C', 0x80, 0, 0, 34};
+    const uint8_t info[34] = {0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0, 0, 0x0B, 0xB8, 0x00, static_cast<uint8_t>(0xF0 | ((total >> 32) & 15)),
+                              static_cast<uint8_t>(total >> 24), static_cast<uint8_t>(total >> 16), static_cast<uint8_t>(total >> 8), static_cast<uint8_t>(total)};
+    b.insert(b.end(), info, info + 34);
+    const size_t at = b.size();
+    b.insert(b.end(), {0xFF, 0xF8, 0x7A, 0x08, 0x00, 0xFF, 0xFE});
+    b.push_back(static_cast<uint8_t>(crc(b, at, 0x07, 7)));
+    b.insert(b.end(), {0x00, 0x20, 0x00}); // a constant subframe
+    const unsigned c16 = crc(b, at, 0x8005, 15);
+    b.push_back(static_cast<uint8_t>(c16 >> 8));
+    b.push_back(static_cast<uint8_t>(c16 & 255));
+    return b;
+}
+
+static void hardened() {
+    const fs::path dir = fs::temp_directory_path() / "hnl-sampler-test-hard";
+    std::error_code ec;
+    fs::remove_all(dir, ec);
+    fs::create_directories(dir, ec);
+    std::string error;
+    const std::shared_ptr<AudioData> tone = sine(440.0, 1.0);
+    const fs::path a = dir / "a.wav", b = dir / "b.wav";
+    writeWav(a, *tone, 16, error);
+    writeWav(b, *tone, 16, error);
+    Buf buf(256);
+    float* o[2 * kOutputs];
+    for (float*& p : o) p = buf.data();
+
+    // A file that is in no zone, listened to twice while it still plays: the second time must not free it.
+    {
+        Sampler s;
+        s.prepare(48000);
+        bool held = true;
+        for (int round = 0; round < 3; ++round) {
+            s.preview(a.u8string());
+            for (int i = 0; i < 40; ++i) { // the reader hands it over, the audio thread takes it, the UI collects
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                s.process(o, 256);
+                s.idle();
+            }
+            held = held && SampleCache::get().find(a.u8string()) != nullptr;
+        }
+        check(held, "preview: a file listened to again while it plays stays in memory");
+        s.preview("");
+        const bool gone = pump(s, 3.0, [&] { s.idle(); return SampleCache::get().find(a.u8string()) == nullptr; });
+        check(gone, "preview: and leaves memory once it has been stopped");
+        // A sound shorter than a block, right after another: both come back, none is forgotten.
+        AudioData blip;
+        blip.channels = 1;
+        blip.sampleRate = 48000;
+        blip.samples[0].assign(40, 0.5f);
+        writeWav(dir / "blip.wav", blip, 16, error);
+        s.preview(a.u8string());
+        pump(s, 3.0, [&] { return SampleCache::get().find(a.u8string()) != nullptr; });
+        s.process(o, 256);
+        s.preview((dir / "blip.wav").u8string());
+        const bool both = pump(s, 3.0, [&] { s.idle(); return SampleCache::get().find(a.u8string()) == nullptr && SampleCache::get().find((dir / "blip.wav").u8string()) == nullptr; });
+        check(both, "preview: a sound of less than a block after another one: both leave memory");
+    }
+
+#ifndef _WIN32
+    // A path that names a pipe: opening it would wait for a writer for good.
+    {
+        const fs::path pipe = dir / "pipe.wav";
+        check(::mkfifo(pipe.c_str(), 0600) == 0, "a pipe made for the test");
+        AudioData d;
+        AudioInfo info;
+        const auto t0 = std::chrono::steady_clock::now();
+        const bool read = readAudioFile(pipe, d, error), probed = probeAudioFile(pipe, info, nullptr, error);
+        std::string text;
+        const bool asText = importdetail::readFile(pipe, 1000, text, error);
+        const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        check(!read && !probed && !asText && ms < 500, "a pipe is not opened as a sound or as an instrument file", "%.1f ms", ms);
+        check(!readAudioFile(dir, d, error) && !readAudioFile("/dev/zero", d, error), "nor a folder or a device");
+        Sampler s;
+        s.prepare(48000);
+        s.addZone(0, pipe.u8string(), 0, 127, 60);
+        s.addZone(0, a.u8string(), 0, 127, 60);
+        const bool went = pump(s, 5.0, [&] { return s.loading() == 0; });
+        std::shared_ptr<const Instrument> doc = s.document();
+        check(went && doc->samples.size() == 2 && doc->samples[0].missing && doc->samples[1].data != nullptr, "an instrument that names a pipe: marked missing, and the next sound is read");
+    } // and the sampler closes: its reader is not stuck
+#endif
+
+    // Memory: one sound, and all of them together.
+    {
+        using audiofile::fitsInMemory;
+        check(fitsInMemory(audiofile::kMaxSoundValues, 1) && !fitsInMemory(audiofile::kMaxSoundValues + 1, 1) && fitsInMemory(audiofile::kMaxSoundValues / 2, 2) &&
+              !fitsInMemory(audiofile::kMaxSoundValues / 2 + 1, 2) && !fitsInMemory(audiofile::kMaxSoundValues / 2 + 1, 6), "memory: one sound may take 512 MiB, counted over the channels kept");
+        AudioData d;
+        const std::vector<uint8_t> claims = flacClaiming(audiofile::kMaxSoundValues + 1), fine = flacClaiming(65535);
+        const bool small = decodeAudio(fine.data(), fine.size(), d, error) && d.frames() == 65535;
+        error.clear();
+        const bool refused = !decodeAudio(claims.data(), claims.size(), d, error) && error == audiofile::kTooLarge && d.frames() == 0;
+        check(small && refused, "memory: a FLAC file of 60 bytes that says it is larger than that is refused before anything is set aside", "%.0f bytes", static_cast<double>(claims.size()));
+
+        SampleCache& cache = SampleCache::get();
+        const uint64_t one = tone->frames() * sizeof(float);
+        cache.setLimit(cache.bytes() + one + one / 2); // room for one of the two
+        Sampler s;
+        s.prepare(48000);
+        s.addZone(0, a.u8string(), 0, 127, 60);
+        pump(s, 5.0, [&] { return s.loading() == 0; });
+        s.addZone(0, b.u8string(), 0, 127, 60);
+        pump(s, 5.0, [&] { return s.loading() == 0; });
+        std::shared_ptr<const Instrument> doc = s.document();
+        check(doc->samples.size() == 2 && doc->samples[0].data != nullptr && doc->samples[1].missing && doc->samples[1].error == SampleCache::kFull && cache.bytes() >= one && cache.bytes() < 2 * one,
+              "memory: a sound beyond what all sounds together may take is not kept, and says why");
+        cache.setLimit(SampleCache::kMaxBytes);
+    }
+
+    // A path that would not come back from a saved instrument.
+    {
+        Sampler s;
+        const bool newline = s.addZone(0, (dir / "new\nline.wav").u8string(), 0, 127, 60), tab = s.addZone(0, (dir / "tab\there.wav").u8string(), 0, 127, 60);
+        const bool longOne = s.addZone(0, "/" + std::string(text::kMaxPath, 'x') + ".wav", 0, 127, 60), plain = s.addZone(0, a.u8string(), 0, 127, 60);
+        Sampler again;
+        check(!newline && !tab && !longOne && plain && s.document()->samples.size() == 1 && again.setText(s.text()) && again.document()->samples[0].path == a.u8string(),
+              "a path with a line end or a tab in it, or too long to save, is not taken; another is, and comes back as it was");
+    }
+
+    // A value too small to be a normal number is zero, and so the same after every save.
+    {
+        double tiny = 1.0, small = 0.0, minus = 1.0;
+        const bool parsed = text::parse("9.999888672e-321", tiny) && text::parse("2.5e-300", small) && text::parse("-1e-320", minus);
+        check(parsed && tiny == 0.0 && std::fabs(small / 2.5e-300 - 1.0) < 1e-9 && minus == 0.0 && !std::signbit(minus), "text: a number too small to be normal reads as zero");
+        Instrument doc, back;
+        const std::string in = "HNL Sampler instrument\npart 1\np.mod7_amount = 9.999888672e-321\n";
+        const bool ok = fromText(in, doc) && fromText(toText(doc), back);
+        check(ok && toText(back) == toText(doc), "text: and an instrument with such a value is the same text after every save");
+    }
+
+    // A note on the largest instrument there can be: every part full of zones on every key.
+    {
+        Sampler s;
+        s.prepare(48000);
+        s.edit([&](Instrument& doc) {
+            const int sample = doc.useSample(a.u8string());
+            for (Part& p : doc.parts)
+                for (int z = 0; z < kMaxPartZones; ++z) {
+                    Zone zone;
+                    zone.id = doc.nextId++;
+                    zone.sample = sample;
+                    p.zones.push_back(zone);
+                }
+        });
+        pump(s, 5.0, [&] { return s.loading() == 0; });
+        s.process(o, 256);
+        double best = 1e9;
+        for (int k = 0; k < 8; ++k) {
+            const auto t0 = std::chrono::steady_clock::now();
+            s.engine.noteOn(0, 40 + k, 100);
+            best = std::min(best, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count());
+        }
+        check(s.engine.activeVoices() == 64 && best < 2.0, "a note on 8 parts of 2048 zones each starts no more voices than there are", "%.2f ms, %.0f voices", best, s.engine.activeVoices());
+        s.process(o, 256);
+    }
+    fs::remove_all(dir, ec);
+}
+
 int main() {
     documentAsText();
     pitchAndLevel();
@@ -978,6 +1154,7 @@ int main() {
     voicesAndDocuments();
     randomInstruments();
     core();
+    hardened();
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;
 }

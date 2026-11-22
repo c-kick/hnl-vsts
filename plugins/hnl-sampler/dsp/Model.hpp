@@ -19,6 +19,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -292,12 +293,18 @@ inline double fromNorm(const Info& p, double norm) {
 
 // ----------------------------------------------------------------- document
 
+namespace text {
+constexpr size_t kMaxName = 64, kMaxPath = 2048;
+inline std::string oneLine(const std::string& s, size_t limit);
+} // namespace text
+
 /** A sound a document uses. `data` is null until it has been read from disk, and stays null when it cannot be. */
 struct Sample {
     int id = 0;        // what zones refer to; never reused within a document
     std::string path;  // UTF-8; "<file>.sf2#<n>" names sample n of a SoundFont
     std::shared_ptr<const AudioData> data;
     bool missing = false; // reading it was tried and failed
+    std::string error;    // and why, for showing. Not saved.
 };
 
 struct Zone {
@@ -349,11 +356,15 @@ struct Instrument {
             if (s.id == id) return &s;
         return nullptr;
     }
-    /** The id of the sample with this path, added to the document when it is not in it yet. 0 when there is no room. */
+    /**
+     * The id of the sample with this path, added to the document when it is not in it yet. 0 when there is no
+     * room, and for a path that would not come back from a saved instrument as it is: one with a line end, a
+     * tab or another control character in it, or too long.
+     */
     int useSample(const std::string& path) {
         for (const Sample& s : samples)
             if (s.path == path) return s.id;
-        if (static_cast<int>(samples.size()) >= kMaxSamples || path.empty()) return 0;
+        if (static_cast<int>(samples.size()) >= kMaxSamples || path.empty() || text::oneLine(path, text::kMaxPath) != path) return 0;
         Sample s;
         s.id = nextId++;
         s.path = path;
@@ -405,7 +416,9 @@ inline bool parse(const std::string& s, double& out) {
     }
     while (i < n && (s[i] == ' ' || s[i] == '\t' || s[i] == '\r')) ++i;
     if (i != n || !isFinite(sign * value)) return false;
-    out = sign * value;
+    // Too small to be a normal number: the arithmetic above is not exact there, and the value would change with
+    // every save. It is zero for every use.
+    out = value < std::numeric_limits<double>::min() ? 0.0 : sign * value;
     return true;
 }
 
@@ -426,7 +439,6 @@ inline std::string oneLine(const std::string& s, size_t limit) {
 
 constexpr const char* kFirstLine = "HNL Sampler instrument";
 constexpr size_t kMaxText = 8u * 1024u * 1024u;
-constexpr size_t kMaxName = 64, kMaxPath = 2048;
 
 inline void writeValues(std::string& out, const char* prefix, const std::vector<Info>& info, const double* v) {
     for (size_t i = 0; i < info.size(); ++i)

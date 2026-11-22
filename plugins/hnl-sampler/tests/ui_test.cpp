@@ -9,6 +9,8 @@
 #include <string>
 #include <thread>
 
+#include <sys/stat.h>
+
 #include "DistrhoUI.hpp"
 #include "../Params.hpp"
 #include "../dsp/Sampler.hpp"
@@ -218,6 +220,56 @@ int main(int argc, char** argv) {
     }
     check(drawn, "all six pages draw, with a help tip showing");
 
+    // A host that sends values that are no values: the UI cleans them as the plugin does.
+    page(0);
+    for (uint32_t i = 0; i < kParamCount; ++i) ui->parameterChanged(i, std::nanf(""));
+    ui->parameterChanged(kMeterVoices, -30.0f);
+    ui->parameterChanged(kVolume, 1e30f);
+    ui->svg.clear();
+    ui->onNanoDisplay();
+    bool clean = ui->svg.find("0 of 64") != std::string::npos && ui->svg.find("-30 of 64") == std::string::npos;
+    for (const char* bad : {"Mnan", "Lnan", " nan", "\"nan", "-nan", "Minf", "Linf", "\"inf", "-inf"}) clean = clean && ui->svg.find(bad) == std::string::npos;
+    check(clean, "values from the host that are not numbers, or out of range, are drawn as ones that are");
+    delete ui;
+
+    // FILES in a folder with more sounds than the page once read: all of them, in order, and no pipe among them.
+    const fs::path many = dir / "0 many";
+    fs::create_directories(many);
+    for (int i = 0; i < 5200; ++i) {
+        char name[40];
+        std::snprintf(name, sizeof(name), "s %04d.wav", i);
+        std::fclose(std::fopen((many / name).c_str(), "wb"));
+    }
+    writeWav(many / "zz wanted.wav", tone, 16, error);
+    const bool piped = ::mkfifo((many / "a pipe.wav").c_str(), 0600) == 0;
+    const std::string odd = (many / "zy new\nline.wav").string();
+    writeWav(odd, tone, 16, error);
+    ui = DISTRHO::createUI();
+    page(5);
+    twice(200, 86 + 32 + 10); // the first row: the folder just made
+    ui->svg.clear();
+    ui->onNanoDisplay();
+    const bool first = ui->svg.find("s 0000.wav") != std::string::npos && ui->svg.find("s 0021.wav") != std::string::npos && ui->svg.find("pipe") == std::string::npos;
+    DISTRHO::ScrollEvent down;
+    down.pos.x = 200; down.pos.y = 300;
+    down.delta.y = -1;
+    std::string last;
+    for (int round = 0; round < 200; ++round) {
+        for (int k = 0; k < 200; ++k) ui->onScroll(down);
+        ui->svg.clear();
+        ui->onNanoDisplay();
+        if (ui->svg == last) break;
+        last = ui->svg;
+    }
+    check(piped && first && last.find("zz wanted.wav") != std::string::npos && last.find("s 5199.wav") != std::string::npos && last.find("Too many") == std::string::npos,
+          "FILES shows a folder of 5200 sounds whole and in order, without the pipe in it");
+    // The last but one is a sound with a line end in its name: it cannot be saved, so it is not added, and the page says so.
+    const size_t zonesBefore = sampler.document()->parts[0].zones.size();
+    twice(200, 86 + 32 + 10 + 20 * 3); // the list ends five rows from the top
+    wait(sampler);
+    ui->svg.clear();
+    ui->onNanoDisplay();
+    check(sampler.document()->parts[0].zones.size() == zonesBefore && ui->svg.find("Not added") != std::string::npos, "a sound with a line end in its name is not added, and the page says why");
     delete ui;
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;

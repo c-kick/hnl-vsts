@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "AudioData.hpp"
+#include "Files.hpp"
 #include "../../../common/dsp/Safety.hpp"
 
 namespace hnl {
@@ -54,6 +55,11 @@ namespace audiofile {
 namespace fs = std::filesystem;
 
 constexpr uint64_t kMaxFrames = uint64_t(1) << 28; // per channel: 101 minutes at 44.1 kHz
+// What one sound may take once it is read into memory, as floats: 512 MiB, which is 50 minutes of mono or 25 of
+// stereo at 44.1 kHz. A FLAC file of a few kilobytes can claim any length, so the length alone says nothing.
+constexpr uint64_t kMaxSoundValues = uint64_t(1) << 27; // frames times the channels that are kept
+constexpr const char* kTooLarge = "sound too large: over 512 MB once it is in memory";
+inline bool fitsInMemory(uint64_t frames, int channels) { return frames <= kMaxSoundValues / static_cast<uint64_t>(channels > 1 ? 2 : 1); }
 constexpr int kMaxChannels = 256;
 constexpr size_t kMaxMetaChunk = size_t(1) << 20; // bytes of a metadata chunk that are read, the rest is ignored
 constexpr size_t kMaxChunks = 100000;
@@ -89,10 +95,11 @@ inline double extended80(const uint8_t* p) {
 // ---------------------------------------------------------------- files
 
 inline std::FILE* openFile(const fs::path& file, bool write) {
+    if (!write) return openPlainFile(file); // never a pipe or a device, which may not answer
 #ifdef _WIN32
-    return _wfopen(file.c_str(), write ? L"wb" : L"rb");
+    return _wfopen(file.c_str(), L"wb");
 #else
-    return std::fopen(file.c_str(), write ? "wb" : "rb");
+    return std::fopen(file.c_str(), "wb");
 #endif
 }
 
@@ -967,12 +974,16 @@ inline bool decodeFlac(const uint8_t* data, size_t size, AudioData& out, std::st
     uint64_t start = 0;
     if (!parseFlac(src, info, &out, si, start, error)) return false;
     const int keep = std::min(si.channels, 2);
+    if (!fitsInMemory(si.total, keep)) {
+        error = kTooLarge;
+        return false;
+    }
     const size_t guess = static_cast<size_t>(std::min<uint64_t>(si.total, std::min<uint64_t>(kMaxFrames, size)));
     for (int c = 0; c < keep; ++c) out.samples[c].reserve(guess);
     auto sink = [&](const int64_t* const* ch, int, size_t n, int bits) {
         const size_t at = out.samples[0].size();
-        if (at + n > kMaxFrames) {
-            error = "sound too long";
+        if (!fitsInMemory(at + n, keep)) { // also when the file gave no length, or a wrong one
+            error = kTooLarge;
             return false;
         }
         const double scale = 1.0 / static_cast<double>(static_cast<int64_t>(1) << (bits - 1));
@@ -1063,6 +1074,11 @@ inline bool decodeAudio(const uint8_t* data, size_t size, AudioData& out, std::s
         if (audiofile::detect(src) == audiofile::kFlac) return audiofile::decodeFlac(data, size, out, error);
         AudioInfo info;
         if (!audiofile::probe(src, info, &out, error)) return false;
+        if (!audiofile::fitsInMemory(info.frames, info.channels)) {
+            error = audiofile::kTooLarge;
+            out = AudioData{};
+            return false;
+        }
         const size_t frames = static_cast<size_t>(info.frames);
         out.samples[0].resize(frames);
         if (info.channels > 1) out.samples[1].resize(frames);
@@ -1151,6 +1167,10 @@ inline bool readAudioFile(const std::filesystem::path& file, AudioData& out, std
         } else {
             AudioInfo info;
             ok = audiofile::probe(src, info, &out, error);
+            if (ok && !audiofile::fitsInMemory(info.frames, info.channels)) {
+                error = audiofile::kTooLarge;
+                ok = false;
+            }
             if (ok) {
                 const size_t frames = static_cast<size_t>(info.frames);
                 out.samples[0].resize(frames);
