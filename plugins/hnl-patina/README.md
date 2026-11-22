@@ -28,9 +28,7 @@ There is no tape in it: HNL Tape Master and HNL Tape Echo do tape.
 
 *Rendered from the plugin's drawing code; not yet a screenshot from a host.*
 
-**An alpha.** It passes its offline tests and has not been played in a host yet: nobody has heard it. The
-figures below are measured; whether it sounds good is still to be found out, and the amounts and times of
-React in particular are first guesses.
+**A beta.** It passes its offline tests and has been tried in Reason, but it is young; expect rough edges.
 
 ## What it does
 
@@ -160,6 +158,10 @@ may do (`common/tests/HostAbuse.hpp`), and the UI class on the drawing stand-in:
 (`ui_scenes_test`) and the choice of look.
 
 ## Changelog
+
+### 0.2.1 (2026-11-22)
+
+- The plugin is a beta now: it has been played in a host. Nothing else changed.
 
 ### 0.2.0 (2026-11-22), alpha
 
