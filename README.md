@@ -5,24 +5,6 @@ Reason 12.5+). For macOS there are experimental
 [test builds](https://github.com/c-kick/hnl-vsts/releases/tag/macos-test) (VST3, CLAP and Audio Unit) that nobody has tried on a real Mac yet; to compile them on a Mac
 yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
 
-## Download
-
-Every plugin below has a **Download** link to its current build: a zip for 64-bit Windows that holds the plugin
-as VST3 and as CLAP. All of them are also listed, with version and date, on the
-[Downloads page](https://github.com/c-kick/hnl-vsts/releases/tag/downloads).
-
-To install, copy the `.vst3` folder from the zip to `C:\Program Files\Common Files\VST3\`, or, for a host
-that takes CLAP (Bitwig Studio, Reaper and others), the `.clap` file to `C:\Program Files\Common Files\CLAP\`.
-A host needs only one of the two. Each plugin shows its version behind its title.
-
-Every plugin says what stage it is in, next to its version:
-
-- **beta**: it passes its offline tests and has been tried in Reason, but it is young; expect rough edges.
-- **alpha**: it passes its offline tests and is otherwise largely untested. HNL Sampler is the only one: it has
-  not been played in a host yet. Do not build a song on it.
-
-The plugins are free software under the GNU General Public License, version 3 or later: see [Licence](#licence).
-
 ## Effects
 
 <table>
@@ -109,6 +91,24 @@ The plugins are free software under the GNU General Public License, version 3 or
     <td valign="top">Sampler in eight parts: WAV, AIFF, FLAC, SFZ and SoundFont sounds over keys and velocities, loops with crossfade, unison, an oscillator, a filter and saturation for every note, envelopes, LFOs, a modulation matrix with eight macros, MPE, tunings, eight stereo outputs. An alpha: a first version that passes its offline tests and has not been played in a host yet<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Sampler-win64.zip"><b>Download</b></a> · <!-- version:hnl-sampler -->v0.1.0<!-- /version --> · <b>alpha, largely untested</b> · Windows 64-bit, VST3 and CLAP</td>
   </tr>
 </table>
+
+## Download
+
+Every plugin below has a **Download** link to its current build: a zip for 64-bit Windows that holds the plugin
+as VST3 and as CLAP. All of them are also listed, with version and date, on the
+[Downloads page](https://github.com/c-kick/hnl-vsts/releases/tag/downloads).
+
+To install, copy the `.vst3` folder from the zip to `C:\Program Files\Common Files\VST3\`, or, for a host
+that takes CLAP (Bitwig Studio, Reaper and others), the `.clap` file to `C:\Program Files\Common Files\CLAP\`.
+A host needs only one of the two. Each plugin shows its version behind its title.
+
+Every plugin says what stage it is in, next to its version:
+
+- **beta**: it passes its offline tests and has been tried in Reason, but it is young; expect rough edges.
+- **alpha**: it passes its offline tests and is otherwise largely untested. HNL Sampler is the only one: it has
+  not been played in a host yet. Do not build a song on it.
+
+The plugins are free software under the GNU General Public License, version 3 or later: see [Licence](#licence).
 
 ## Layout
 
