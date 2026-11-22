@@ -12,7 +12,7 @@
 #
 # For each plugin: tests, Windows build, zip. Then the versions next to the download links in README.md are
 # brought up to date (committed and pushed as "Release: ..."), the plugins are tagged, the zips replace the old
-# ones in the Downloads release and its notes (plugin, version, date) are written again.
+# ones in the Downloads release and its notes (plugin, version, stage, date) are written again.
 #
 # Needs: a clean working tree on main that is level with origin, zig (see build.sh) and gh, logged in.
 set -e
@@ -24,6 +24,8 @@ dry=""
 
 version_of() { sed -n 's/^#define HNL_VERSION_[A-Z]* \([0-9]*\)$/\1/p' "plugins/$1/DistrhoPluginInfo.h" | paste -sd.; }
 name_of() { sed -n 's/^NAME = //p' "plugins/$1/Makefile"; }
+# alpha or beta: HNL_STAGE in the plugin's DistrhoPluginInfo.h, beta when it is not there.
+stage_of() { s=$(sed -n 's/^#define HNL_STAGE *"\(.*\)"$/\1/p' "plugins/$1/DistrhoPluginInfo.h"); echo "${s:-beta}"; }
 title_of() { sed -n 's/^#define DISTRHO_PLUGIN_NAME *"\(.*\)"$/\1/p' "plugins/$1/DistrhoPluginInfo.h"; }
 # The newest version of a plugin that has a tag, or nothing.
 released_of() { git tag -l "$1/v*" | sed 's|.*/v||' | sort -V | tail -1; }
@@ -68,8 +70,11 @@ notes=$(mktemp)
     echo
     echo "Free software under the GNU General Public License, version 3 or later; the text is in \`LICENSE.txt\` in every zip."
     echo
-    echo "| Plugin | Version | Released | Download |"
-    echo "| --- | --- | --- | --- |"
+    echo "A beta passes its offline tests and has been tried in Reason. An alpha passes its offline tests and is otherwise"
+    echo "largely untested: it has not been played in a host yet."
+    echo
+    echo "| Plugin | Version | Stage | Released | Download |"
+    echo "| --- | --- | --- | --- | --- |"
     for p in $(ls plugins); do
         version=$(released_of "$p")
         date=""
@@ -78,7 +83,7 @@ notes=$(mktemp)
             if [ "$q" = "$p" ]; then version=$(version_of "$p"); date=$(date +%F); fi
         done
         if [ -z "$version" ]; then continue; fi
-        echo "| [$(title_of "$p")]($REPO/tree/main/plugins/$p) | $version | $date | [$(name_of "$p")-win64.zip]($REPO/releases/download/$TAG/$(name_of "$p")-win64.zip) |"
+        echo "| [$(title_of "$p")]($REPO/tree/main/plugins/$p) | $version | $(stage_of "$p") | $date | [$(name_of "$p")-win64.zip]($REPO/releases/download/$TAG/$(name_of "$p")-win64.zip) |"
     done
     echo
     echo "Older versions are not kept as downloads; every version has a tag (\`<plugin>/v<version>\`) to build it from."

@@ -15,6 +15,12 @@ To install, copy the `.vst3` folder from the zip to `C:\Program Files\Common Fil
 that takes CLAP (Bitwig Studio, Reaper and others), the `.clap` file to `C:\Program Files\Common Files\CLAP\`.
 A host needs only one of the two. Each plugin shows its version behind its title.
 
+Every plugin says what stage it is in, next to its version:
+
+- **beta**: it passes its offline tests and has been tried in Reason, but it is young; expect rough edges.
+- **alpha**: it passes its offline tests and is otherwise largely untested. HNL Sampler is the only one: it has
+  not been played in a host yet. Do not build a song on it.
+
 The plugins are free software under the GNU General Public License, version 3 or later: see [Licence](#licence).
 
 ## Effects
@@ -25,63 +31,63 @@ The plugins are free software under the GNU General Public License, version 3 or
     <th align="left"><a href="plugins/hnl-master">HNL Master</a></th>
   </tr>
   <tr>
-    <td valign="top">Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Master-win64.zip"><b>Download</b></a> · <!-- version:hnl-master -->v0.5.0<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Master-win64.zip"><b>Download</b></a> · <!-- version:hnl-master -->v0.5.0<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-channel-spacer"><img src="plugins/hnl-channel-spacer/docs/preview.png" alt="HNL Channel Spacer" width="360"></a></td>
     <th align="left"><a href="plugins/hnl-channel-spacer">HNL Channel Spacer</a></th>
   </tr>
   <tr>
-    <td valign="top">Makes room in one channel for another: turns down only the frequency ranges where the sidechain signal is playing, in 32 bands; also works as a sidechain ducker<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Channel-Spacer-win64.zip"><b>Download</b></a> · <!-- version:hnl-channel-spacer -->v0.2.3<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Makes room in one channel for another: turns down only the frequency ranges where the sidechain signal is playing, in 32 bands; also works as a sidechain ducker<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Channel-Spacer-win64.zip"><b>Download</b></a> · <!-- version:hnl-channel-spacer -->v0.2.3<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-thickener"><img src="plugins/hnl-thickener/docs/preview.png" alt="HNL Thickener" width="360"></a></td>
     <th align="left"><a href="plugins/hnl-thickener">HNL Thickener</a></th>
   </tr>
   <tr>
-    <td valign="top">Thickens drums, beats and anything else in the middle: adds a copy in which one channel is a few milliseconds late, through a small room, with a parallel compressor and saturator, on top of the untouched signal<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Thickener-win64.zip"><b>Download</b></a> · <!-- version:hnl-thickener -->v0.1.2<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Thickens drums, beats and anything else in the middle: adds a copy in which one channel is a few milliseconds late, through a small room, with a parallel compressor and saturator, on top of the untouched signal<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Thickener-win64.zip"><b>Download</b></a> · <!-- version:hnl-thickener -->v0.1.2<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-widener"><img src="plugins/hnl-widener/docs/preview.png" alt="HNL Widener" width="360"></a></td>
     <th align="left"><a href="plugins/hnl-widener">HNL Widener</a></th>
   </tr>
   <tr>
-    <td valign="top">Stereo widener that also makes a mono sound wide: Haas, diffusion, detuning, a slow drift and a focus that keeps the hits in the middle, all added to the side signal, so that a mono speaker plays exactly what went in<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Widener-win64.zip"><b>Download</b></a> · <!-- version:hnl-widener -->v0.1.0<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Stereo widener that also makes a mono sound wide: Haas, diffusion, detuning, a slow drift and a focus that keeps the hits in the middle, all added to the side signal, so that a mono speaker plays exactly what went in<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Widener-win64.zip"><b>Download</b></a> · <!-- version:hnl-widener -->v0.1.0<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-tape-master"><img src="plugins/hnl-tape-master/docs/preview.png" alt="HNL Tape Master" width="360"></a></td>
     <th align="left"><a href="plugins/hnl-tape-master">HNL Tape Master</a></th>
   </tr>
   <tr>
-    <td valign="top">Two-track mastering tape machine: saturation, tape compression, head response by speed, formula and head width, wow, flutter, hiss<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Tape-Master-win64.zip"><b>Download</b></a> · <!-- version:hnl-tape-master -->v0.4.2<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Two-track mastering tape machine: saturation, tape compression, head response by speed, formula and head width, wow, flutter, hiss<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Tape-Master-win64.zip"><b>Download</b></a> · <!-- version:hnl-tape-master -->v0.4.2<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-tape-echo"><img src="plugins/hnl-tape-echo/docs/preview.png" alt="HNL Tape Echo" width="360"></a></td>
     <th align="left"><a href="plugins/hnl-tape-echo">HNL Tape Echo</a></th>
   </tr>
   <tr>
-    <td valign="top">Tape echo with three playback heads and a spring reverb: saturating repeats, pitch bends, wow and flutter, self-oscillation, tempo sync<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Tape-Echo-win64.zip"><b>Download</b></a> · <!-- version:hnl-tape-echo -->v0.3.3<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Tape echo with three playback heads and a spring reverb: saturating repeats, pitch bends, wow and flutter, self-oscillation, tempo sync<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Tape-Echo-win64.zip"><b>Download</b></a> · <!-- version:hnl-tape-echo -->v0.3.3<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-bus-compressor"><img src="plugins/hnl-bus-compressor/docs/preview.png" alt="HNL Bus Compressor" width="360"></a></td>
     <th align="left"><a href="plugins/hnl-bus-compressor">HNL Bus Compressor</a></th>
   </tr>
   <tr>
-    <td valign="top">Stereo bus compressor: glue for a mix or drum bus, with stepped ratio, attack and release, auto release, sidechain high-pass and parallel mix<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Bus-Compressor-win64.zip"><b>Download</b></a> · <!-- version:hnl-bus-compressor -->v0.3.2<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Stereo bus compressor: glue for a mix or drum bus, with stepped ratio, attack and release, auto release, sidechain high-pass and parallel mix<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Bus-Compressor-win64.zip"><b>Download</b></a> · <!-- version:hnl-bus-compressor -->v0.3.2<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-leveller"><img src="plugins/hnl-leveller/docs/preview.png" alt="HNL Leveller" width="360"></a></td>
     <th align="left"><a href="plugins/hnl-leveller">HNL Leveller</a></th>
   </tr>
   <tr>
-    <td valign="top">Levelling compressor for vocals and bass: a smooth opto type with a two-stage release and a fast FET type, with colour, sidechain high-pass and parallel mix<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Leveller-win64.zip"><b>Download</b></a> · <!-- version:hnl-leveller -->v0.3.2<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Levelling compressor for vocals and bass: a smooth opto type with a two-stage release and a fast FET type, with colour, sidechain high-pass and parallel mix<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Leveller-win64.zip"><b>Download</b></a> · <!-- version:hnl-leveller -->v0.3.2<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-transient-shaper"><img src="plugins/hnl-transient-shaper/docs/preview.png" alt="HNL Transient Shaper" width="360"></a></td>
     <th align="left"><a href="plugins/hnl-transient-shaper">HNL Transient Shaper</a></th>
   </tr>
   <tr>
-    <td valign="top">Transient shaper for drums: attack and sustain of each hit up or down, whatever its level, with a detector that can listen to the lows, mids or highs only<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Transient-Shaper-win64.zip"><b>Download</b></a> · <!-- version:hnl-transient-shaper -->v0.3.2<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Transient shaper for drums: attack and sustain of each hit up or down, whatever its level, with a detector that can listen to the lows, mids or highs only<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Transient-Shaper-win64.zip"><b>Download</b></a> · <!-- version:hnl-transient-shaper -->v0.3.2<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
 </table>
 
@@ -93,14 +99,14 @@ The plugins are free software under the GNU General Public License, version 3 or
     <th align="left"><a href="plugins/hnl-digital-piano">HNL Digital Piano</a></th>
   </tr>
   <tr>
-    <td valign="top">Five pianos in stereo (workstation, FM electric, 1980s stage, 1990s dance, concert grand), with doubling, reverb and an on-screen keyboard<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Digital-Piano-win64.zip"><b>Download</b></a> · <!-- version:hnl-digital-piano -->v0.9.3<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Five pianos in stereo (workstation, FM electric, 1980s stage, 1990s dance, concert grand), with doubling, reverb and an on-screen keyboard<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Digital-Piano-win64.zip"><b>Download</b></a> · <!-- version:hnl-digital-piano -->v0.9.3<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-sampler"><img src="plugins/hnl-sampler/docs/preview.png" alt="HNL Sampler" width="360"></a></td>
     <th align="left"><a href="plugins/hnl-sampler">HNL Sampler</a></th>
   </tr>
   <tr>
-    <td valign="top">Sampler in eight parts: WAV, AIFF, FLAC, SFZ and SoundFont sounds over keys and velocities, loops with crossfade, unison, an oscillator, a filter and saturation for every note, envelopes, LFOs, a modulation matrix with eight macros, MPE, tunings, eight stereo outputs. A first version, not yet played in a host<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Sampler-win64.zip"><b>Download</b></a> · <!-- version:hnl-sampler -->v0.1.0<!-- /version --> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Sampler in eight parts: WAV, AIFF, FLAC, SFZ and SoundFont sounds over keys and velocities, loops with crossfade, unison, an oscillator, a filter and saturation for every note, envelopes, LFOs, a modulation matrix with eight macros, MPE, tunings, eight stereo outputs. An alpha: a first version that passes its offline tests and has not been played in a host yet<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Sampler-win64.zip"><b>Download</b></a> · <!-- version:hnl-sampler -->v0.1.0<!-- /version --> · <b>alpha, largely untested</b> · Windows 64-bit, VST3 and CLAP</td>
   </tr>
 </table>
 
@@ -223,6 +229,9 @@ tests. `build.sh` and `test.sh` pick it up by folder name.
 Each plugin has its own version (`HNL_VERSION_MAJOR`, `_MINOR` and `_PATCH` in its `DistrhoPluginInfo.h`) and is
 tagged `<name>/v<version>`. The plugin reports it to the host and shows it behind its title, so a screenshot or a
 question about a plugin tells which build it is about.
+
+A plugin is a beta unless its `DistrhoPluginInfo.h` says otherwise with `HNL_STAGE` (`"alpha"` for HNL Sampler).
+The stage stands next to the version in the table above and in the notes of the Downloads release.
 
 A change that a user of the plugin can notice gets a new version: a bug fix raises the patch number, a new
 feature the minor number, and a change that breaks what exists (a song saved with the older version opens or

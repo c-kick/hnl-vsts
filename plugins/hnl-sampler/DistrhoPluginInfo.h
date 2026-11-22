@@ -16,6 +16,8 @@
 #define HNL_VERSION_MAJOR 0
 #define HNL_VERSION_MINOR 1
 #define HNL_VERSION_PATCH 0
+// The stage, read by release.sh for the notes of the Downloads release; a plugin without this line is a beta.
+#define HNL_STAGE "alpha"
 
 #define DISTRHO_PLUGIN_HAS_UI             1
 #define DISTRHO_PLUGIN_IS_RT_SAFE         1

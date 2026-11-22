@@ -9,8 +9,10 @@ filter, envelopes, LFOs and modulation matrix. Eight stereo outputs.
 | --- | --- | --- | --- | --- |
 | ![Zone map](docs/map.png) | ![Sample page](docs/sample.png) | ![Modulation page](docs/mod.png) | ![Mixer page](docs/mix.png) | ![File browser](docs/files.png) |
 
-*Rendered from the plugin's drawing code; not yet screenshots from a host. This is a first version (0.1.0): it
-passes its offline tests, and has not been played in a host yet.*
+*Rendered from the plugin's drawing code; not yet screenshots from a host.*
+
+**This is an alpha (0.1.0).** It passes its offline tests and is otherwise largely untested: it has not been
+played in a host yet. Expect faults, and do not build a song on it.
 
 ## How it is put together
 
@@ -107,3 +109,9 @@ The list this plugin was started from is longer than a first version can hold. N
 input), measurements of the engine (`dsp_test`), the plugin in DPF's host-side wrapper, the host that does
 everything a host may do (`common/tests/HostAbuse.hpp`), and the UI class clicked and dragged on the drawing
 stand-in (`ui_test`).
+
+## Changelog
+
+### 0.1.0 (2026-11-22), alpha
+
+- First version, released untested in a host.
