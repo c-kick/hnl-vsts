@@ -216,6 +216,11 @@ Each plugin has its own version (`HNL_VERSION_MAJOR`, `_MINOR` and `_PATCH` in i
 tagged `<name>/v<version>`. The plugin reports it to the host and shows it behind its title, so a screenshot or a
 question about a plugin tells which build it is about.
 
+A change that a user of the plugin can notice gets a new version: a bug fix raises the patch number, a new
+feature the minor number, and a change that breaks what exists (a song saved with the older version opens or
+sounds differently, a parameter goes or changes meaning) the major number. Each plugin's README ends with a
+changelog, newest version first, and the change is written there in the same commit.
+
 `./release.sh [name ...]` releases plugins: it runs their tests, builds them, zips them (`./package.sh`:
 `dist/<Plugin>-win64.zip`, with the VST3 and the CLAP build in it), tags them, and puts the zips into the one
 release on GitHub, "Downloads". That release always holds the current zip of every plugin under a name without

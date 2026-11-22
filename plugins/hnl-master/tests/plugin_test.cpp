@@ -72,8 +72,9 @@ int main() {
             presetsOk = presetsOk && v.id < kInputParamCount && v.value >= kParams[v.id].min && v.value <= kParams[v.id].max;
         }
     check(presetsOk, "preset values are within range", presets::kCount);
-    check(plugin.getStateCount() == 1 && plugin.getStateKey(0) == "preset", "preset name is saved as state", plugin.getStateCount());
-    check(kLimRelease == 27 && kMeterInL == 44, "0.1.0 parameter indices unchanged", kLimRelease);
+    check(plugin.getStateCount() == 2 && plugin.getStateKey(0) == "preset" && plugin.getStateKey(1) == "folded",
+          "preset name and folded stages are saved as state", plugin.getStateCount());
+    check(kLimRelease == 27 && kRevMix == 43 && kEqFirst == 44 && kMeterInL == 45, "parameter indices of earlier versions unchanged", kLimRelease);
 
     plugin.setParameterValue(kLimGain, 12.0f);
     plugin.setParameterValue(kLimCeiling, -1.0f);

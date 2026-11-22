@@ -4,6 +4,7 @@
 // The complete mastering chain:
 //   input gain -> 3-band compressor -> equaliser -> exciter -> widener
 //   -> reverb -> true-peak limiter -> meters
+// The equaliser can stand before the compressor instead (Params::eqFirst).
 #pragma once
 
 #include <atomic>
@@ -34,6 +35,7 @@ struct Params {
     };
 
     bool eqOn = false;
+    bool eqFirst = false; // the equaliser before the compressor instead of after it
     double eqLowFreq = 80.0, eqLowGain = 0.0;                   // Hz, dB (low shelf)
     double eqMidFreq = 1000.0, eqMidGain = 0.0, eqMidQ = 1.0;   // peak
     double eqHighFreq = 10000.0, eqHighGain = 0.0;              // high shelf
@@ -85,6 +87,7 @@ public:
         eq_.prepare(fs_);
         reverb_.prepare(fs_);
         smooth_ = onePoleCoef(20.0, fs_);
+        orderStep_ = 1.0 / (0.005 * fs_);
         applyParams(true);
         reset();
     }
@@ -98,6 +101,8 @@ public:
         reverb_.reset();
         limiter_.reset();
         loud_.reset();
+        eqFirst_ = p_.eqFirst;
+        orderGain_ = 1.0;
         inGain_ = inGainT_;
         limGain_ = limGainT_;
         mix_ = mixT_;
@@ -148,6 +153,29 @@ public:
             inPk[0] = std::max(inPk[0], std::fabs(l));
             inPk[1] = std::max(inPk[1], std::fabs(r));
 
+            // The equaliser changes place in a 5 ms dip: down, the two stages around and their filters
+            // cleared, up again. Changing place at full level would let out what the filters held from
+            // the other order, as a click. With one of the two off there is nothing to hear, and no dip.
+            if (eqFirst_ != p_.eqFirst) {
+                if (compOn && eqOn && orderGain_ > 0.0) {
+                    orderGain_ = std::max(0.0, orderGain_ - orderStep_);
+                } else {
+                    eqFirst_ = p_.eqFirst;
+                    if (compOn && eqOn) {
+                        for (auto& x : xo_) x.reset();
+                        eq_.reset();
+                    }
+                }
+            } else if (orderGain_ < 1.0) {
+                orderGain_ = std::min(1.0, orderGain_ + orderStep_);
+            }
+
+            if (eqOn && eqFirst_) {
+                eq_.tick();
+                l = eq_.process(0, l);
+                r = eq_.process(1, r);
+            }
+
             if (compOn) {
                 double bl[3], br[3];
                 xo_[0].split(l, bl[0], bl[1], bl[2]);
@@ -163,10 +191,15 @@ public:
                 }
             }
 
-            if (eqOn) {
+            if (eqOn && !eqFirst_) {
                 eq_.tick();
                 l = eq_.process(0, l);
                 r = eq_.process(1, r);
+            }
+            if (orderGain_ < 1.0) {
+                const double g = 0.5 - 0.5 * std::cos(3.14159265358979 * orderGain_);
+                l *= g;
+                r *= g;
             }
 
             l = exciter_.process(0, l, mix_, excOn);
@@ -248,6 +281,8 @@ private:
     double fs_ = 48000.0, smooth_ = 0.0;
     double f1_ = 0.0, f2_ = 0.0, excFreq_ = 0.0, wideFreq_ = 0.0;
     double width_ = 1.0, widthT_ = 1.0, revMix_ = 0.0, revMixT_ = 0.0;
+    bool eqFirst_ = false;                     // the order in use; follows p_.eqFirst through a dip
+    double orderGain_ = 1.0, orderStep_ = 0.0; // that dip, 1 = none
     bool compWasOn_ = false, excWasOn_ = false, eqWasOn_ = false, wideWasOn_ = false, revWasOn_ = false;
     double inGain_ = 1.0, inGainT_ = 1.0, limGain_ = 1.0, limGainT_ = 1.0, mix_ = 0.0, mixT_ = 0.0;
     double makeup_[3] = {1, 1, 1}, makeupT_[3] = {1, 1, 1};

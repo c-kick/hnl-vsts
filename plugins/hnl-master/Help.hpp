@@ -26,7 +26,8 @@ inline const char* forParam(uint32_t id) {
     case kLowMakeup: case kMidMakeup: case kHighMakeup:
         return "Level of this band after compression. Makes up for the gain reduction, or rebalances lows, mids and highs.";
 
-    case kEqOn: return "Switches the equaliser on or off. It sits after the compressor.";
+    case kEqOn: return "Switches the equaliser on or off. It sits after the compressor, or before it: see the switch under its title.";
+    case kEqFirst: return "Where the equaliser stands. After the compressor it shapes the tone of the result, and the compressor does not react to what you boost or cut. Before it, the compressor works on the equalised sound: a boost is held back, a cut frees it. The thin lines between the stages show the path. Changing it dips the sound for a moment.";
     case kEqLowFreq: return "Everything below this frequency is raised or lowered by Low Gain.";
     case kEqLowGain: return "Boost or cut of the lows. A little goes far on a master: half a dB to 2 dB.";
     case kEqMidFreq: return "Centre of the peak band.";
@@ -66,6 +67,7 @@ const char* const kGainReduction = "Gain reduction: how much this stage is turni
 const char* const kLoudness = "Loudness of the output in LUFS. Momentary is the last 0.4 s, short-term the last 3 s, integrated the whole stretch since the last reset. Streaming services aim around -14 LUFS integrated.";
 const char* const kTruePeak = "The highest true peak since the last reset. It turns red when it passes the limiter's ceiling.";
 const char* const kReset = "Starts the integrated loudness and the true-peak maximum again. Do this before playing the song through for a reading.";
+const char* const kFold = "Folds this stage to its title, or opens it again, to keep the window small. It changes nothing in the sound: a folded stage that is on keeps working. Switching a folded stage on opens it; presets leave the folding alone.";
 const char* const kHelp = "Help is on: rest the mouse on a control to read what it does. Click here again to switch it off.";
 
 } // namespace help

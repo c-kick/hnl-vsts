@@ -14,7 +14,7 @@ START_NAMESPACE_DISTRHO
 
 class MasterPlugin : public Plugin {
 public:
-    MasterPlugin() : Plugin(kParamCount, 0, 1) {
+    MasterPlugin() : Plugin(kParamCount, 0, 2) {
         for (uint32_t i = 0; i < kInputParamCount; ++i) values_[i].store(kParams[i].def);
         for (uint32_t i = kInputParamCount; i < kParamCount; ++i) meters_[i - kInputParamCount] = kParams[i].def;
         prepare(getSampleRate());
@@ -63,11 +63,18 @@ protected:
         }
     }
 
-    /** The name of the preset last chosen in the UI, saved with the song. */
-    void initState(uint32_t, State& state) override {
-        state.key = "preset";
-        state.label = "Preset";
-        state.defaultValue = "Default";
+    /** Saved with the song for the UI: the name of the preset last chosen, and which stages are folded
+        (a 1 or 0 for each stage with a switch, in signal order). */
+    void initState(uint32_t index, State& state) override {
+        if (index == 0) {
+            state.key = "preset";
+            state.label = "Preset";
+            state.defaultValue = "Default";
+        } else {
+            state.key = "folded";
+            state.label = "Folded stages";
+            state.defaultValue = "";
+        }
     }
 
     float getParameterValue(uint32_t index) const override {
@@ -84,7 +91,7 @@ protected:
     }
 
     /** The UI sends "reset" to clear integrated loudness and the true-peak hold.
-        "preset" is only stored by the host; the UI sets the parameters itself. */
+        "preset" and "folded" are only stored by the host; the UI acts on them itself. */
     void setState(const char* key, const char*) override {
         if (std::strcmp(key, "reset") == 0) resetMeters_.store(true, std::memory_order_relaxed);
     }
@@ -149,6 +156,7 @@ private:
         p.exciterMix = v[kExcMix];
         p.exciterMode = static_cast<int>(std::lround(v[kExcMode]));
         p.eqOn = v[kEqOn] > 0.5f;
+        p.eqFirst = v[kEqFirst] > 0.5f;
         p.eqLowFreq = v[kEqLowFreq];
         p.eqLowGain = v[kEqLowGain];
         p.eqMidFreq = v[kEqMidFreq];

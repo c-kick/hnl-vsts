@@ -5,6 +5,7 @@
 #   dsp_test     measurements of the audio engine
 #   plugin_test  the plugin driven through DPF's host-side wrapper
 #   abuse_test   the same, by a host that does everything a host may do (common/tests/HostAbuse.hpp)
+#   ui_presets_test, ui_fold_test  the UI class, driven by clicks
 set -e
 cd "$(dirname "$0")/.."
 ROOT=../..
@@ -26,3 +27,6 @@ PRESET_RIGHT=$(sed -n 's/.*kPresetRight = \([0-9]*\).*/\1/p' MasterUI.cpp)
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DPRESET_FROM_RIGHT=$PRESET_RIGHT -o "$OUT/ui_presets_test" \
     $ROOT/common/tests/ui_presets_test.cpp MasterUI.cpp
 "$OUT/ui_presets_test"
+# Folding stages through the UI class itself.
+g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_fold_test" tests/ui_fold_test.cpp MasterUI.cpp
+"$OUT/ui_fold_test"

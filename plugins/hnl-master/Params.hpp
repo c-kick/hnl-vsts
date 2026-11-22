@@ -21,6 +21,7 @@ enum ParamId : uint32_t {
     kExcMode,
     kWideOn, kWideWidth, kWideFreq,
     kRevOn, kRevDecay, kRevDamping, kRevMix,
+    kEqFirst, // added in 0.5.0
     kInputParamCount,
 
     // Meters (plugin -> UI/host), in dB or LUFS.
@@ -97,6 +98,8 @@ static const ParamInfo kParams[kParamCount] = {
     {"Reverb Decay", "rev_decay", "s", 0.2f, 6.f, 1.4f, kLog},
     {"Reverb Damping", "rev_damping", "Hz", 1000.f, 16000.f, 6000.f, kLog},
     {"Reverb Amount", "rev_mix", "%", 0.f, 50.f, 8.f, kLinear},
+
+    {"EQ Before Compressor", "eq_first", "", 0.f, 1.f, 0.f, kToggle},
 
     {"Meter In L", "meter_in_l", "dB", -100.f, 24.f, -100.f, kMeter},
     {"Meter In R", "meter_in_r", "dB", -100.f, 24.f, -100.f, kMeter},

@@ -14,8 +14,8 @@
 
 // The version: reported to the host, shown behind the title, and read by package.sh.
 #define HNL_VERSION_MAJOR 0
-#define HNL_VERSION_MINOR 4
-#define HNL_VERSION_PATCH 3
+#define HNL_VERSION_MINOR 5
+#define HNL_VERSION_PATCH 0
 
 #define DISTRHO_PLUGIN_HAS_UI       1
 #define DISTRHO_PLUGIN_IS_RT_SAFE   1
@@ -30,10 +30,10 @@
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|Mastering|Dynamics|Stereo"
 #define DISTRHO_PLUGIN_CLAP_FEATURES   "audio-effect", "mastering", "compressor", "limiter", "stereo"
 
-// Window size with the default settings. The UI resizes itself when stages
-// are switched on or off (see layout() in MasterUI.cpp).
-#define UI_BASE_WIDTH  1012
-#define UI_BASE_HEIGHT 560
+// Window size with every stage open. The UI resizes itself when stages
+// are folded (see layout() in MasterUI.cpp).
+#define UI_BASE_WIDTH  1248
+#define UI_BASE_HEIGHT 568
 
 #define DISTRHO_UI_DEFAULT_WIDTH  UI_BASE_WIDTH
 #define DISTRHO_UI_DEFAULT_HEIGHT UI_BASE_HEIGHT

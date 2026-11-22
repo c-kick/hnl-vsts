@@ -3,9 +3,12 @@
 
 // HNL Master: user interface (NanoVG).
 //
-// The window is a row of modules. A stage that is switched off collapses to
-// a title bar, and the window shrinks to fit. Coordinates are in design
-// pixels (kHeight high, width from layout()), scaled by the host's UI scale.
+// The window is a row of modules. A stage that is switched off stays where it
+// is and goes dim. The arrow next to a stage's switch folds it to a title bar,
+// and the window shrinks to fit: only that arrow moves anything, so that a
+// switch or a preset never moves what is under the mouse. Thin lines in the
+// gaps between the modules show the way the sound goes. Coordinates are in
+// design pixels (kHeight high, width from layout()), scaled by the host's UI scale.
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -40,19 +43,19 @@ enum Module { kModInput, kModComp, kModEq, kModExc, kModWide, kModRev, kModLim, 
 
 struct ModuleInfo {
     const char* title;
-    const char* shortTitle; // used when collapsed
+    const char* shortTitle; // used when folded
     uint32_t accent;
     uint32_t toggle; // on/off parameter, or kParamCount for none
     float height;    // when open, for the modules stacked in a column
 };
 
-const float kHeight = UI_BASE_HEIGHT, kTop = 52, kBottom = 548, kMargin = 12, kGap = 8;
+const float kHeight = UI_BASE_HEIGHT, kTop = 52, kBottom = 556, kMargin = 12, kGap = 12; // the gaps hold the lines of the signal path
 const float kInputW = 84, kCompW = 486, kColumnW = 212, kOutputW = 182, kBarH = 30;
 
 const ModuleInfo kModules[kModCount] = {
     {"INPUT", "INPUT", kBlue, kParamCount, 0},
     {"MULTIBAND COMPRESSOR", "COMPRESSOR", kAmber, kCompOn, 0},
-    {"EQUALISER", "EQUALISER", kViolet, kEqOn, 196},
+    {"EQUALISER", "EQUALISER", kViolet, kEqOn, 218}, // with the two modules under it, this fills the column
     {"EXCITER", "EXCITER", kTeal, kExcOn, 148},
     {"STEREO WIDTH", "STEREO WIDTH", kSky, kWideOn, 114},
     {"REVERB", "REVERB", kRose, kRevOn, 114},
@@ -74,10 +77,13 @@ struct Control {
 };
 
 const float kBandWidth = 162.0f;
-const float kPresetRight = 268, kHeaderY = 14; // the preset bar starts this far from the right edge, which moves as modules open and close
+const float kPresetRight = 268, kHeaderY = 14; // the preset bar starts this far from the right edge, which moves as modules are folded
 const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x262a33, 0x3a404c, kText, kDim, kAmber};
 const Rect kModeBox = {12, 36, 188, 22}; // exciter character, relative to its module
+const Rect kOrderBox = {12, 34, 188, 20}; // equaliser before or after the compressor, relative to its module
+const uint32_t kFlow = 0x646c7d;          // the lines of the signal path
 const Rect kResetBox = {20, 448, 142, 28};
+const float kFoldX = 62, kFoldY = 15; // the fold arrow of a module: this far from its right edge, and from its top
 
 } // namespace
 
@@ -102,13 +108,13 @@ public:
         }
 
         const float four[4] = {31, 81, 131, 181}, three[3] = {46, 106, 166};
-        knob(kEqLowFreq, kModEq, four[0], 72, 16, "LOW FREQ");
-        knob(kEqLowGain, kModEq, four[1], 72, 16, "LOW GAIN");
-        knob(kEqHighFreq, kModEq, four[2], 72, 16, "HIGH FREQ");
-        knob(kEqHighGain, kModEq, four[3], 72, 16, "HIGH GAIN");
-        knob(kEqMidFreq, kModEq, three[0], 154, 16, "PEAK FREQ");
-        knob(kEqMidGain, kModEq, three[1], 154, 16, "PEAK GAIN");
-        knob(kEqMidQ, kModEq, three[2], 154, 16, "PEAK Q");
+        knob(kEqLowFreq, kModEq, four[0], 94, 16, "LOW FREQ");
+        knob(kEqLowGain, kModEq, four[1], 94, 16, "LOW GAIN");
+        knob(kEqHighFreq, kModEq, four[2], 94, 16, "HIGH FREQ");
+        knob(kEqHighGain, kModEq, four[3], 94, 16, "HIGH GAIN");
+        knob(kEqMidFreq, kModEq, three[0], 176, 16, "PEAK FREQ");
+        knob(kEqMidGain, kModEq, three[1], 176, 16, "PEAK GAIN");
+        knob(kEqMidQ, kModEq, three[2], 176, 16, "PEAK Q");
 
         knob(kExcFreq, kModExc, four[0], 106, 16, "FREQ");
         knob(kExcDrive, kModExc, four[1], 106, 16, "DRIVE");
@@ -137,11 +143,20 @@ protected:
     void parameterChanged(uint32_t index, float value) override {
         if (index >= kParamCount || values_[index] == value) return;
         values_[index] = value;
-        if (kParams[index].kind == kToggle) layout();
+        if (index == kEqFirst) layout();
         repaint();
     }
 
     void stateChanged(const char* key, const char* value) override {
+        if (std::strcmp(key, "folded") == 0) {
+            for (int m = kModComp; m <= kModLim; ++m) {
+                const size_t i = static_cast<size_t>(m - kModComp);
+                folded_[m] = i < std::strlen(value) && value[i] == '1';
+            }
+            layout();
+            repaint();
+            return;
+        }
         if (std::strcmp(key, "preset") != 0) return;
         presetName_ = value;
         list_.rescan();
@@ -169,16 +184,26 @@ protected:
         help_.drawButton(*this, kTheme);
 
         for (int m = 0; m < kModCount; ++m) drawModule(static_cast<Module>(m));
+        drawFlow();
 
         drawInput(rects_[kModInput]);
         if (open(kModComp)) drawCompressor(rects_[kModComp]);
         if (open(kModExc)) drawExciterMode(rects_[kModExc]);
+        if (open(kModEq)) drawEqOrder(rects_[kModEq]);
         if (open(kModLim)) drawLimiter(rects_[kModLim]);
         drawOutput(rects_[kModOutput]);
 
         for (const Control& c : controls_) {
             if (c.toggle) drawToggle(c);
             else if (open(c.module)) drawKnob(c);
+        }
+        for (int m = kModComp; m <= kModLim; ++m) { // a stage that is switched off is dim, under its title
+            const Rect& p = rects_[m];
+            if (!open(static_cast<Module>(m)) || active(static_cast<Module>(m))) continue;
+            beginPath();
+            roundedRect(p.x + 1, p.y + kBarH, p.w - 2, p.h - kBarH - 1, 5);
+            fillColor(rgb(kPanel, 0.68f));
+            fill();
         }
 
         presetBar_.drawMenu(*this, kTheme, list_.count(), preset_, list_.factoryCount(), canSavePreset(), [this](int i) { return list_.name(i); });
@@ -228,12 +253,25 @@ protected:
             return true;
         }
 
+        for (int m = kModComp; m <= kModLim; ++m) {
+            if (!foldBox(static_cast<Module>(m)).contains(x, y)) continue;
+            setFolded(static_cast<Module>(m), !folded_[m]);
+            return true;
+        }
+
+        if (open(kModEq) && inModule(kModEq, kOrderBox, x, y)) {
+            change(kEqFirst, x - rects_[kModEq].x - kOrderBox.x < kOrderBox.w * 0.5f ? 1.0f : 0.0f, true);
+            return true;
+        }
+
         const int hit = controlAt(x, y);
         if (hit < 0) return false;
         const Control& c = controls_[hit];
 
         if (c.toggle) {
-            change(c.id, values_[c.id] > 0.5f ? 0.0f : 1.0f, true);
+            const bool switchOn = values_[c.id] <= 0.5f;
+            change(c.id, switchOn ? 1.0f : 0.0f, true);
+            if (switchOn && folded_[c.module]) setFolded(c.module, false); // switched on by hand: show what it does
             return true;
         }
         const bool doubleClick = hit == lastClick_ && ev.time - lastClickTime_ < 350;
@@ -302,8 +340,28 @@ private:
     }
 
     bool on(uint32_t id) const { return values_[id] > 0.5f; }
-    /** A module is open when it has no on/off switch or is switched on. */
-    bool open(Module m) const { return kModules[m].toggle == kParamCount || on(kModules[m].toggle); }
+    /** A module works when it has no on/off switch or is switched on. */
+    bool active(Module m) const { return kModules[m].toggle == kParamCount || on(kModules[m].toggle); }
+    /** A module is open, showing its controls, unless it was folded. Switching it on or off does not change that. */
+    bool open(Module m) const { return !folded_[m]; }
+
+    /** The modules in the order the sound passes them: the equaliser stands before or after the compressor. */
+    void signalPath(Module* path) const {
+        for (int m = 0; m < kModCount; ++m) path[m] = static_cast<Module>(m);
+        if (on(kEqFirst)) std::swap(path[kModComp], path[kModEq]);
+    }
+
+    Rect foldBox(Module m) const { return {rects_[m].x + rects_[m].w - kFoldX - 12, rects_[m].y + kFoldY - 12, 24, 24}; }
+
+    /** Folds or unfolds a module and tells the host, which keeps it with the song. Presets leave it alone. */
+    void setFolded(Module m, bool folded) {
+        folded_[m] = folded;
+        char text[kModLim - kModComp + 2] = {0};
+        for (int i = kModComp; i <= kModLim; ++i) text[i - kModComp] = folded_[i] ? '1' : '0';
+        setState("folded", text);
+        layout();
+        repaint();
+    }
 
     // ------------------------------------------------------------- layout
 
@@ -316,10 +374,12 @@ private:
             rects_[kModComp] = {x, kTop, kCompW, kBottom - kTop};
             x += kCompW + kGap;
         }
-        // Everything else stacks in columns; a collapsed compressor joins them.
+        // Everything else stacks in columns in signal order; a folded compressor joins them.
         float y = kTop;
-        for (int i = kModComp; i <= kModLim; ++i) {
-            const Module m = static_cast<Module>(i);
+        Module path[kModCount];
+        signalPath(path);
+        for (int i = 1; i < kModCount - 1; ++i) {
+            const Module m = path[i];
             if (m == kModComp && open(m)) continue;
             const float h = open(m) ? kModules[m].height : kBarH;
             if (y + h > kBottom && y > kTop) {
@@ -363,6 +423,14 @@ private:
             const Rect& p = rects_[kModExc];
             help_.add({p.x + kModeBox.x, p.y + kModeBox.y, kModeBox.w, kModeBox.h}, "EXCITER MODE", help::forParam(kExcMode));
         }
+        if (open(kModEq)) {
+            const Rect& p = rects_[kModEq];
+            help_.add({p.x + kOrderBox.x, p.y + kOrderBox.y, kOrderBox.w, kOrderBox.h}, "EQUALISER PLACE", help::forParam(kEqFirst));
+        }
+        for (int m = kModComp; m <= kModLim; ++m) {
+            const Rect f = foldBox(static_cast<Module>(m));
+            help_.add({f.x, f.y, f.w, f.h}, "FOLD", help::kFold);
+        }
         for (const Control& c : controls_) {
             if (c.toggle) help_.add({cx(c) - 16, cy(c) - 9, 32, 18}, kParams[c.id].name, help::forParam(c.id));
             else if (open(c.module)) help_.add({cx(c) - c.r - 12, cy(c) - c.r - 18, 2 * c.r + 24, 2 * c.r + 38}, kParams[c.id].name, help::forParam(c.id));
@@ -394,7 +462,7 @@ private:
         values_[id] = value;
         setParameterValue(id, value);
         if (gesture) editParameter(id, false);
-        if (kParams[id].kind == kToggle) layout();
+        if (id == kEqFirst) layout();
         repaint();
     }
 
@@ -437,7 +505,7 @@ private:
             editParameter(id, false);
         }
         setState("preset", presetName_.c_str());
-        layout();
+        layout(); // a preset may put the equaliser on the other side of the compressor
         repaint();
     }
 
@@ -463,7 +531,7 @@ private:
     void drawModule(Module m) {
         const Rect& p = rects_[m];
         const ModuleInfo& info = kModules[m];
-        const bool active = open(m);
+        const bool active = this->active(m);
         beginPath();
         roundedRect(p.x, p.y, p.w, p.h, 6);
         fillColor(rgb(kPanel));
@@ -475,7 +543,22 @@ private:
         roundedRect(p.x + 10, p.y + 11, 3, 8, 1.5f);
         fillColor(rgb(info.accent, active ? 1.0f : 0.4f));
         fill();
-        label(active ? info.title : info.shortTitle, p.x + 20, p.y + 15, 10, rgb(active ? kText : kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        label(open(m) ? info.title : info.shortTitle, p.x + 20, p.y + 15, 10, rgb(active ? kText : kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        if (info.toggle == kParamCount) return;
+        const float ax = p.x + p.w - kFoldX, ay = p.y + kFoldY; // the fold arrow: down when open, to the right when folded
+        beginPath();
+        if (open(m)) {
+            moveTo(ax - 4, ay - 2);
+            lineTo(ax, ay + 2);
+            lineTo(ax + 4, ay - 2);
+        } else {
+            moveTo(ax - 2, ay - 4);
+            lineTo(ax + 2, ay);
+            lineTo(ax - 2, ay + 4);
+        }
+        strokeColor(rgb(kDim));
+        strokeWidth(1.5f);
+        stroke();
     }
 
     void drawInput(const Rect& p) {
@@ -506,24 +589,73 @@ private:
         }
     }
 
-    void drawExciterMode(const Rect& p) {
-        const int mode = static_cast<int>(std::lround(values_[kExcMode]));
-        const float w = kModeBox.w / 3.0f, x = p.x + kModeBox.x, y = p.y + kModeBox.y;
+    /** A row of choices in a box, the chosen one in the module's colour. */
+    void drawChoice(const Rect& p, const Rect& box, const char* const* names, int count, int chosen, uint32_t accent) {
+        const float w = box.w / count, x = p.x + box.x, y = p.y + box.y;
         beginPath();
-        roundedRect(x, y, kModeBox.w, kModeBox.h, 4);
+        roundedRect(x, y, box.w, box.h, 4);
         fillColor(rgb(kTrack));
         fill();
-        for (int i = 0; i < 3; ++i) {
-            if (i == mode) {
+        for (int i = 0; i < count; ++i) {
+            if (i == chosen) {
                 beginPath();
-                roundedRect(x + i * w + 2, y + 2, w - 4, kModeBox.h - 4, 3);
-                fillColor(rgb(kTeal));
+                roundedRect(x + i * w + 2, y + 2, w - 4, box.h - 4, 3);
+                fillColor(rgb(accent));
                 fill();
             }
-            char text[8];
-            std::snprintf(text, sizeof(text), "%s", kExciterModes[i]);
-            for (char* c = text; *c; ++c) *c = static_cast<char>(*c >= 'a' && *c <= 'z' ? *c - 32 : *c);
-            label(text, x + (i + 0.5f) * w, y + kModeBox.h * 0.5f, 9, rgb(i == mode ? kBg : kDim), ALIGN_CENTER | ALIGN_MIDDLE);
+            label(names[i], x + (i + 0.5f) * w, y + box.h * 0.5f, 9, rgb(i == chosen ? kBg : kDim), ALIGN_CENTER | ALIGN_MIDDLE);
+        }
+    }
+
+    void drawExciterMode(const Rect& p) {
+        static const char* const kNames[3] = {"TAPE", "TUBE", "RETRO"}; // kExciterModes, as the panel writes them
+        drawChoice(p, kModeBox, kNames, 3, static_cast<int>(std::lround(values_[kExcMode])), kTeal);
+    }
+
+    void drawEqOrder(const Rect& p) {
+        static const char* const kNames[2] = {"BEFORE COMP", "AFTER COMP"};
+        drawChoice(p, kOrderBox, kNames, 2, on(kEqFirst) ? 0 : 1, kViolet);
+    }
+
+    // -------------------------------------------------------- signal path
+
+    /** A thin line through the points. */
+    void flowLine(const float* xy, int points) {
+        beginPath();
+        moveTo(xy[0], xy[1]);
+        for (int i = 1; i < points; ++i) lineTo(xy[2 * i], xy[2 * i + 1]);
+        strokeColor(rgb(kFlow));
+        strokeWidth(1);
+        stroke();
+    }
+
+    /** The way the sound goes: a line from each module to the next, in the gaps between them. */
+    void drawFlow() {
+        Module path[kModCount];
+        signalPath(path);
+        for (int i = 0; i + 1 < kModCount; ++i) {
+            const Rect &a = rects_[path[i]], &b = rects_[path[i + 1]];
+            const float ya = a.y + kFoldY, yb = b.y + kFoldY; // at the height of a title
+            if (a.x == b.x) { // the next one down in a column
+                const float x = a.x + a.w * 0.5f, line[4] = {x, a.y + a.h + 1, x, b.y - 1};
+                flowLine(line, 2);
+                continue;
+            }
+            const bool right = b.x > a.x;
+            const float from = right ? a.x + a.w + 1 : a.x - 1, to = right ? b.x - 1 : b.x + b.w + 1;
+            if (std::fabs(to - from) > kGap) { // something stands between them: over its top
+                const float lane = kTop - 5, line[8] = {a.x + a.w * 0.5f, a.y - 1, a.x + a.w * 0.5f, lane, b.x + b.w * 0.5f, lane, b.x + b.w * 0.5f, b.y - 1};
+                flowLine(line, 4);
+            } else if (ya >= b.y && ya <= b.y + b.h) { // neighbours: straight across where both stand
+                const float line[4] = {from, ya, to, ya};
+                flowLine(line, 2);
+            } else if (yb >= a.y && yb <= a.y + a.h) {
+                const float line[4] = {from, yb, to, yb};
+                flowLine(line, 2);
+            } else { // from the foot of one column to the head of the next, through the gap
+                const float mid = (from + to) * 0.5f, line[8] = {from, ya, mid, ya, mid, yb, to, yb};
+                flowLine(line, 4);
+            }
         }
     }
 
@@ -691,6 +823,7 @@ private:
     float values_[kParamCount];
     std::vector<Control> controls_;
     Rect rects_[kModCount];
+    bool folded_[kModCount] = {}; // by the arrow in a module's title; kept with the song as the state "folded"
     float width_ = UI_BASE_WIDTH;
     int drag_ = -1, lastClick_ = -1;
     uint lastClickTime_ = 0;

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 
-// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|all|limiter|closed|menu|save|help]
+// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|all|limiter|closed|folded|eqfirst|menu|save|help]
 //   default  as a new instance opens      busy    meters moving, a preset edited
 //   all      every stage switched on      closed  every stage switched off
-//   limiter  only the limiter switched on
+//   limiter  only the limiter switched on    folded  the compressor and the stereo width folded
+//   eqfirst  the equaliser before the compressor
 //   menu     the preset list open       help    help on, mouse on a knob
 #include <cstring>
 #include <fstream>
@@ -34,6 +35,13 @@ int main(int argc, char** argv) {
     }
     if (mode == "limiter")
         for (uint32_t id : {kCompOn, kEqOn, kExcOn, kWideOn, kRevOn}) ui->parameterChanged(id, 0.0f);
+    if (mode == "folded") ui->stateChanged("folded", "100100");
+    if (mode == "eqfirst") { // the equaliser on, and before the compressor
+        ui->parameterChanged(kEqOn, 1.0f);
+        ui->parameterChanged(kEqFirst, 1.0f);
+        ui->parameterChanged(kEqLowGain, 1.5f);
+        ui->parameterChanged(kEqMidGain, -2.0f);
+    }
     if (mode == "menu") {
         DISTRHO::MouseEvent click;
         click.pos.x = ui->getWidth() - 180; // the preset name, at the right
@@ -53,8 +61,8 @@ int main(int argc, char** argv) {
         release.press = false;
         ui->onMouse(release);
         DISTRHO::MotionEvent move; // the limiter's gain knob
-        move.pos.x = 644;
-        move.pos.y = 394;
+        move.pos.x = 876;
+        move.pos.y = 250;
         ui->onMotion(move);
     }
     if (mode == "save") { // the name box, as after Save as... at the end of the preset list

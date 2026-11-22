@@ -5,8 +5,8 @@
 #   tools/ui-preview/docs.sh <playwright index.mjs>               all plugins
 #   tools/ui-preview/docs.sh <playwright index.mjs> hnl-master    one plugin
 # Each state that tests/preview.sh writes goes to the picture of the same name, with these exceptions:
-# "busy" (the meters at work) is preview.png, and HNL Master's "all" and "limiter" are everything-on.png
-# and limiter-only.png. A state without a picture in docs/ is skipped, so a new picture is added by hand once.
+# "busy" (the meters at work) is preview.png, and HNL Master's "all", "limiter" and "eqfirst" are everything-on.png,
+# limiter-only.png and eq-first.png. A state without a picture in docs/ is skipped, so a new picture is added by hand once.
 # Every picture shows the plugin's version behind its title: run this after changing a version number.
 set -e
 cd "$(dirname "$0")/../.."
@@ -23,6 +23,7 @@ for p do
             busy) png=preview ;;
             all) png=everything-on ;;
             limiter) png=limiter-only ;;
+            eqfirst) png=eq-first ;;
             *) png=$state ;;
         esac
         [ -f "plugins/$p/docs/$png.png" ] && jobs="$jobs $svg $PWD/plugins/$p/docs/$png.png"

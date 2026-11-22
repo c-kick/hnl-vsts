@@ -415,6 +415,82 @@ static void testStagesStartClean(double fs) {
     }
 }
 
+static double maxCurve(const std::vector<float>& x, size_t from, size_t to) {
+    double m = 0;
+    for (size_t i = std::max<size_t>(from, 2); i < to; ++i) m = std::max(m, std::fabs(static_cast<double>(x[i]) - 2.0 * x[i - 1] + x[i - 2]));
+    return m;
+}
+
+static void testEqPosition(double fs) {
+    Params p = allOff();
+    p.compOn = p.eqOn = true;
+    p.eqLowFreq = 200.0;
+    p.eqLowGain = 12.0;
+    for (auto& b : p.band) { b.threshold = -30.0; b.ratio = 4.0; }
+    const size_t n = static_cast<size_t>(fs);
+
+    // The order is heard: a boost before the compressor is held back by it.
+    double level[2];
+    for (int first = 0; first < 2; ++first) {
+        MasterChain c;
+        c.prepare(fs);
+        p.eqFirst = first == 1;
+        c.setParams(p);
+        c.reset();
+        std::vector<float> l = sine(60, 0.1, fs, 2.0), r = l;
+        run(c, l, r);
+        level[first] = 20.0 * std::log10(tone(l, n, 2 * n, 60, fs));
+    }
+    check(level[0] - level[1] > 4.0, "eq before compressor: boost held", "%.1f dB after it, %.1f dB before it", level[0], level[1]);
+
+    // Changing place under a tone: a short dip, no click. A click shows as a bend in the wave far
+    // sharper than the tone's own (the second difference of the samples).
+    {
+        MasterChain c;
+        c.prepare(fs);
+        p.eqFirst = false;
+        c.setParams(p);
+        c.reset();
+        std::vector<float> l = sine(200, 0.1, fs, 3.0), r = l;
+        for (size_t i = 0; i < l.size(); i += 256) {
+            if (i == 4 * 256 * (n / 1024)) { p.eqFirst = true; c.setParams(p); } // about a second in
+            c.process(&l[i], &r[i], static_cast<int>(std::min<size_t>(256, l.size() - i)));
+        }
+        const size_t at = 4 * 256 * (n / 1024), ms = n / 1000;
+        const double steady = std::max(maxCurve(l, at - 100 * ms, at), maxCurve(l, 2 * n, 3 * n));
+        const double change = maxCurve(l, at, at + 100 * ms);
+        double floor = 1.0, before = 0.0;
+        for (size_t i = at; i < at + 20 * ms; ++i) floor = std::min(floor, static_cast<double>(std::fabs(l[i]) + std::fabs(l[i + ms / 2 + 1])));
+        for (size_t i = at - 20 * ms; i < at; ++i) before = std::max(before, static_cast<double>(std::fabs(l[i])));
+        check(change <= 1.5 * steady, "eq changes place without a click", "bend %.2e (the tone itself: %.2e)", change, steady);
+        check(floor < 0.05 * before, "eq changes place in a dip", "down to %.4f of %.4f", floor, before);
+        const double after = tone(l, 2 * n, 3 * n, 200, fs);
+        check(after > 0.5 * before && after < 2.0 * before, "the level comes back after it", "%.4f (before: %.4f)", after, before);
+    }
+
+    // With the compressor off the place makes no difference, and nothing is heard of the change.
+    {
+        p.compOn = false;
+        std::vector<float> out[2];
+        for (int flip = 0; flip < 2; ++flip) {
+            MasterChain c;
+            c.prepare(fs);
+            p.eqFirst = false;
+            c.setParams(p);
+            c.reset();
+            std::vector<float> l = sine(200, 0.1, fs, 1.0), r = l;
+            for (size_t i = 0; i < l.size(); i += 256) {
+                if (flip && i == 256 * 40) { p.eqFirst = true; c.setParams(p); }
+                c.process(&l[i], &r[i], static_cast<int>(std::min<size_t>(256, l.size() - i)));
+            }
+            out[flip] = l;
+        }
+        double diff = 0;
+        for (size_t i = 0; i < out[0].size(); ++i) diff = std::max(diff, static_cast<double>(std::fabs(out[0][i] - out[1][i])));
+        check(diff < 1e-9, "compressor off: no dip for it", "difference %.2e", diff);
+    }
+}
+
 int main() {
     for (double fs : {44100.0, 48000.0, 96000.0}) {
         std::printf("--- %.0f Hz ---\n", fs);
@@ -429,6 +505,7 @@ int main() {
         testLoudness(fs);
         testSpeed(fs);
         testStagesStartClean(fs);
+        testEqPosition(fs);
     }
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;
