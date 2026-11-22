@@ -5,6 +5,10 @@ plugins that have not been started.
 
 ## Additions to existing plugins
 
+- **HNL Patina:** letting the tail of a reverb ring out when Space changes type (now it is cut in 25 ms), the
+  record's speed tied to the song's tempo (one turn a bar), the mains frequency as a setting for all plugins,
+  more types per module.
+
 - **HNL Bus Compressor:** an external sidechain input (as in HNL Channel Spacer), and an optional saturating
   gain stage; it is clean as built.
 - **HNL Leveller:** oversampling for the colour stage, so that high Colour settings stay clean on bright
@@ -37,9 +41,12 @@ Built: the bus compressor, the levelling compressor and the transient shaper.
 ## Tone and colour
 
 - **Channel EQ:** console style, with a preamp drive stage.
-- **Saturation box:** tube, transformer, diode and fuzz in one, oversampled.
-- **Lo-fi unit:** bit and sample-rate reduction, vinyl crackle and warp, cassette wobble.
-- **Ladder filter** with envelope follower and LFO.
+- **Ladder filter** with an LFO. HNL Patina has a ladder filter that follows the level.
+- **Bit and sample-rate reduction**, as early samplers did it: a seventh module for HNL Patina, or a plugin of
+  its own.
+
+Built: HNL Patina, which took the place of the saturation box (tube, transistor, diode and fuzz, oversampled)
+and of the vinyl half of the lo-fi unit. Cassette wobble is in the tape plugins.
 
 ## Modulation and space
 

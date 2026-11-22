@@ -71,6 +71,13 @@ yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
   <tr>
     <td valign="top">Transient shaper for drums: attack and sustain of each hit up or down, whatever its level, with a detector that can listen to the lows, mids or highs only<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Transient-Shaper-win64.zip"><b>Download</b></a> · <!-- version:hnl-transient-shaper -->v0.3.2<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
+  <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-patina"><img src="plugins/hnl-patina/docs/preview.png" alt="HNL Patina" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-patina">HNL Patina</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Makes a clean sound old: a gain stage, a record that does not run true, the surface of that record, a noise bed, a filter and a room, each of which can react to the music, with two scenes per preset and a morph between them. An alpha: a first version that passes its offline tests and has not been played in a host yet<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Patina-win64.zip"><b>Download</b></a> · <!-- version:hnl-patina -->v0.1.0<!-- /version --> · <b>alpha, largely untested</b> · Windows 64-bit, VST3 and CLAP</td>
+  </tr>
 </table>
 
 ## Instruments
@@ -105,8 +112,8 @@ A host needs only one of the two. Each plugin shows its version behind its title
 Every plugin says what stage it is in, next to its version:
 
 - **beta**: it passes its offline tests and has been tried in Reason, but it is young; expect rough edges.
-- **alpha**: it passes its offline tests and is otherwise largely untested. HNL Sampler is the only one: it has
-  not been played in a host yet. Do not build a song on it.
+- **alpha**: it passes its offline tests and is otherwise largely untested. HNL Sampler and HNL Patina are the two:
+  neither has been played in a host yet. Do not build a song on them.
 
 The plugins are free software under the GNU General Public License, version 3 or later: see [Licence](#licence).
 

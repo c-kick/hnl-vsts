@@ -4,3 +4,5 @@ dist/
 /.claude/
 /.codex/
 /docs/
+# Design notes written before a plugin is built
+/design/
