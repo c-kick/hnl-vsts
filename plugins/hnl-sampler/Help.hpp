@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
+
+// Help texts, shown as tips when help is switched on in the UI.
+#pragma once
+
+namespace help {
+
+const char* const kHelp = "Help is on: rest the mouse on a part of the window to read what it does. Click here again to switch it off.";
+const char* const kInstrument = "The instrument: all eight parts with their zones and settings. The list holds the instruments you saved; Save as... at its end keeps this one under a name, for use in every song. A saved instrument names its sounds by their place on disk; the sounds themselves stay where they are. Init starts again with an empty instrument, which is silent until a sound is added or the oscillator on the SYNTH page is turned up. The song keeps the instrument too.";
+const char* const kParts = "Eight parts, each an instrument of its own with its zones, filter, envelopes and modulation. Everything on the pages below belongs to the part chosen here. A light shows that a part is sounding.";
+const char* const kPages = "MAP: which sound plays on which keys. SAMPLE: the chosen zone's sound, its start, end and loop. SYNTH: oscillator, filter and envelopes. MOD: LFOs, steps and the matrix that connects them. MIX: the levels of all parts and the effects. FILES: sounds and instruments on disk.";
+const char* const kVolume = "Output level of the whole plugin, on all outputs. A host can automate it, as it can the eight macros on the MOD page.";
+const char* const kOutput = "Peak level of the first output pair, and how many of the 64 voices are sounding.";
+const char* const kKeyboard = "All 128 keys. Click to hear the chosen part; lower on the key is harder. Keys that sound light up, also when the host plays them. The bar above it shows the keys the chosen zone covers.";
+
+const char* const kMap = "The zones of this part: across, the keys a zone covers; up, the velocities. Click a zone to choose it. Drag its middle to move it over the keys, its left or right edge to change its range, its top or bottom edge for the velocities. Zones that overlap sound together. The octaves are named along the bottom, the velocities up the right side.";
+const char* const kZone = "The chosen zone. Drag a value up or down; double-click sets it back. Root is the key at which the sound plays as recorded. Group and Choked by: a zone that starts cuts off every zone whose Choked by is its Group (a closed hi-hat ending the open one). Round robin: zones over the same keys take turns; RR count is how many take part, RR turn which turn this zone has. Trigger Release makes a zone sound when the key is let go.";
+const char* const kWave = "The sound of the chosen zone. Drag the markers: S start, E end, LS and LE the start and end of the loop. The ruler at the top counts seconds. The scroll wheel zooms in on the place under the mouse. The line that moves shows where the newest note is.";
+const char* const kLoop = "Start, End and the loop's places are counted in samples, with the time under each. Loop repeats the stretch between the loop markers while the key is held: forward, back and forth, or backward. Crossfade fades the sound before the loop into its end, which hides the jump. Loop in release keeps looping after the key is let go; off, the sound then plays on to its end. One shot plays the whole sound whatever the key does.";
+const char* const kTools = "Find loop looks for a loop without a bump between the loop markers (or in the second half of the sound). Detect pitch sets Root and Tune from the sound. Normalise sets Gain so that the loudest sample reaches full scale. Slice at hits cuts a drum loop into one zone per hit, on the keys from C2 up.";
+
+const char* const kOsc = "An oscillator that plays along with the sample, or alone when a key has no zone: sine, triangle, sawtooth, square or pulse. Coarse and Fine tune it against the key.";
+const char* const kNoise = "White or pink noise added to every note.";
+const char* const kModOsc = "A sine wave that works on sample and oscillator. FM pushes the place the sound is read from back and forth, which adds overtones; AM makes it louder and softer; Ring multiplies the two. Ratio is its pitch against the note's.";
+const char* const kUnison = "Unison plays every note up to eight times at once, detuned and spread from left to right, inside one voice. Chord adds up to three more notes at fixed distances in semitones; 0 is off.";
+const char* const kSat = "Distortion for each note on its own, before the filter, so that chords stay clean: Soft, Hard, Fold, and Tube, which treats the two halves of the wave differently.";
+const char* const kFilter = "A filter for each note. Low, Band and High pass that part of the sound; 24 is steeper than 12. Notch removes a narrow band, Peak lifts one. Morph moves smoothly from lowpass by bandpass to highpass and on to notch. Key track makes the cutoff follow the key; Env is how far envelope 2 opens it, Velocity how far playing harder does.";
+const char* const kPlay = "How the part plays. Mono plays one note at a time, Legato moves that note to the next key without starting it again. Glide is how long the pitch takes to get there. Velocity is how much playing harder makes it louder. Voices is how many notes the part may sound at once.";
+const char* const kShift = "These work on all zones of the part, on top of what the SAMPLE page sets for each zone. Start begins every note further into its sound; Loop start and Loop length shift and shorten the loop while it plays. The matrix can move all three.";
+const char* const kEnv = "An envelope: wait (Delay), rise (Attack), stay (Hold), fall (Decay) to the Sustain level, and fall to nothing when the key is let go (Release). Curve bends the falls from a straight line to a steep start with a long tail. Envelope 1 is the level of the note, 2 moves the filter, 3 is free for the matrix.";
+
+const char* const kLfo = "A slow wave for the matrix. Rate in Hz, or with Sync a note length at the song's tempo. Fade lets it come in gradually after the note starts. Retrigger Note starts it again with every note; Free keeps one wave for all notes of the part. Steps and Drift take a new chance value every turn.";
+const char* const kSteps = "A row of up to sixteen values, played one after the other from the start of each note, each lasting the note length set. Drag the bars. Smooth glides from one to the next. Use it in the matrix as the source Steps.";
+const char* const kMacros = "Eight knobs the host can automate. On their own they do nothing: give one a target in the matrix (source Macro 1 to 8). Click a macro's name to type another; Enter keeps it.";
+const char* const kMatrix = "Twelve connections. Each row sends a source to a target by an amount, which can be negative. Via multiplies the source by a second one: LFO 1 via Mod wheel is vibrato that the wheel brings in. The targets Row 1 to 4 amount move those rows themselves.";
+
+const char* const kMix = "One strip for each part: level, pan, how much goes to the delay, reverb and chorus, the MIDI channel it listens to (All for every channel), the output pair it plays on, and Mute. MPE gives every note its own bend, pressure and timbre from its own channel. Every part starts on All, so parts with zones sound together; give them channels of their own to play them apart. Click under PART to give a part a name.";
+const char* const kFx = "The delay, reverb and chorus all parts can send to. They always come back on the first output pair.";
+const char* const kTuning = "The tuning of the keys. A Scala file (.scl) from the FILES page replaces equal temperament; Equal brings it back.";
+
+const char* const kFiles = "Folders and files on this computer: sounds (WAV, AIFF, FLAC), instruments of others (SFZ, SoundFont), tunings (Scala) and instruments saved here. Click a sound to hear it; double-click a folder to open it, a file to use it. UP goes to the folder above, HOME to your own folder, and the last button to the drives of this computer. The page opens where a sound was last taken from.";
+const char* const kFileActions = "What can be done with the chosen file. A sound: Add as zone puts it on all keys of the part, or on the keys its file names; Add on next key gives it the key after the highest zone, for building a drum kit; Stop preview ends the listening. An SFZ file or a SoundFont is imported into the chosen part, replacing its zones. A Scala file becomes the tuning, and a saved instrument replaces the one that is here.";
+
+} // namespace help
