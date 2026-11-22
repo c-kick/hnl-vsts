@@ -76,7 +76,7 @@ yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
     <th align="left"><a href="plugins/hnl-patina">HNL Patina</a></th>
   </tr>
   <tr>
-    <td valign="top">Makes a clean sound old: a gain stage, a record that does not run true, the surface of that record, a noise bed, a filter and a room, each of which can react to the music, with two scenes per preset and a morph between them. An alpha: a first version that passes its offline tests and has not been played in a host yet<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Patina-win64.zip"><b>Download</b></a> · <!-- version:hnl-patina -->v0.1.0<!-- /version --> · <b>alpha, largely untested</b> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Makes a clean sound old: a gain stage, a record that does not run true, the surface of that record, a noise bed, a filter and a room, each of which can react to the music, with two scenes per preset and a morph between them. An alpha: a first version that passes its offline tests and has not been played in a host yet<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Patina-win64.zip"><b>Download</b></a> · <!-- version:hnl-patina -->v0.2.0<!-- /version --> · <b>alpha, largely untested</b> · Windows 64-bit, VST3 and CLAP</td>
   </tr>
 </table>
 
@@ -95,7 +95,7 @@ yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
     <th align="left"><a href="plugins/hnl-sampler">HNL Sampler</a></th>
   </tr>
   <tr>
-    <td valign="top">Sampler in eight parts: WAV, AIFF, FLAC, SFZ and SoundFont sounds over keys and velocities, loops with crossfade, unison, an oscillator, a filter and saturation for every note, envelopes, LFOs, a modulation matrix with eight macros, MPE, tunings, eight stereo outputs. An alpha: a first version that passes its offline tests and has not been played in a host yet<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Sampler-win64.zip"><b>Download</b></a> · <!-- version:hnl-sampler -->v0.2.0<!-- /version --> · <b>alpha, largely untested</b> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Sampler in eight parts: WAV, AIFF, FLAC, SFZ and SoundFont sounds over keys and velocities, loops with crossfade, unison, an oscillator, a filter and saturation for every note, envelopes, LFOs, a modulation matrix with eight macros, MPE, tunings, eight stereo outputs. An alpha: a first version that passes its offline tests and has not been played in a host yet<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Sampler-win64.zip"><b>Download</b></a> · <!-- version:hnl-sampler -->v0.2.1<!-- /version --> · <b>alpha, largely untested</b> · Windows 64-bit, VST3 and CLAP</td>
   </tr>
 </table>
 
