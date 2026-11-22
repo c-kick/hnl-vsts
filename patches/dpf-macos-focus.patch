@@ -1,0 +1,184 @@
+For the macOS builds only: apply to DPF before building (see BUILDING-MACOS.md and .github/workflows/macos.yml).
+
+    patch -p1 -d dpf < patches/dpf-macos-focus.patch
+
+Made against DPF 4238e1c. What it changes in a plugin's window on macOS:
+
+- A key the plugin has no use for goes on to the host. Without this the plugin's view keeps every key once it
+  has been clicked in, so that space no longer starts the host and its shortcuts stop working until something
+  outside the plugin is clicked. A key the UI does take (typing a preset name) stays with the plugin.
+- A click in a plugin window that is not the active one works at once, instead of only making the window active.
+
+--- a/dgl/src/WindowPrivateData.cpp
++++ b/dgl/src/WindowPrivateData.cpp
+@@ -767,12 +767,16 @@
+     self->onFocus(focus, mode);
+ }
+ 
+-void Window::PrivateData::onPuglKey(const Widget::KeyboardEvent& ev)
++// HNL: says whether a widget took the key, so that the view can pass on the ones nobody took
++bool Window::PrivateData::onPuglKey(const Widget::KeyboardEvent& ev)
+ {
+     DGL_DBGp("onPuglKey : %i %u %u\n", ev.press, ev.key, ev.keycode);
+ 
+     if (modal.child != nullptr)
+-        return modal.child->focus();
++    {
++        modal.child->focus();
++        return true;
++    }
+ 
+ #ifndef DPF_TEST_WINDOW_CPP
+     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
+@@ -780,17 +784,21 @@
+         TopLevelWidget* const widget(*rit);
+ 
+         if (widget->isVisible() && widget->onKeyboard(ev))
+-            break;
++            return true;
+     }
+ #endif
++    return false;
+ }
+ 
+-void Window::PrivateData::onPuglText(const Widget::CharacterInputEvent& ev)
++bool Window::PrivateData::onPuglText(const Widget::CharacterInputEvent& ev)
+ {
+     DGL_DBGp("onPuglText : %u %u %s\n", ev.keycode, ev.character, ev.string);
+ 
+     if (modal.child != nullptr)
+-        return modal.child->focus();
++    {
++        modal.child->focus();
++        return true;
++    }
+ 
+ #ifndef DPF_TEST_WINDOW_CPP
+     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
+@@ -798,9 +806,10 @@
+         TopLevelWidget* const widget(*rit);
+ 
+         if (widget->isVisible() && widget->onCharacterInput(ev))
+-            break;
++            return true;
+     }
+ #endif
++    return false;
+ }
+ 
+ void Window::PrivateData::onPuglMouse(const Widget::MouseEvent& ev)
+@@ -1051,7 +1060,8 @@
+             ev.mod |= kModifierShift;
+         }
+ 
+-        pData->onPuglKey(ev);
++        if (! pData->onPuglKey(ev))
++            return PUGL_UNSUPPORTED; // HNL: not taken
+         break;
+     }
+ 
+@@ -1066,7 +1076,8 @@
+         ev.keycode   = event->text.keycode;
+         ev.character = event->text.character;
+         std::strncpy(ev.string, event->text.string, sizeof(ev.string));
+-        pData->onPuglText(ev);
++        if (! pData->onPuglText(ev))
++            return PUGL_UNSUPPORTED; // HNL: not taken
+         break;
+     }
+ 
+--- a/dgl/src/WindowPrivateData.hpp
++++ b/dgl/src/WindowPrivateData.hpp
+@@ -200,8 +200,8 @@
+     void onPuglExpose();
+     void onPuglClose();
+     void onPuglFocus(bool focus, CrossingMode mode);
+-    void onPuglKey(const Widget::KeyboardEvent& ev);
+-    void onPuglText(const Widget::CharacterInputEvent& ev);
++    bool onPuglKey(const Widget::KeyboardEvent& ev);
++    bool onPuglText(const Widget::CharacterInputEvent& ev);
+     void onPuglMouse(const Widget::MouseEvent& ev);
+     void onPuglMotion(const Widget::MotionEvent& ev);
+     void onPuglScroll(const Widget::ScrollEvent& ev);
+--- a/dgl/src/pugl-upstream/src/mac.m
++++ b/dgl/src/pugl-upstream/src/mac.m
+@@ -294,6 +294,7 @@
+ @implementation PuglWrapperView {
+ @public
+   PuglView*                  puglview;
++  bool                       textTaken; // HNL: the text of the key being handled was used by the view
+   NSTrackingArea*            trackingArea;
+   NSMutableAttributedString* markedText;
+   NSMutableDictionary*       userTimers;
+@@ -357,6 +358,13 @@
+   return YES;
+ }
+ 
++// HNL: a click in a window that is not the active one works at once, instead of only making it active
++- (BOOL)acceptsFirstMouse:(NSEvent*)event
++{
++  (void)event;
++  return YES;
++}
++
+ - (void)setReshaped
+ {
+   reshaped = true;
+@@ -692,10 +700,17 @@
+ 
+   PuglEvent pressEvent;
+   pressEvent.key = ev;
+-  puglDispatchEvent(puglview, &pressEvent);
++  bool taken = puglDispatchEvent(puglview, &pressEvent) == PUGL_SUCCESS;
+ 
+   if (!spec) {
++    textTaken = false;
+     [self interpretKeyEvents:@[event]];
++    taken = taken || textTaken;
++  }
++
++  // HNL: a key the plugin has no use for goes on to the host (space for play, its own shortcuts)
++  if (!taken && puglview->parent) {
++    [[self nextResponder] keyDown:event];
+   }
+ }
+ 
+@@ -723,7 +738,10 @@
+ 
+   PuglEvent releaseEvent;
+   releaseEvent.key = ev;
+-  puglDispatchEvent(puglview, &releaseEvent);
++  // HNL: as in keyDown
++  if (puglDispatchEvent(puglview, &releaseEvent) != PUGL_SUCCESS && puglview->parent) {
++    [[self nextResponder] keyUp:event];
++  }
+ }
+ 
+ - (BOOL)hasMarkedText
+@@ -838,7 +856,9 @@
+ 
+     PuglEvent textEvent;
+     textEvent.text = ev;
+-    puglDispatchEvent(puglview, &textEvent);
++    if (puglDispatchEvent(puglview, &textEvent) == PUGL_SUCCESS) {
++      textTaken = true; // HNL
++    }
+   }
+ }
+ 
+--- a/dgl/src/pugl-upstream/src/mac_gl.m
++++ b/dgl/src/pugl-upstream/src/mac_gl.m
+@@ -27,6 +27,13 @@
+   PuglView* puglview;
+ }
+ 
++// HNL: a click in a window that is not the active one works at once (this view is the one that is asked)
++- (BOOL)acceptsFirstMouse:(NSEvent*)event
++{
++  (void)event;
++  return YES;
++}
++
+ - (id)initWithFrame:(NSRect)frame
+ {
+   const bool compat =

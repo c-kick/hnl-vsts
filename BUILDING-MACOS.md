@@ -29,6 +29,18 @@ cd hnl-vsts
 
 If you cloned without `--recursive`, fetch DPF afterwards with `git submodule update --init --recursive`.
 
+## Patch DPF
+
+Once, before the first build:
+
+```sh
+patch -p1 -d dpf < patches/dpf-macos-focus.patch
+```
+
+Without it the plugins work, but a plugin window that has been clicked in keeps the keyboard: space no longer
+starts the host until you click outside the plugin, and the first click in a plugin window that is not the active
+one only makes it active. The patch changes four files of DPF; `git -C dpf checkout . && git -C dpf submodule foreach --recursive git checkout .` undoes it.
+
 ## Build
 
 Do not use `./build.sh`: it cross-compiles for Windows. Call `make` in the folder of the plugin you want instead.

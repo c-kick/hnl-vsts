@@ -44,6 +44,11 @@ jobs:
           done
           echo "PLUGINS=$(echo $list)" >> "$GITHUB_ENV"
 
+      # Keys the plugin does not use go on to the host, and a click in a window that is not the active one
+      # works at once. The patch says more; the Windows build does not need it.
+      - name: Patch DPF for macOS
+        run: patch -p1 -d dpf < patches/dpf-macos-focus.patch
+
       # DPF's own rule for a universal build: both processors, macOS 10.15 as the oldest system, and no
       # pkg-config, so that nothing from the runner's Homebrew is linked in.
       - name: Build
