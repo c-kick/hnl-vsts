@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 
-// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|arc|leds|help|menu|save]
+// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|arc|leds|help|menu|save|look]
+// The look is the one in the settings file of HNL_SETTINGS_DIR (preview.sh writes one per look).
 #include <fstream>
 #include <string>
 
@@ -30,7 +31,7 @@ int main(int argc, char** argv) {
     }
     if (mode == "help") {
         DISTRHO::MouseEvent click; // the ? button
-        click.pos.x = UI_BASE_WIDTH - 24;
+        click.pos.x = UI_BASE_WIDTH - 52;
         click.pos.y = 26;
         ui->onMouse(click);
         DISTRHO::MouseEvent release = click;
@@ -41,15 +42,21 @@ int main(int argc, char** argv) {
         move.pos.y = 272;
         ui->onMotion(move);
     }
+    if (mode == "look") {
+        DISTRHO::MouseEvent click; // the cog
+        click.pos.x = UI_BASE_WIDTH - 24;
+        click.pos.y = 26;
+        ui->onMouse(click);
+    }
     if (mode == "menu") {
         DISTRHO::MouseEvent click; // the preset name
-        click.pos.x = 640;
+        click.pos.x = 612;
         click.pos.y = 26;
         ui->onMouse(click);
     }
     if (mode == "save") { // the name box, as after Save as... at the end of the preset list
         DISTRHO::MouseEvent click; // the preset name
-        click.pos.x = 640;
+        click.pos.x = 612;
         click.pos.y = 26;
         ui->onMouse(click);
         const int row = presets::list().count(); // Save as... follows the last preset

@@ -112,6 +112,23 @@ public:
         add("A%.2f %.2f 0 %d 1 ", r, r, std::fabs(a1 - a0) > 3.14159265f ? 1 : 0);
         add("%.2f %.2f ", cx + std::cos(a1) * r, cy + std::sin(a1) * r);
     }
+    /** A gradient, kept as the SVG reference to it. */
+    struct Paint { std::string url; };
+    Paint linearGradient(float sx, float sy, float ex, float ey, const DGL::Color& from, const DGL::Color& to) {
+        char head[200];
+        std::snprintf(head, sizeof(head), "<linearGradient id=\"g%d\" gradientUnits=\"userSpaceOnUse\" x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\">",
+                      ++gradients_, sx, sy, ex, ey);
+        return gradient(head, "linearGradient", 0.0f, from, to);
+    }
+    /** As NanoVG: the first colour up to the inner radius, the second from the outer radius on. */
+    Paint radialGradient(float cx, float cy, float inner, float outer, const DGL::Color& from, const DGL::Color& to) {
+        char head[200];
+        std::snprintf(head, sizeof(head), "<radialGradient id=\"g%d\" gradientUnits=\"userSpaceOnUse\" cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\">",
+                      ++gradients_, cx, cy, outer);
+        return gradient(head, "radialGradient", outer > 0 ? inner / outer : 0.0f, from, to);
+    }
+    void fillPaint(const Paint& p) { fill_ = p.url; }
+    void strokePaint(const Paint& p) { stroke_ = p.url; }
     void fillColor(const DGL::Color& c) { fill_ = c.css(); }
     void strokeColor(const DGL::Color& c) { stroke_ = c.css(); }
     void strokeWidth(float w) { width_ = w; }
@@ -172,6 +189,13 @@ private:
         }
         return rows;
     }
+    Paint gradient(const char* head, const char* tag, float start, const DGL::Color& from, const DGL::Color& to) {
+        char stops[64];
+        std::snprintf(stops, sizeof(stops), "<stop offset=\"%.3f\" stop-color=\"", start);
+        svg += std::string("<defs>") + head + stops + from.css() + "\"/><stop offset=\"1\" stop-color=\"" + to.css() + "\"/></" + tag + "></defs>\n";
+        return {"url(#g" + std::to_string(gradients_) + ")"};
+    }
+    int gradients_ = 0;
     float lineHeight_ = 1.2f;
     uint w_, h_;
     template <typename... A> void add(const char* fmt, A... a) {

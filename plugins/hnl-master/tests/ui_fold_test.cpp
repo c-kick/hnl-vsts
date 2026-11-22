@@ -77,13 +77,13 @@ int main() {
     ui->stateChanged("folded", "111111");
     check(ui->getWidth() == 12 + 84 + 12 + 212 + 12 + 182 + 12, "everything folded is one column wide");
     // Everything folded and off, then through all the presets with the next arrow (211 into the bar, which starts
-    // 268 from the right edge): they switch stages on, and still nothing opens or moves.
+    // 296 from the right edge): they switch stages on, and still nothing opens or moves.
     for (uint32_t id : {kCompOn, kEqOn, kExcOn, kWideOn, kRevOn, kLimOn}) ui->parameterChanged(id, 0.0f);
     const uint narrow = ui->getWidth();
     bool still = true, switchedOn = false;
     for (int i = 0; i < 14; ++i) {
         ui->sentParameters.clear();
-        click(ui, narrow - 268 + 211, 26);
+        click(ui, narrow - 296 + 211, 26);
         for (const auto& sent : ui->sentParameters)
             for (uint32_t id : {kCompOn, kEqOn, kExcOn, kWideOn, kRevOn, kLimOn}) switchedOn = switchedOn || (sent.first == id && sent.second > 0.5f);
         still = still && ui->getWidth() == narrow && ui->sentState.rfind("preset=", 0) == 0;

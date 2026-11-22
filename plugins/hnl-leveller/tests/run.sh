@@ -21,6 +21,9 @@ g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1
 g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1 -o "$OUT/abuse_test" \
     tests/abuse_test.cpp LevellerPlugin.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp
 "$OUT/abuse_test"
+# The UI tests see the settings of a new user, not those of whoever runs them.
+export HNL_SETTINGS_DIR="$PWD/$OUT/settings"
+rm -rf "$HNL_SETTINGS_DIR"
 # Saving, loading and deleting a preset through the UI class itself (common/tests/ui_presets_test.cpp).
 PRESET_X=$(sed -n 's/.*kPresetX = \([0-9]*\).*/\1/p' LevellerUI.cpp)
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DPRESET_X=$PRESET_X -o "$OUT/ui_presets_test" \
@@ -30,3 +33,6 @@ g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DPRESET_X=$PRES
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DMETER_LEFT=24 -DMETER_RIGHT=300 -DMETER_PARAM=kMeterGr -o "$OUT/ui_meter_test" \
     $ROOT/common/tests/ui_meter_test.cpp LevellerUI.cpp
 "$OUT/ui_meter_test"
+# The choice of look, shared by all plugins (common/tests/ui_skin_test.cpp).
+g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_skin_test" $ROOT/common/tests/ui_skin_test.cpp LevellerUI.cpp
+"$OUT/ui_skin_test"

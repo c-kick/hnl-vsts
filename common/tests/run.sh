@@ -22,3 +22,5 @@ g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/presets_test" tests/presets_test.cpp
 "$OUT/presets_test"
 g++ -std=c++17 -O3 -ffast-math -Wall -Wextra -o "$OUT/presets_test_release" tests/presets_test.cpp
 "$OUT/presets_test_release"
+g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/settings_test" tests/settings_test.cpp
+"$OUT/settings_test"

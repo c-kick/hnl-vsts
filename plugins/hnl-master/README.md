@@ -78,6 +78,13 @@ two. Windows 64-bit; the VST3 is tested in Reason.
 
 ## Changelog
 
+### 0.6.0 (2026-11-22)
+
+- New: three looks. Classic, the look the plugin has always had, stays the default; Hi-Fi Black and Hi-Fi Silver
+  dress the same window as a piece of hi-fi equipment. The cog at the top right chooses, for every HNL plugin at
+  once. The choice changes nothing about the sound and is not stored in the song.
+- To make room for the cog, the preset bar and the help button stand 28 pixels further left.
+
 ### 0.5.0 (2026-11-22)
 
 - A stage that is switched off stays where it is and goes dim, instead of collapsing. Switching stages and

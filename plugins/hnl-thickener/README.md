@@ -115,6 +115,13 @@ The zip holds the plugin as VST3
 
 ## Changelog
 
+### 0.2.0 (2026-11-22)
+
+- New: three looks. Classic, the look the plugin has always had, stays the default; Hi-Fi Black and Hi-Fi Silver
+  dress the same window as a piece of hi-fi equipment. The cog at the top right chooses, for every HNL plugin at
+  once. The choice changes nothing about the sound and is not stored in the song.
+- To make room for the cog, the preset bar and the help button stand 28 pixels further left.
+
 ### 0.1.2 (2026-11-18)
 
 - Fixed: samples and parameter values that are not numbers are caught again in the builds made with clang.

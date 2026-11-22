@@ -15,8 +15,8 @@
 // Inputs 1 and 2 are the signal that makes room; 3 and 4 are the sidechain: the signal it makes room for.
 // The version: reported to the host, shown behind the title, and read by package.sh.
 #define HNL_VERSION_MAJOR 0
-#define HNL_VERSION_MINOR 2
-#define HNL_VERSION_PATCH 3
+#define HNL_VERSION_MINOR 3
+#define HNL_VERSION_PATCH 0
 
 #define DISTRHO_PLUGIN_HAS_UI       1
 #define DISTRHO_PLUGIN_IS_RT_SAFE   1

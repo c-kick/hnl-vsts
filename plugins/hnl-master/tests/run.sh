@@ -22,6 +22,9 @@ g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1
 g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1 -o "$OUT/abuse_test" \
     tests/abuse_test.cpp MasterPlugin.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp
 "$OUT/abuse_test"
+# The UI tests see the settings of a new user, not those of whoever runs them.
+export HNL_SETTINGS_DIR="$PWD/$OUT/settings"
+rm -rf "$HNL_SETTINGS_DIR"
 # Saving, loading and deleting a preset through the UI class itself (common/tests/ui_presets_test.cpp).
 PRESET_RIGHT=$(sed -n 's/.*kPresetRight = \([0-9]*\).*/\1/p' MasterUI.cpp)
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DPRESET_FROM_RIGHT=$PRESET_RIGHT -o "$OUT/ui_presets_test" \
@@ -30,3 +33,6 @@ g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DPRESET_FROM_RI
 # Folding stages through the UI class itself.
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_fold_test" tests/ui_fold_test.cpp MasterUI.cpp
 "$OUT/ui_fold_test"
+# The choice of look, shared by all plugins (common/tests/ui_skin_test.cpp).
+g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_skin_test" $ROOT/common/tests/ui_skin_test.cpp MasterUI.cpp
+"$OUT/ui_skin_test"

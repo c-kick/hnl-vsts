@@ -9,6 +9,7 @@
 #   plugin_test     the plugin driven through DPF's host-side wrapper
 #   abuse_test      the same, by a host that does everything a host may do (common/tests/HostAbuse.hpp)
 #   ui_test         the UI class itself, clicked and dragged, on the drawing stand-in of tools/ui-preview
+#   ui_skin_test    the choice of look, shared by all plugins (common/tests/ui_skin_test.cpp)
 set -e
 cd "$(dirname "$0")/.."
 ROOT=../..
@@ -31,5 +32,11 @@ g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1
 # The UI works in a folder of its own: its sounds, and the instruments it saves.
 rm -rf "$OUT/ui"
 mkdir -p "$OUT/ui/presets"
+# The UI tests see the settings of a new user, not those of whoever runs them.
+export HNL_SETTINGS_DIR="$PWD/$OUT/settings"
+rm -rf "$HNL_SETTINGS_DIR"
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_test" tests/ui_test.cpp SamplerUI.cpp -lpthread
 HNL_PRESET_DIR="$PWD/$OUT/ui/presets" HOME="$PWD/$OUT/ui" USERPROFILE="$PWD/$OUT/ui" "$OUT/ui_test" "$OUT/ui"
+# The choice of look, shared by all plugins (common/tests/ui_skin_test.cpp).
+g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_skin_test" $ROOT/common/tests/ui_skin_test.cpp SamplerUI.cpp -lpthread
+HNL_PRESET_DIR="$PWD/$OUT/ui/presets" HOME="$PWD/$OUT/ui" USERPROFILE="$PWD/$OUT/ui" "$OUT/ui_skin_test"

@@ -12,5 +12,15 @@ g++ -std=gnu++17 -O1 -I$ROOT/tools/ui-preview -I. -o "$OUT/preview" tests/previe
 export HNL_PRESET_DIR="$PWD/$OUT/presets"
 mkdir -p "$HNL_PRESET_DIR"
 printf 'HNL preset\n' > "$HNL_PRESET_DIR/My preset.hnlpreset"
-for mode in default busy help menu save; do "$OUT/preview" "$OUT/$mode.svg" $mode; done
+# The classic look from an empty settings folder, as a new user has it.
+export HNL_SETTINGS_DIR="$PWD/$OUT/settings"
+rm -rf "$HNL_SETTINGS_DIR"
+for mode in default busy help menu save look; do "$OUT/preview" "$OUT/$mode.svg" $mode; done
+# The other looks, as someone who chose one has them.
+mkdir -p "$HNL_SETTINGS_DIR"
+for look in hifi-black hifi-silver; do
+    printf 'skin = %s\n' $look > "$HNL_SETTINGS_DIR/settings.txt"
+    for mode in default busy look; do "$OUT/preview" "$OUT/$look-$mode.svg" $mode; done
+done
+rm -rf "$HNL_SETTINGS_DIR"
 ls "$OUT"/*.svg

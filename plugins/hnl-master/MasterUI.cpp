@@ -17,6 +17,7 @@
 
 #include "DistrhoUI.hpp"
 
+#include "../../common/ui/Skin.hpp"
 #include "../../common/ui/Widgets.hpp"
 #include "Help.hpp"
 #include "Params.hpp"
@@ -36,7 +37,6 @@ const uint32_t kBg = 0x14161a, kPanel = 0x1d2027, kPanelEdge = 0x2a2e38, kTrack 
 const uint32_t kText = 0xe6e9ef, kDim = 0x8a93a3;
 const uint32_t kAmber = 0xf2a33a, kTeal = 0x37c8b4, kRed = 0xef5b5b, kBlue = 0x5b9cf2;
 const uint32_t kViolet = 0xa98bf5, kSky = 0x5bc0f2, kRose = 0xf27ba8;
-const uint32_t kGreen = 0x4cd27a, kYellow = 0xe8d44d;
 
 // In signal order. Input and output are always open.
 enum Module { kModInput, kModComp, kModEq, kModExc, kModWide, kModRev, kModLim, kModOutput, kModCount };
@@ -63,10 +63,7 @@ const ModuleInfo kModules[kModCount] = {
     {"OUTPUT", "OUTPUT", kBlue, kParamCount, 0},
 };
 
-struct Rect {
-    float x = 0, y = 0, w = 0, h = 0;
-    bool contains(float px, float py) const { return px >= x && px <= x + w && py >= y && py <= y + h; }
-};
+typedef hnl::ui::Box Rect;
 
 struct Control {
     uint32_t id;
@@ -77,8 +74,16 @@ struct Control {
 };
 
 const float kBandWidth = 162.0f;
-const float kPresetRight = 268, kHeaderY = 14; // the preset bar starts this far from the right edge, which moves as modules are folded
-const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x262a33, 0x3a404c, kText, kDim, kAmber};
+const float kPresetRight = 296, kHeaderY = 14; // the preset bar starts this far from the right edge, which moves as modules are folded
+const float kHelpRight = 52, kSkinRight = 24;  // help, and right of it the choice of look
+
+/** The classic look in this plugin's own colours; the other looks are the same for every plugin (common/ui/Skin.hpp). */
+hnl::ui::Skin classicLook() {
+    hnl::ui::Skin k = hnl::ui::classicSkin(kBg, kPanel, kPanelEdge, kTrack, kWell, kText, kDim, kAmber, 0x262a33, 0x3a404c);
+    k.knobHi = k.knobLo = k.knobEdge = 0x262a33;
+    return k;
+}
+const hnl::ui::Skin kClassic = classicLook();
 const Rect kModeBox = {12, 36, 188, 22}; // exciter character, relative to its module
 const Rect kOrderBox = {12, 34, 188, 20}; // equaliser before or after the compressor, relative to its module
 const uint32_t kFlow = 0x646c7d;          // the lines of the signal path
@@ -164,6 +169,10 @@ protected:
         repaint();
     }
 
+    void uiIdle() override {
+        if (skin_.poll()) repaint(); // another HNL window chose a look
+    }
+
     // ------------------------------------------------------------ drawing
 
     void onNanoDisplay() override {
@@ -171,17 +180,17 @@ protected:
         scale(s, s);
         fontFace(NANOVG_DEJAVU_SANS_TTF);
 
-        beginPath();
-        rect(0, 0, std::max(width_, getWidth() / s), std::max(kHeight, getHeight() / s));
-        fillColor(rgb(kBg));
-        fill();
+        const hnl::ui::Skin k = skin();
+        const hnl::ui::Theme theme = k.theme();
+        hnl::ui::faceplate(*this, k, std::max(width_, getWidth() / s), std::max(kHeight, getHeight() / s));
 
-        hnl::ui::title(*this, "MASTER", rgb(kText), rgb(kDim));
+        hnl::ui::title(*this, "MASTER", rgb(k.plateText), rgb(k.plateDim));
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         if (!presetNote_.empty()) presetText = presetNote_;
-        presetBar_.drawBar(*this, kTheme, presetText.c_str());
-        help_.drawButton(*this, kTheme);
+        presetBar_.drawBar(*this, theme, presetText.c_str());
+        help_.drawButton(*this, theme);
+        skin_.drawButton(*this, theme);
 
         for (int m = 0; m < kModCount; ++m) drawModule(static_cast<Module>(m));
         drawFlow();
@@ -202,12 +211,13 @@ protected:
             if (!open(static_cast<Module>(m)) || active(static_cast<Module>(m))) continue;
             beginPath();
             roundedRect(p.x + 1, p.y + kBarH, p.w - 2, p.h - kBarH - 1, 5);
-            fillColor(rgb(kPanel, 0.68f));
+            fillColor(k.solid ? rgb(k.bgLow, 0.62f) : rgb(k.panel, 0.68f));
             fill();
         }
 
-        presetBar_.drawMenu(*this, kTheme, list_.count(), preset_, list_.factoryCount(), canSavePreset(), [this](int i) { return list_.name(i); });
-        if (!presetBar_.isOpen() && drag_ < 0) help_.drawTip(*this, kTheme, width_, kHeight);
+        presetBar_.drawMenu(*this, theme, list_.count(), preset_, list_.factoryCount(), canSavePreset(), [this](int i) { return list_.name(i); });
+        skin_.drawMenu(*this, theme);
+        if (!presetBar_.isOpen() && !skin_.isOpen() && drag_ < 0) help_.drawTip(*this, theme, width_, kHeight);
     }
 
     // -------------------------------------------------------- interaction
@@ -225,6 +235,11 @@ protected:
         }
 
         presetNote_.clear();
+        if (!presetBar_.isBusy() && skin_.mouseDown(x, y) != hnl::ui::SkinMenu::kNotMine) { // the cog, or its list while it is open
+            help_.hide();
+            repaint();
+            return true;
+        }
         if (!presetBar_.isBusy() && presetBar_.nameBox().contains(x, y)) { // another window may have saved or deleted one
             list_.rescan();
             preset_ = list_.find(presetName_);
@@ -293,6 +308,10 @@ protected:
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
         if (presetBar_.isOpen()) {
             if (presetBar_.motion(x, y, list_.count())) repaint();
+            return true;
+        }
+        if (skin_.isOpen()) {
+            if (skin_.motion(x, y)) repaint();
             return true;
         }
         if (drag_ < 0) {
@@ -397,7 +416,8 @@ private:
         const uint w = static_cast<uint>(std::lround(width_ * s)), h = static_cast<uint>(std::lround(kHeight * s));
         if (getWidth() != w || getHeight() != h) setSize(w, h);
         presetBar_.moveTo(width_ - kPresetRight, width_);
-        help_.setButton(width_ - 24, kHeaderY + 12);
+        help_.setButton(width_ - kHelpRight, kHeaderY + 12);
+        skin_.setButton(width_ - kSkinRight, kHeaderY + 12);
         placeHelp();
     }
 
@@ -406,6 +426,7 @@ private:
         using hnl::ui::Box;
         help_.clear();
         help_.add(help_.buttonBox(), "HELP", help::kHelp);
+        help_.add(skin_.buttonBox(), "LOOK", hnl::ui::SkinMenu::help());
         help_.add(presetBar_.nameBox(), "PRESETS", help::kPresets);
         const Rect& in = rects_[kModInput];
         help_.add({in.x + 16, in.y + 34, 56, 372}, "INPUT LEVEL", help::kInputMeter);
@@ -521,6 +542,13 @@ private:
 
     // ------------------------------------------------------------ modules
 
+    /** The look: in every one of them what is on or lit has its module's colour, by which the modules are told apart. */
+    hnl::ui::Skin skin() const { return skin_.skin() == hnl::ui::kSkinClassic ? kClassic : hnl::ui::solidSkin(skin_.skin(), kClassic.accent); }
+    /** A display window in a module, where the solid looks show meters and figures. */
+    void window(const Rect& p, float dx, float dy, float w, float h) {
+        if (skin().solid) hnl::ui::displayPanel(*this, skin(), {p.x + dx, p.y + dy, w, h});
+    }
+
     void label(const char* text, float x, float y, float size, const Color& colour, int align) {
         fontSize(size);
         textAlign(align);
@@ -532,18 +560,21 @@ private:
         const Rect& p = rects_[m];
         const ModuleInfo& info = kModules[m];
         const bool active = this->active(m);
-        beginPath();
-        roundedRect(p.x, p.y, p.w, p.h, 6);
-        fillColor(rgb(kPanel));
-        fill();
-        strokeColor(rgb(kPanelEdge));
-        strokeWidth(1);
-        stroke();
-        beginPath();
-        roundedRect(p.x + 10, p.y + 11, 3, 8, 1.5f);
-        fillColor(rgb(info.accent, active ? 1.0f : 0.4f));
-        fill();
-        label(open(m) ? info.title : info.shortTitle, p.x + 20, p.y + 15, 10, rgb(active ? kText : kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        const hnl::ui::Skin k = skin();
+        hnl::ui::platePanel(*this, k, p);
+        if (k.solid) { // a light in its own little window: on, or dark
+            beginPath();
+            roundedRect(p.x + 9, p.y + 10, 5, 10, 2);
+            fillColor(rgb(0x000000, 0.6f));
+            fill();
+        }
+        if (!k.solid || active) {
+            beginPath();
+            roundedRect(p.x + 10, p.y + 11, 3, 8, 1.5f);
+            fillColor(rgb(info.accent, active || k.solid ? 1.0f : 0.4f));
+            fill();
+        }
+        label(open(m) ? info.title : info.shortTitle, p.x + 20, p.y + 15, 10, rgb(active ? k.plateText : k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
         if (info.toggle == kParamCount) return;
         const float ax = p.x + p.w - kFoldX, ay = p.y + kFoldY; // the fold arrow: down when open, to the right when folded
         beginPath();
@@ -556,12 +587,13 @@ private:
             lineTo(ax + 2, ay);
             lineTo(ax - 2, ay + 4);
         }
-        strokeColor(rgb(kDim));
+        strokeColor(rgb(k.plateDim));
         strokeWidth(1.5f);
         stroke();
     }
 
     void drawInput(const Rect& p) {
+        window(p, 12, 30, 60, 380);
         levelMeter(p.x + 22, p.y + 40, 12, 360, values_[kMeterInL]);
         levelMeter(p.x + 38, p.y + 40, 12, 360, values_[kMeterInR]);
         levelScale(p.x + 54, p.y + 40, 360);
@@ -571,40 +603,22 @@ private:
         static const char* const kBandNames[3] = {"LOW", "MID", "HIGH"};
         for (int b = 0; b < 3; ++b) {
             const float x = p.x + b * kBandWidth;
-            label(kBandNames[b], x + kBandWidth * 0.5f, p.y + 120, 12, rgb(kAmber), ALIGN_CENTER | ALIGN_MIDDLE);
-            if (b > 0) {
-                beginPath();
-                moveTo(x, p.y + 108);
-                lineTo(x, p.y + 484);
-                strokeColor(rgb(kPanelEdge));
-                strokeWidth(1);
-                stroke();
-            }
+            const hnl::ui::Skin k = skin();
+            label(kBandNames[b], x + kBandWidth * 0.5f, p.y + 120, 12, rgb(k.solid ? k.plateText : kAmber), ALIGN_CENTER | ALIGN_MIDDLE);
+            if (b > 0) hnl::ui::groove(*this, k, x, p.y + 108, x, p.y + 484);
             const float gr = values_[kMeterGrLow + b];
-            reductionMeter(x + 136, p.y + 152, 10, 320, gr, 20.0f, rgb(kAmber), false);
-            label("GR", x + 100, p.y + 394, 9, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
+            window(p, b * kBandWidth + 132, 148, 18, 328);
+            reductionMeter(x + 136, p.y + 152, 10, 320, gr, 20.0f, rgb(kModules[kModComp].accent), false);
+            label("GR", x + 100, p.y + 394, 9, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
             char text[24];
             std::snprintf(text, sizeof(text), "%.1f dB", gr);
-            label(text, x + 100, p.y + 412, 12, rgb(kText), ALIGN_CENTER | ALIGN_MIDDLE);
+            label(text, x + 100, p.y + 412, 12, rgb(k.plateText), ALIGN_CENTER | ALIGN_MIDDLE);
         }
     }
 
     /** A row of choices in a box, the chosen one in the module's colour. */
     void drawChoice(const Rect& p, const Rect& box, const char* const* names, int count, int chosen, uint32_t accent) {
-        const float w = box.w / count, x = p.x + box.x, y = p.y + box.y;
-        beginPath();
-        roundedRect(x, y, box.w, box.h, 4);
-        fillColor(rgb(kTrack));
-        fill();
-        for (int i = 0; i < count; ++i) {
-            if (i == chosen) {
-                beginPath();
-                roundedRect(x + i * w + 2, y + 2, w - 4, box.h - 4, 3);
-                fillColor(rgb(accent));
-                fill();
-            }
-            label(names[i], x + (i + 0.5f) * w, y + box.h * 0.5f, 9, rgb(i == chosen ? kBg : kDim), ALIGN_CENTER | ALIGN_MIDDLE);
-        }
+        hnl::ui::keys(*this, skin(), {p.x + box.x, p.y + box.y, box.w, box.h}, count, chosen, [&](int i) { return names[i]; }, accent, kDim);
     }
 
     void drawExciterMode(const Rect& p) {
@@ -624,7 +638,7 @@ private:
         beginPath();
         moveTo(xy[0], xy[1]);
         for (int i = 1; i < points; ++i) lineTo(xy[2 * i], xy[2 * i + 1]);
-        strokeColor(rgb(kFlow));
+        strokeColor(rgb(skin().solid ? skin().plateDim : kFlow));
         strokeWidth(1);
         stroke();
     }
@@ -661,89 +675,51 @@ private:
 
     void drawLimiter(const Rect& p) {
         const float gr = values_[kMeterGrLim];
-        label("GR", p.x + 12, p.y + 122, 9, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
-        reductionMeter(p.x + 32, p.y + 118, 108, 8, gr, 12.0f, rgb(kRed), true);
+        const hnl::ui::Skin k = skin();
+        label("GR", p.x + 12, p.y + 122, 9, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        window(p, 28, 114, 116, 16);
+        reductionMeter(p.x + 32, p.y + 118, 108, 8, gr, 12.0f, rgb(k.red), true);
         char text[24];
         std::snprintf(text, sizeof(text), "%.1f dB", gr);
-        label(text, p.x + p.w - 12, p.y + 122, 11, rgb(kText), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label(text, p.x + p.w - 12, p.y + 122, 11, rgb(k.plateText), ALIGN_RIGHT | ALIGN_MIDDLE);
     }
 
     void drawOutput(const Rect& p) {
+        const hnl::ui::Skin k = skin();
+        window(p, 10, 30, p.w - 20, 408);
         levelMeter(p.x + 20, p.y + 40, 14, 390, values_[kMeterOutL]);
         levelMeter(p.x + 38, p.y + 40, 14, 390, values_[kMeterOutR]);
         levelScale(p.x + 56, p.y + 40, 390);
         const float x = p.x + 132;
-        readout("MOMENTARY", values_[kMeterLufsM], "LUFS", x, p.y + 52, 15);
-        readout("SHORT-TERM", values_[kMeterLufsS], "LUFS", x, p.y + 122, 15);
-        readout("INTEGRATED", values_[kMeterLufsI], "LUFS", x, p.y + 192, 20);
+        readout("MOMENTARY", values_[kMeterLufsM], "LUFS", x, p.y + 52, 15, k.text);
+        readout("SHORT-TERM", values_[kMeterLufsS], "LUFS", x, p.y + 122, 15, k.text);
+        readout("INTEGRATED", values_[kMeterLufsI], "LUFS", x, p.y + 192, 20, k.text);
         readout("TRUE PEAK MAX", values_[kMeterTruePeak], "dBTP", x, p.y + 278, 15,
-                values_[kMeterTruePeak] > values_[kLimCeiling] + 0.05f && on(kLimOn) ? kRed : kText);
-
-        beginPath();
-        roundedRect(p.x + kResetBox.x, p.y + kResetBox.y, kResetBox.w, kResetBox.h, 4);
-        fillColor(rgb(kTrack));
-        fill();
-        label("RESET METERS", p.x + kResetBox.x + kResetBox.w * 0.5f, p.y + kResetBox.y + kResetBox.h * 0.5f, 10, rgb(kText),
-              ALIGN_CENTER | ALIGN_MIDDLE);
+                values_[kMeterTruePeak] > values_[kLimCeiling] + 0.05f && on(kLimOn) ? k.red : k.text);
+        hnl::ui::button(*this, k, {p.x + kResetBox.x, p.y + kResetBox.y, kResetBox.w, kResetBox.h}, "RESET METERS");
     }
 
     // ----------------------------------------------------------- controls
 
     void drawToggle(const Control& c) {
-        const bool active = on(c.id);
-        const float x = cx(c), y = cy(c);
-        beginPath();
-        roundedRect(x - 14, y - 7, 28, 14, 7);
-        fillColor(active ? rgb(kModules[c.module].accent) : rgb(kTrack));
-        fill();
-        beginPath();
-        circle(active ? x + 7 : x - 7, y, 5);
-        fillColor(rgb(active ? kBg : kDim));
-        fill();
+        hnl::ui::toggle(*this, skin(), cx(c), cy(c), on(c.id), kModules[c.module].accent);
     }
 
     void drawKnob(const Control& c) {
+        const hnl::ui::Skin k = skin();
         const ParamInfo& p = kParams[c.id];
         const float x = cx(c), y = cy(c);
-        const float a0 = 0.75f * 3.14159265f, a1 = 2.25f * 3.14159265f;
-        const float norm = paramToNorm(c.id, values_[c.id]);
-        const float angle = a0 + norm * (a1 - a0);
         // Parameters with a neutral point in the middle grow from there.
-        float from = a0;
-        if (c.id == kWideWidth) from = a0 + paramToNorm(c.id, 100.0f) * (a1 - a0);
-        else if (p.kind == kLinear && p.min < 0.0f && p.max > 0.0f) from = a0 + paramToNorm(c.id, 0.0f) * (a1 - a0);
-
-        beginPath();
-        arc(x, y, c.r, a0, a1, CW);
-        strokeColor(rgb(kTrack));
-        strokeWidth(3.5f);
-        lineCap(ROUND);
-        stroke();
-
-        if (std::fabs(angle - from) > 0.01f) {
-            beginPath();
-            arc(x, y, c.r, std::min(from, angle), std::max(from, angle), CW);
-            strokeColor(rgb(kModules[c.module].accent));
-            strokeWidth(3.5f);
-            stroke();
-        }
-
-        beginPath();
-        circle(x, y, c.r - 6);
-        fillColor(rgb(0x262a33));
-        fill();
-        beginPath();
-        moveTo(x + std::cos(angle) * (c.r - 13), y + std::sin(angle) * (c.r - 13));
-        lineTo(x + std::cos(angle) * (c.r - 7), y + std::sin(angle) * (c.r - 7));
-        strokeColor(rgb(kText));
-        strokeWidth(2);
-        stroke();
+        float from = 0.0f;
+        if (c.id == kWideWidth) from = paramToNorm(c.id, 100.0f);
+        else if (p.kind == kLinear && p.min < 0.0f && p.max > 0.0f) from = paramToNorm(c.id, 0.0f);
+        hnl::ui::knob(*this, k, x, y, c.r, paramToNorm(c.id, values_[c.id]), from, hnl::ui::printed(k, kModules[c.module].accent), 13);
 
         const bool small = c.r < 18;
-        label(c.label, x, y - c.r - 12, small ? 8 : 9, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
+        label(c.label, x, y - c.r - 12, small ? 8 : 9, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
         char text[32];
         formatValue(c.id, values_[c.id], text, sizeof(text));
-        label(text, x, y + c.r + 13, small ? 10 : 11, rgb(kText), ALIGN_CENTER | ALIGN_MIDDLE);
+        label(text, x, y + c.r + 13, small ? 10 : 11, rgb(k.plateText), ALIGN_CENTER | ALIGN_MIDDLE);
     }
 
     static void formatValue(uint32_t id, float v, char* out, size_t size) {
@@ -770,13 +746,14 @@ private:
     }
 
     void levelMeter(float x, float y, float w, float h, float db) {
+        const hnl::ui::Skin k = skin();
         beginPath();
         rect(x, y, w, h);
-        fillColor(rgb(kWell));
+        fillColor(rgb(k.solid ? k.track : k.well)); // solid: the segments that are not lit
         fill();
         const float top = levelPos(db);
         struct Zone { float from, to; uint32_t colour; };
-        const Zone zones[3] = {{-48, -12, kGreen}, {-12, -3, kYellow}, {-3, 6, kRed}};
+        const Zone zones[3] = {{-48, -12, k.green}, {-12, -3, k.yellow}, {-3, 6, k.red}};
         for (const Zone& z : zones) {
             const float a = levelPos(z.from), b = std::min(levelPos(z.to), top);
             if (b <= a) continue;
@@ -785,6 +762,7 @@ private:
             fillColor(rgb(z.colour));
             fill();
         }
+        hnl::ui::segments(*this, k, x, y, w, h);
     }
 
     void levelScale(float x, float y, float h) {
@@ -792,26 +770,30 @@ private:
         for (int db : kMarks) {
             char text[8];
             std::snprintf(text, sizeof(text), "%d", db);
-            label(text, x, y + h * (1.0f - levelPos(static_cast<float>(db))), 8, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+            label(text, x, y + h * (1.0f - levelPos(static_cast<float>(db))), 8, rgb(skin().dim), ALIGN_LEFT | ALIGN_MIDDLE);
         }
     }
 
     /** Bar that grows with gain reduction (db <= 0): downward, or to the right. */
     void reductionMeter(float x, float y, float w, float h, float db, float range, const Color& colour, bool horizontal) {
+        const hnl::ui::Skin k = skin();
         beginPath();
         rect(x, y, w, h);
-        fillColor(rgb(kWell));
+        fillColor(rgb(k.solid ? k.track : k.well));
         fill();
         const float t = std::min(1.0f, -db / range);
-        if (t <= 0.0f) return;
-        beginPath();
-        if (horizontal) rect(x, y, w * t, h);
-        else rect(x, y, w, h * t);
-        fillColor(colour);
-        fill();
+        if (t > 0.0f) {
+            beginPath();
+            if (horizontal) rect(x, y, w * t, h);
+            else rect(x, y, w, h * t);
+            fillColor(colour);
+            fill();
+        }
+        hnl::ui::segments(*this, k, x, y, w, h);
     }
 
-    void readout(const char* title, float value, const char* unit, float x, float y, float size, uint32_t colour = kText) {
+    void readout(const char* title, float value, const char* unit, float x, float y, float size, uint32_t colour) {
+        const uint32_t kDim = skin().dim;
         label(title, x, y, 8, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
         char text[24];
         if (value <= -99.0f) std::snprintf(text, sizeof(text), "--");
@@ -835,6 +817,7 @@ private:
     hnl::PresetList list_ = presets::list();
     std::string presetNote_; // shown in place of the name until the next click
     hnl::ui::HelpTips help_;
+    hnl::ui::SkinMenu skin_;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MasterUI)
 };

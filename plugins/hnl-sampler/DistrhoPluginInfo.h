@@ -14,7 +14,7 @@
 
 // The version: reported to the host, shown behind the title, and read by package.sh.
 #define HNL_VERSION_MAJOR 0
-#define HNL_VERSION_MINOR 1
+#define HNL_VERSION_MINOR 2
 #define HNL_VERSION_PATCH 0
 // The stage, read by release.sh for the notes of the Downloads release; a plugin without this line is a beta.
 #define HNL_STAGE "alpha"

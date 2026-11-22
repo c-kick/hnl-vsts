@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
     check(sampler.document()->parts[0].v[kPFilterType] == 2.0, "and a click in the list chooses (Low 24)", sampler.document()->parts[0].v[kPFilterType]);
 
     // The host's parameters: the volume knob in the header, and a macro.
-    drag(770, 27, 770, 77);
+    drag(742, 27, 742, 77);
     bool sent = false;
     for (const auto& p : ui->sentParameters) sent = sent || (p.first == kVolume && p.second < -10.0f);
     check(sent, "the volume knob goes to the host as a parameter");
@@ -206,7 +206,7 @@ int main(int argc, char** argv) {
           "and the saved instrument loads again, sounds and all", doc->parts[0].zones.size());
 
     // Every page draws, with help on, without leaving the window.
-    click(UI_BASE_WIDTH - 24, 24);
+    click(UI_BASE_WIDTH - 52, 24);
     bool drawn = true;
     for (int p = 0; p < 6; ++p) {
         page(p);

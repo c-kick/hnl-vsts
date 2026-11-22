@@ -20,6 +20,7 @@
 #include "DistrhoUI.hpp"
 
 #include "../../common/UserPresets.hpp"
+#include "../../common/ui/Skin.hpp"
 #include "../../common/ui/Widgets.hpp"
 #include "dsp/Analysis.hpp"
 #include "dsp/Sampler.hpp"
@@ -36,13 +37,21 @@ namespace {
 
 Color rgb(uint32_t hex, float alpha = 1.0f) { return hnl::ui::rgb(hex, alpha); }
 
-const uint32_t kBg = 0x14131a, kPanel = 0x1c1b24, kPanelEdge = 0x2d2b3a, kTrack = 0x35334a, kWell = 0x0c0b10;
-const uint32_t kText = 0xe8e6f0, kDim = 0x8f8ca3, kAccent = 0x5ac8f0, kWarm = 0xf0b45a;
-const uint32_t kIvory = 0xd9d5cb, kEbony = 0x26252e, kGreen = 0x4cd27a, kYellow = 0xe8d44d, kRed = 0xef5b5b;
-const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x272536, 0x423f58, kText, kDim, kAccent};
+/** The classic look in this plugin's own colours; the other looks are the same for every plugin (common/ui/Skin.hpp). */
+hnl::ui::Skin classicLook() {
+    hnl::ui::Skin k = hnl::ui::classicSkin(0x14131a, 0x1c1b24, 0x2d2b3a, 0x35334a, 0x0c0b10, 0xe8e6f0, 0x8f8ca3, 0x5ac8f0, 0x272536, 0x423f58);
+    k.knobHi = k.knobLo = k.knobEdge = 0x272536;
+    return k;
+}
+const hnl::ui::Skin kClassic = classicLook();
+const uint32_t kWarm = 0xf0b45a;                   // the second colour: the pages, the host's own knobs, what a loop or a trigger is marked with
+const uint32_t kIvory = 0xd9d5cb, kEbony = 0x26252e, kKeyPrint = 0x55524a; // the keyboard is a picture of one, the same in every look
 
 const float kPi = 3.14159265f;
-const float kPresetX = 300, kHeaderY = 12;
+const float kPresetX = 272, kHeaderY = 12;
+const float kHelpX = UI_BASE_WIDTH - 52, kSkinX = UI_BASE_WIDTH - 24; // help, and right of it the choice of look
+const float kVolumeX = 742, kMeterX = 772, kVoicesX = 924;            // the output, between the instrument's name and the help button
+const Box kOutputWindow = {765, 15, 165, 25};                         // the solid looks show level and voices in a display
 const Box kPageArea = {12, 86, 976, 480}, kKeys = {12, 584, 976, 46}, kRange = {12, 572, 976, 8};
 const float kKeyW = kKeys.w / 128.0f;
 const float kBlackLength = 0.62f; // of a white key
@@ -183,7 +192,8 @@ public:
         std::string last; // where a sound was last taken from
         std::error_code ec;
         if (!library_.dir.empty() && Library::read(library_.dir / "last-folder.txt", last) && !last.empty() && last.size() < 2000 && fs::is_directory(fs::u8path(last), ec)) folder_ = last;
-        help_.setButton(UI_BASE_WIDTH - 24, kHeaderY + 12);
+        help_.setButton(kHelpX, kHeaderY + 12);
+        skin_.setButton(kSkinX, kHeaderY + 12);
         layout();
     }
 
@@ -201,11 +211,12 @@ protected:
     /** The plugin's document may have changed without the UI: a sound was read, a song was opened. */
     void uiIdle() override {
         sampler_->idle();
+        const bool look = skin_.poll(); // another HNL window chose a look
         const uint64_t now = sampler_->revision();
         const int zone = sampler_->engine.meters.zone.load(std::memory_order_relaxed);
         uint32_t keys = 0;
         for (int i = 0; i < 4; ++i) keys ^= sampler_->engine.meters.keys[i].load(std::memory_order_relaxed) * (i + 1);
-        if (now == revision_ && keys == lastKeys_ && zone == 0) return;
+        if (!look && now == revision_ && keys == lastKeys_ && zone == 0) return;
         lastKeys_ = keys;
         if (now != revision_) {
             refresh();
@@ -220,35 +231,55 @@ protected:
         const float s = static_cast<float>(getScaleFactor());
         scale(s, s);
         fontFace(NANOVG_DEJAVU_SANS_TTF);
-        fillBox({0, 0, UI_BASE_WIDTH, UI_BASE_HEIGHT}, kBg, 0);
+        const hnl::ui::Skin k = skin();
+        const hnl::ui::Theme theme = k.theme();
+        hnl::ui::faceplate(*this, k, UI_BASE_WIDTH, UI_BASE_HEIGHT);
 
-        hnl::ui::title(*this, "SAMPLER", rgb(kText), rgb(kDim));
+        hnl::ui::title(*this, "SAMPLER", rgb(k.plateText), rgb(k.plateDim));
         std::string name = doc_->name;
         if (!note_.empty()) name = note_;
         else if (sampler_->loading() > 0) name += "  (reading " + std::to_string(sampler_->loading()) + ")";
-        label("INSTRUMENT", kPresetX - 8, kHeaderY + 12, 7.5f, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
-        presetBar_.drawBar(*this, kTheme, name.c_str());
-        help_.drawButton(*this, kTheme);
+        label("INSTRUMENT", kPresetX - 8, kHeaderY + 12, 7.5f, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        presetBar_.drawBar(*this, theme, name.c_str());
+        help_.drawButton(*this, theme);
+        skin_.drawButton(*this, theme);
         drawHeaderMeters();
 
         for (int p = 0; p < kParts; ++p) {
             const Box b = partTab(p);
-            fillBox(b, p == part_ ? kAccent : kTrack, 4);
             const bool sounding = sampler_->engine.meters.partPeak[p].exchange(0.0f, std::memory_order_relaxed) > 1e-4f;
-            label(std::to_string(p + 1).c_str(), b.x + b.w * 0.5f - (sounding ? 5 : 0), b.y + 12, 11, rgb(p == part_ ? kBg : kText), ALIGN_CENTER | ALIGN_MIDDLE);
-            if (sounding) dot(b.x + b.w * 0.5f + 8, b.y + 12, 3, p == part_ ? kBg : kGreen);
-            if (!doc_->parts[p].zones.empty() || doc_->parts[p].v[kPOscLevel] > 0) fillBox({b.x + 6, b.y + b.h - 3, b.w - 12, 1.5f}, p == part_ ? kBg : kDim, 0);
+            const bool filled = !doc_->parts[p].zones.empty() || doc_->parts[p].v[kPOscLevel] > 0;
+            const std::string number = std::to_string(p + 1);
+            if (k.solid) { // a key with its light; beside the number a small light that shows the part sounding
+                const float down = p == part_ ? 1.0f : 0.0f;
+                hnl::ui::keys(*this, k, b, 1, p == part_ ? 0 : -1, [&number](int) { return number.c_str(); }, k.accent, k.text);
+                beginPath();
+                circle(b.x + b.w - 11, b.y + 15 + down, 3.5f);
+                fillColor(rgb(0x000000, 0.55f));
+                UI::fill();
+                if (sounding) dot(b.x + b.w - 11, b.y + 15 + down, 2.5f, k.green);
+                if (filled) fillBox({b.x + 7, b.y + b.h - 3.5f, b.w - 14, 1.5f}, k.keyText, 0, 0.55f);
+                continue;
+            }
+            fillBox(b, p == part_ ? k.accent : k.track, 4);
+            label(number.c_str(), b.x + b.w * 0.5f - (sounding ? 5 : 0), b.y + 12, 11, rgb(p == part_ ? k.bg : k.text), ALIGN_CENTER | ALIGN_MIDDLE);
+            if (sounding) dot(b.x + b.w * 0.5f + 8, b.y + 12, 3, p == part_ ? k.bg : k.green);
+            if (filled) fillBox({b.x + 6, b.y + b.h - 3, b.w - 12, 1.5f}, p == part_ ? k.bg : k.dim, 0);
         }
         for (int p = 0; p < kPageCount; ++p) {
             const Box b = pageTab(p);
-            fillBox(b, p == page_ ? kWarm : kTrack, 4);
-            label(kPageNames[p], b.x + b.w * 0.5f, b.y + 12, 10, rgb(p == page_ ? kBg : kText), ALIGN_CENTER | ALIGN_MIDDLE);
+            if (k.solid) {
+                hnl::ui::keys(*this, k, b, 1, p == page_ ? 0 : -1, [p](int) { return kPageNames[p]; }, kWarm, k.text);
+                continue;
+            }
+            fillBox(b, p == page_ ? kWarm : k.track, 4);
+            label(kPageNames[p], b.x + b.w * 0.5f, b.y + 12, 10, rgb(p == page_ ? k.bg : k.text), ALIGN_CENTER | ALIGN_MIDDLE);
         }
 
         for (const Titled& t : panels_) {
-            fillBox(t.box, kPanel, 6);
-            edge(t.box, kPanelEdge, 6);
-            label(t.title.c_str(), t.box.x + 10, t.box.y + 11, 9, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+            if (t.glass) hnl::ui::displayPanel(*this, k, t.box);
+            else hnl::ui::platePanel(*this, k, t.box);
+            label(t.title.c_str(), t.box.x + 10, t.box.y + 11, 9, rgb(t.glass ? k.dim : k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
         }
         switch (page_) {
         case kPageMap: drawMap(); break;
@@ -259,16 +290,14 @@ protected:
         default: drawFiles(); break;
         }
         for (size_t i = 0; i < ctls_.size(); ++i) drawControl(ctls_[i], static_cast<int>(i) == drag_);
-        for (const Button& b : buttons_) {
-            fillBox(b.box, b.main ? kAccent : kTrack, 4, b.on ? 1.0f : 0.45f);
-            label(b.text.c_str(), b.box.x + b.box.w * 0.5f, b.box.y + b.box.h * 0.5f, 9, rgb(b.main ? kBg : kText, b.on ? 1.0f : 0.4f), ALIGN_CENTER | ALIGN_MIDDLE);
-        }
+        for (const Button& b : buttons_) drawButton(b);
         drawNameEdit();
         drawKeyboard();
         drawMenu();
         std::vector<std::string> names = presetNames();
-        presetBar_.drawMenu(*this, kTheme, static_cast<int>(names.size()), -1, 1, !library_.dir.empty() && names.size() < 46, [&names](int i) { return names[static_cast<size_t>(i)].c_str(); });
-        if (!presetBar_.isOpen() && menu_.items.empty() && drag_ < 0) help_.drawTip(*this, kTheme, UI_BASE_WIDTH, UI_BASE_HEIGHT);
+        presetBar_.drawMenu(*this, theme, static_cast<int>(names.size()), -1, 1, !library_.dir.empty() && names.size() < 46, [&names](int i) { return names[static_cast<size_t>(i)].c_str(); });
+        skin_.drawMenu(*this, theme);
+        if (!presetBar_.isOpen() && !skin_.isOpen() && menu_.items.empty() && drag_ < 0) help_.drawTip(*this, theme, UI_BASE_WIDTH, UI_BASE_HEIGHT);
     }
 
     // -------------------------------------------------------- interaction
@@ -281,6 +310,12 @@ protected:
 
         note_.clear();
         if (editKind_ != kEditNone) endNameEdit(true); // a click anywhere keeps what was typed
+        if (!presetBar_.isBusy() && skin_.mouseDown(x, y) != hnl::ui::SkinMenu::kNotMine) { // the cog, or its list while it is open
+            help_.hide();
+            menu_.items.clear();
+            repaint();
+            return true;
+        }
         if (!presetBar_.isBusy() && presetBar_.nameBox().contains(x, y)) library_.rescan();
         const std::vector<std::string> names = presetNames();
         const int picked = presetBar_.mouseDown(x, y, -1, static_cast<int>(names.size()), 1, !library_.dir.empty() && names.size() < 46);
@@ -368,6 +403,10 @@ protected:
             if (presetBar_.motion(x, y, static_cast<int>(presetNames().size()))) repaint();
             return true;
         }
+        if (skin_.isOpen()) {
+            if (skin_.motion(x, y)) repaint();
+            return true;
+        }
         if (!menu_.items.empty()) {
             const int row = menuRow(x, y);
             if (row != menu_.hover) { menu_.hover = row; repaint(); }
@@ -405,7 +444,7 @@ protected:
     }
 
     bool onScroll(const ScrollEvent& ev) override {
-        if (presetBar_.isBusy() || drag_ >= 0 || !menu_.items.empty()) return false;
+        if (presetBar_.isBusy() || skin_.isOpen() || drag_ >= 0 || !menu_.items.empty()) return false;
         const float s = static_cast<float>(getScaleFactor());
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
         const float dy = static_cast<float>(ev.delta.getY());
@@ -464,7 +503,7 @@ protected:
     }
 
 private:
-    struct Titled { Box box; std::string title; };
+    struct Titled { Box box; std::string title; bool glass = false; }; // glass: a display, where the solid looks have a window
     struct Button { Box box; std::string text; std::function<void()> action; bool on = true, main = false; };
     enum EditKind { kEditNone, kEditMacro, kEditPart };
     struct Menu {
@@ -595,13 +634,14 @@ private:
         buttons_.clear();
         help_.clear();
         help_.add(help_.buttonBox(), "HELP", help::kHelp);
+        help_.add(skin_.buttonBox(), "LOOK", hnl::ui::SkinMenu::help());
         help_.add(presetBar_.nameBox(), "INSTRUMENT", help::kInstrument);
         help_.add({12, 54, 448, 24}, "PARTS", help::kParts);
         help_.add({532, 54, 456, 24}, "PAGES", help::kPages);
         help_.add({kKeys.x, kRange.y, kKeys.w, kKeys.h + 12}, "KEYBOARD", help::kKeyboard);
-        help_.add({790, 8, 150, 36}, "OUTPUT", help::kOutput);
-        add(kHost, kVolume, kKnob, 770, 27, 36);
-        help_.add({700, 8, 90, 40}, "VOLUME", help::kVolume);
+        help_.add({kMeterX - 10, 8, 150, 36}, "OUTPUT", help::kOutput);
+        add(kHost, kVolume, kKnob, kVolumeX, 27, 36);
+        help_.add({kVolumeX - 70, 8, 90, 40}, "VOLUME", help::kVolume);
         const float x0 = kPageArea.x, y0 = kPageArea.y;
         const int K = kKnob, C = kChoiceBox, T = kToggleBox, N = kNumber;
         if (page_ == kPageSynth) {
@@ -636,7 +676,7 @@ private:
             add(kOfPart, kPSeqSteps, K, x0 + 7 + 26, sy + 62, 52);
             add(kOfPart, kPSeqSync, C, x0 + 7 + 52 + 3, sy + 56, 46);
             add(kOfPart, kPSeqSmooth, K, x0 + 7 + 130, sy + 62, 52);
-            panels_.push_back({{x, sy, 392, 112}, ""});
+            panels_.push_back({{x, sy, 392, 112}, "", true});
             help_.add(stepsBox(), "STEPS", help::kSteps);
             panels_.push_back({{x + 398, sy, 976 - (x + 398 - x0), 112}, "MACROS"});
             help_.add(panels_.back().box, "MACROS", help::kMacros);
@@ -763,6 +803,40 @@ private:
 
     // ------------------------------------------------------------- drawing
 
+    /** The look: in every one of them what is on or lit has this plugin's own two colours. */
+    hnl::ui::Skin skin() const { return skin_.skin() == hnl::ui::kSkinClassic ? kClassic : hnl::ui::solidSkin(skin_.skin(), kClassic.accent); }
+    /** The dark of what is written on something lit. */
+    static uint32_t inkOn(const hnl::ui::Skin& k) { return k.solid ? k.well : k.bg; }
+    /** A word of the plugin about what it did: in the second colour, or printed where the plate is solid. */
+    static uint32_t noteOn(const hnl::ui::Skin& k) { return k.solid ? k.plateText : kWarm; }
+    /** Where a graph or a list is shown: a dark box, or a window in the plate. */
+    void window(const Box& b, float radius) {
+        const hnl::ui::Skin k = skin();
+        if (k.solid) hnl::ui::displayPanel(*this, k, b);
+        else fillBox(b, k.well, radius);
+    }
+    /** A line of the grid behind a graph. */
+    void gridLine(float x0, float y0, float x1, float y1) {
+        const hnl::ui::Skin k = skin();
+        line(x0, y0, x1, y1, k.solid ? k.dim : k.panelEdge, 1.0f, k.solid ? 0.3f : 1.0f);
+    }
+
+    void drawButton(const Button& b) {
+        const hnl::ui::Skin k = skin();
+        if (!k.solid) {
+            fillBox(b.box, b.main ? k.accent : k.track, 4, b.on ? 1.0f : 0.45f);
+            label(b.text.c_str(), b.box.x + b.box.w * 0.5f, b.box.y + b.box.h * 0.5f, 9, rgb(b.main ? k.bg : k.text, b.on ? 1.0f : 0.4f), ALIGN_CENTER | ALIGN_MIDDLE);
+            return;
+        }
+        if (b.main) { // the one to press: a key with its light on
+            hnl::ui::keys(*this, k, b.box, 1, 0, [&b](int) { return b.text.c_str(); }, k.accent, k.text);
+        } else {
+            hnl::ui::button(*this, k, b.box, "");
+            label(b.text.c_str(), b.box.x + b.box.w * 0.5f, b.box.y + b.box.h * 0.5f, 9, rgb(k.keyText), ALIGN_CENTER | ALIGN_MIDDLE);
+        }
+        if (!b.on) fillBox(b.box, k.bg, 4, 0.6f); // not to be pressed now
+    }
+
     void fillBox(const Box& b, uint32_t colour, float radius, float alpha = 1.0f) {
         beginPath();
         if (radius > 0) roundedRect(b.x, b.y, b.w, b.h, radius);
@@ -822,65 +896,93 @@ private:
             text = valueText(*info, v, isKey);
             if (c.scope == kOfZone && (c.id == kZEnd || c.id == kZLoopEnd) && v == 0.0) text = "end";
         }
-        const Color dim = rgb(kDim, on ? 1.0f : 0.4f), bright = rgb(kText, on ? 1.0f : 0.4f);
+        const hnl::ui::Skin k = skin();
+        const Color dim = rgb(k.plateDim, on ? 1.0f : 0.4f), bright = rgb(k.plateText, on ? 1.0f : 0.4f);
+        const Color moving = rgb(hnl::ui::printed(k, k.accent)); // the value of what is being dragged
         if (c.style == kKnob) {
             const float a0 = 0.75f * kPi, a1 = 2.25f * kPi, r = 13;
             const float norm = c.scope == kHost ? paramToNorm(static_cast<uint32_t>(c.id), static_cast<float>(v)) : static_cast<float>(toNorm(*info, v));
             const double lo = c.scope == kHost ? kParams[c.id].min : info->min, hi = c.scope == kHost ? kParams[c.id].max : info->max;
-            const float angle = a0 + norm * (a1 - a0), from = lo < 0 && hi > 0 && lo == -hi ? a0 + 0.5f * (a1 - a0) : a0; // centred on zero: from the middle
-            beginPath();
-            arc(c.x, c.y, r, a0, a1, CW);
-            strokeColor(rgb(kTrack));
-            strokeWidth(3);
-            lineCap(ROUND);
-            stroke();
-            if (std::fabs(angle - from) > 0.01f) {
+            const bool centred = lo < 0 && hi > 0 && lo == -hi; // centred on zero: from the middle
+            const float angle = a0 + norm * (a1 - a0), from = centred ? a0 + 0.5f * (a1 - a0) : a0;
+            const uint32_t own = c.scope == kHost ? kWarm : k.accent; // the host's own knobs in the second colour
+            if (k.solid) {
+                hnl::ui::knob(*this, k, c.x, c.y, r - 1.5f, norm, centred ? 0.5f : 0.0f, hnl::ui::printed(k, own)); // a little smaller, so that a printed scale stays clear of the name above it
+            } else { // this plugin's small flat knob: a thinner arc and a larger cap than the shared one
                 beginPath();
-                arc(c.x, c.y, r, std::min(from, angle), std::max(from, angle), CW);
-                strokeColor(rgb(c.scope == kHost ? kWarm : kAccent, on ? 1.0f : 0.4f));
+                arc(c.x, c.y, r, a0, a1, CW);
+                strokeColor(rgb(k.track));
                 strokeWidth(3);
+                lineCap(ROUND);
                 stroke();
+                if (std::fabs(angle - from) > 0.01f) {
+                    beginPath();
+                    arc(c.x, c.y, r, std::min(from, angle), std::max(from, angle), CW);
+                    strokeColor(rgb(own, on ? 1.0f : 0.4f));
+                    strokeWidth(3);
+                    stroke();
+                }
+                dot(c.x, c.y, r - 5, k.knobLo);
+                line(c.x + std::cos(angle) * (r - 10), c.y + std::sin(angle) * (r - 10), c.x + std::cos(angle) * (r - 5.5f), c.y + std::sin(angle) * (r - 5.5f), k.pointer, 1.6f);
             }
-            dot(c.x, c.y, r - 5, 0x272536);
-            line(c.x + std::cos(angle) * (r - 10), c.y + std::sin(angle) * (r - 10), c.x + std::cos(angle) * (r - 5.5f), c.y + std::sin(angle) * (r - 5.5f), kText, 1.6f);
             if (c.scope == kHost && c.id == kVolume) { // in the header: name and value beside the knob
                 label("VOLUME", c.x - 20, c.y - 6, 7.5f, dim, ALIGN_RIGHT | ALIGN_MIDDLE);
-                label(text.c_str(), c.x - 20, c.y + 6, 8, dragging ? rgb(kAccent) : bright, ALIGN_RIGHT | ALIGN_MIDDLE);
+                label(text.c_str(), c.x - 20, c.y + 6, 8, dragging ? moving : bright, ALIGN_RIGHT | ALIGN_MIDDLE);
                 return;
             }
             if (!(editKind_ == kEditMacro && c.scope == kHost && c.id == static_cast<int>(kMacro1) + editIndex_)) fitted(c.label, c.x, c.y - 21, 7.5f, c.w + 4, dim, ALIGN_CENTER | ALIGN_MIDDLE);
-            label(text.c_str(), c.x, c.y + 23, 8, dragging ? rgb(kAccent) : bright, ALIGN_CENTER | ALIGN_MIDDLE);
+            label(text.c_str(), c.x, c.y + 23, 8, dragging ? moving : bright, ALIGN_CENTER | ALIGN_MIDDLE);
             return;
         }
         if (!c.label.empty() && c.style != kToggleBox) fitted(c.label, c.x + 1, c.y - 7, 7.5f, c.w + 6, dim);
         const Box b = c.face();
         const bool lit = c.style == kToggleBox && v >= 0.5 && on;
-        fillBox(b, lit ? kAccent : (c.style == kNumber ? kWell : kTrack), 3, on ? 1.0f : 0.5f);
         if (c.style == kToggleBox && !c.label.empty()) text = c.label; // lit when on
         const float room = c.style == kChoiceBox ? b.w - 13 : b.w; // a list has its arrow at the right
-        fitted(text, b.x + room * 0.5f + (c.style == kChoiceBox ? 1 : 0), b.y + 9.5f, c.style == kChoiceBox && b.w < 60 ? 8.5f : 9, room + 4, lit ? rgb(kBg) : (dragging ? rgb(kAccent) : bright), ALIGN_CENTER | ALIGN_MIDDLE);
+        const float tx = b.x + room * 0.5f + (c.style == kChoiceBox ? 1 : 0), size = c.style == kChoiceBox && b.w < 60 ? 8.5f : 9;
+        if (k.solid) { // a key with a light, a key that opens a list, or a figure in a small display
+            if (c.style == kToggleBox) {
+                hnl::ui::keys(*this, k, b, 1, lit ? 0 : -1, [&text](int) { return text.c_str(); }, k.accent, k.text);
+            } else if (c.style == kChoiceBox) {
+                hnl::ui::button(*this, k, b, "");
+                fitted(text, tx, b.y + 9.5f, size, room + 4, rgb(k.keyText), ALIGN_CENTER | ALIGN_MIDDLE);
+                hnl::ui::triangle(*this, b.x + b.w - 10, b.y + 7, b.x + b.w - 4, b.y + 7, b.x + b.w - 7, b.y + 11, rgb(k.keyText, 0.6f));
+            } else {
+                hnl::ui::displayPanel(*this, k, b);
+                fitted(text, tx, b.y + 9.5f, size, room + 4, dragging ? rgb(k.accent) : rgb(k.text, on ? 1.0f : 0.4f), ALIGN_CENTER | ALIGN_MIDDLE);
+            }
+            if (!on && c.style != kNumber) fillBox(b, k.bg, 3, 0.6f); // not to be pressed now
+            return;
+        }
+        fillBox(b, lit ? k.accent : (c.style == kNumber ? k.well : k.track), 3, on ? 1.0f : 0.5f);
+        fitted(text, tx, b.y + 9.5f, size, room + 4, lit ? rgb(k.bg) : (dragging ? moving : bright), ALIGN_CENTER | ALIGN_MIDDLE);
         if (c.style == kChoiceBox) hnl::ui::triangle(*this, b.x + b.w - 10, b.y + 7, b.x + b.w - 4, b.y + 7, b.x + b.w - 7, b.y + 11, dim);
     }
 
     void drawHeaderMeters() {
+        const hnl::ui::Skin k = skin();
+        if (k.solid) hnl::ui::displayPanel(*this, k, kOutputWindow);
         for (int c = 0; c < 2; ++c) {
-            const float y = 20.0f + c * 9.0f, x = 800, w = 100;
+            const float y = 20.0f + c * 9.0f, x = kMeterX, w = 100;
             const float t = std::clamp((values_[kMeterOutL + c] + 48.0f) / 54.0f, 0.0f, 1.0f);
-            fillBox({x, y, w, 6}, kWell, 0);
-            fillBox({x, y, w * std::min(t, 36.0f / 54.0f), 6}, kGreen, 0);
-            if (t > 36.0f / 54.0f) fillBox({x + w * 36.0f / 54.0f, y, w * (std::min(t, 45.0f / 54.0f) - 36.0f / 54.0f), 6}, kYellow, 0);
-            if (t > 45.0f / 54.0f) fillBox({x + w * 45.0f / 54.0f, y, w * (t - 45.0f / 54.0f), 6}, kRed, 0);
+            fillBox({x, y, w, 6}, k.solid ? k.track : k.well, 0); // solid: the segments that are not lit
+            fillBox({x, y, w * std::min(t, 36.0f / 54.0f), 6}, k.green, 0);
+            if (t > 36.0f / 54.0f) fillBox({x + w * 36.0f / 54.0f, y, w * (std::min(t, 45.0f / 54.0f) - 36.0f / 54.0f), 6}, k.yellow, 0);
+            if (t > 45.0f / 54.0f) fillBox({x + w * 45.0f / 54.0f, y, w * (t - 45.0f / 54.0f), 6}, k.red, 0);
+            hnl::ui::segments(*this, k, x, y, w, 6);
         }
         char text[24];
         std::snprintf(text, sizeof(text), "%.0f of 64", values_[kMeterVoices]);
-        label("VOICES", 952, 21, 7.5f, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
-        label(text, 952, 33, 8, rgb(values_[kMeterVoices] > 0 ? kAccent : kText), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label("VOICES", kVoicesX, 21, 7.5f, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label(text, kVoicesX, 33, 8, rgb(values_[kMeterVoices] > 0 ? k.accent : k.text), ALIGN_RIGHT | ALIGN_MIDDLE);
     }
 
     void drawKeyboard() {
-        fillBox(kRange, kWell, 2);
+        const hnl::ui::Skin k = skin();
+        fillBox(kRange, k.well, 2);
         if (const Zone* z = zone())
-            fillBox({kKeys.x + static_cast<float>(z->v[kZLoKey]) * kKeyW, kRange.y, static_cast<float>(z->v[kZHiKey] - z->v[kZLoKey] + 1) * kKeyW, kRange.h}, kAccent, 2);
+            fillBox({kKeys.x + static_cast<float>(z->v[kZLoKey]) * kKeyW, kRange.y, static_cast<float>(z->v[kZHiKey] - z->v[kZLoKey] + 1) * kKeyW, kRange.h}, k.accent, 2);
+        if (k.solid) fillBox({kKeys.x - 1, kKeys.y - 1, kKeys.w + 2, kKeys.h + 2}, k.well, 2); // the bed the keys lie in: on the flat look the dark window itself
         uint32_t sounding[4];
         for (int i = 0; i < 4; ++i) sounding[i] = sampler_->engine.meters.keys[i].load(std::memory_order_relaxed);
         // Every key has a column of the same width, so that the keys stand under their place in the zone
@@ -891,12 +993,12 @@ private:
             const float left = kKeys.x + key * kKeyW - (key > 0 && isBlack(key - 1) ? 0.5f * kKeyW : 0.0f);
             const float right = kKeys.x + (key + 1) * kKeyW + (key < 127 && isBlack(key + 1) ? 0.5f * kKeyW : 0.0f);
             fillBox({left + 0.5f, kKeys.y, right - left - 1, kKeys.h}, lit(key) ? kWarm : kIvory, 1.5f);
-            if (key % 12 == 0) label(keyName(key).c_str(), 0.5f * (left + right), kKeys.y + kKeys.h - 6, 6.5f, rgb(0x55524a), ALIGN_CENTER | ALIGN_MIDDLE);
+            if (key % 12 == 0) label(keyName(key).c_str(), 0.5f * (left + right), kKeys.y + kKeys.h - 6, 6.5f, rgb(kKeyPrint), ALIGN_CENTER | ALIGN_MIDDLE);
         }
         for (int key = 0; key < 128; ++key) {
             if (!isBlack(key)) continue;
             const float x = kKeys.x + key * kKeyW;
-            fillBox({x - 0.5f, kKeys.y, kKeyW + 1, kKeys.h * kBlackLength + 1}, kWell, 0); // the gap around it
+            fillBox({x - 0.5f, kKeys.y, kKeyW + 1, kKeys.h * kBlackLength + 1}, k.well, 0); // the gap around it
             fillBox({x + 0.5f, kKeys.y, kKeyW - 1, kKeys.h * kBlackLength}, lit(key) ? kWarm : kEbony, 1.5f);
         }
     }
@@ -919,39 +1021,40 @@ private:
     }
 
     void drawMap() {
+        const hnl::ui::Skin k = skin();
         const Box m = mapBox();
-        fillBox(m, kWell, 4);
+        window(m, 4);
         for (int key = 0; key < 128; ++key) {
-            if (isBlack(key)) fillBox({m.x + key * kKeyW, m.y, kKeyW, m.h}, 0x000000, 0, 0.25f);
-            if (key % 12 == 0) line(m.x + key * kKeyW, m.y, m.x + key * kKeyW, m.y + m.h, kPanelEdge);
+            if (isBlack(key)) fillBox({m.x + key * kKeyW, m.y, kKeyW, m.h}, 0x000000, 0, 0.25f); // the shade of a black key's column
+            if (key % 12 == 0) gridLine(m.x + key * kKeyW, m.y, m.x + key * kKeyW, m.y + m.h);
         }
         const std::vector<Zone>& zones = part().zones;
         for (size_t i = 0; i < zones.size(); ++i) {
             const Box b = zoneBox(zones[i]);
             const bool chosen = static_cast<int>(i) == zone_;
             const Sample* s = doc_->findSample(zones[i].sample);
-            const uint32_t colour = s != nullptr && s->missing ? kRed : (zones[i].v[kZTrigger] >= 0.5 ? kWarm : kAccent);
+            const uint32_t colour = s != nullptr && s->missing ? k.red : (zones[i].v[kZTrigger] >= 0.5 ? kWarm : k.accent);
             fillBox({b.x + 0.5f, b.y + 0.5f, b.w - 1, b.h - 1}, colour, 2, chosen ? 0.55f : 0.22f);
-            edge({b.x + 0.5f, b.y + 0.5f, b.w - 1, b.h - 1}, chosen ? kText : colour, 2, chosen ? 1.5f : 0.8f);
+            edge({b.x + 0.5f, b.y + 0.5f, b.w - 1, b.h - 1}, chosen ? k.text : colour, 2, chosen ? 1.5f : 0.8f);
             if (b.w > 40 && s != nullptr) { // its sound, its keys and, when not all, its velocities
                 std::string text = fileName(s->path) + "   " + keyName(static_cast<int>(zones[i].v[kZLoKey])) + " to " + keyName(static_cast<int>(zones[i].v[kZHiKey]));
                 if (zones[i].v[kZLoVel] > 1 || zones[i].v[kZHiVel] < 127) text += "   velocity " + std::to_string(static_cast<int>(zones[i].v[kZLoVel])) + " to " + std::to_string(static_cast<int>(zones[i].v[kZHiVel]));
-                fitted(text, b.x + 5, b.y + 10, 8, b.w - 8, rgb(kText));
+                fitted(text, b.x + 5, b.y + 10, 8, b.w - 8, rgb(k.text));
             }
             // The root key: a mark at the bottom of the zone.
-            if (chosen) fillBox({m.x + static_cast<float>(zones[i].v[kZRoot]) * kKeyW + 1, b.y + b.h - 4, kKeyW - 2, 3}, kText, 0);
+            if (chosen) fillBox({m.x + static_cast<float>(zones[i].v[kZRoot]) * kKeyW + 1, b.y + b.h - 4, kKeyW - 2, 3}, k.text, 0);
         }
         // The scales: octaves along the bottom, velocity up the right side.
-        for (int key = 0; key < 128; key += 12) label(keyName(key).c_str(), m.x + key * kKeyW + 3, m.y + m.h - 7, 6.5f, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        for (int key = 0; key < 128; key += 12) label(keyName(key).c_str(), m.x + key * kKeyW + 3, m.y + m.h - 7, 6.5f, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
         static const int kVels[3] = {127, 64, 1};
         for (int vel : kVels) {
             const float y = m.y + m.h * (1.0f - (vel - 0.5f) / 127.0f);
-            label(vel == 127 ? "VELOCITY 127" : std::to_string(vel).c_str(), m.x + m.w - 4, std::clamp(y, m.y + 7, m.y + m.h - 7), 6.5f, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+            label(vel == 127 ? "VELOCITY 127" : std::to_string(vel).c_str(), m.x + m.w - 4, std::clamp(y, m.y + 7, m.y + m.h - 7), 6.5f, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
         }
-        if (zones.empty()) label("No sounds in this part yet.", m.x + m.w * 0.5f, m.y + m.h * 0.5f - 8, 11, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
+        if (zones.empty()) label("No sounds in this part yet.", m.x + m.w * 0.5f, m.y + m.h * 0.5f - 8, 11, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
         const Zone* z = zone();
         const Sample* s = z != nullptr ? doc_->findSample(z->sample) : nullptr;
-        if (s != nullptr) fitted(s->missing ? missingText(*s) + ": " + s->path : s->path, kPageArea.x + 50, m.y + m.h + 17, 9, 900, rgb(s->missing ? kRed : kText));
+        if (s != nullptr) fitted(s->missing ? missingText(*s) + ": " + s->path : s->path, kPageArea.x + 50, m.y + m.h + 17, 9, 900, rgb(s->missing ? hnl::ui::printed(k, k.red) : k.plateText)); // on the plate, under the map
     }
 
     bool mapDown(float x, float y) {
@@ -1004,8 +1107,9 @@ private:
     }
 
     void drawSample() {
+        const hnl::ui::Skin k = skin();
         const Box w = waveBox();
-        fillBox(w, kWell, 4);
+        window(w, 4);
         const Zone* z = zone();
         const AudioData* d = zoneData();
         if (z == nullptr || d == nullptr || d->frames() < 2) {
@@ -1014,7 +1118,7 @@ private:
                                     : s == nullptr || !s->missing ? "Reading the sound..."
                                     : missingText(*s) == "Not found" ? "This zone's sound was not found on disk." : "This zone's sound was not loaded: " + s->error + ".";
             label(why.c_str(),
-                  w.x + w.w * 0.5f, w.y + w.h * 0.5f - 8, 11, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
+                  w.x + w.w * 0.5f, w.y + w.h * 0.5f - 8, 11, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
             return;
         }
         const double frames = static_cast<double>(d->frames());
@@ -1022,14 +1126,14 @@ private:
         double mark[4];
         markers(*z, frames, mark);
         if (z->v[kZLoop] >= 0.5 && mark[3] > mark[2])
-            fillBox({std::max(w.x, waveX(mark[2])), w.y, std::min(w.x + w.w, waveX(mark[3])) - std::max(w.x, waveX(mark[2])), w.h}, kAccent, 0, 0.10f);
+            fillBox({std::max(w.x, waveX(mark[2])), w.y, std::min(w.x + w.w, waveX(mark[3])) - std::max(w.x, waveX(mark[2])), w.h}, k.accent, 0, 0.10f);
         const int columns = static_cast<int>(w.w);
         std::vector<float> shape(static_cast<size_t>(2 * columns));
         const int channels = d->channels > 1 && d->samples[1].size() == d->samples[0].size() ? 2 : 1;
         for (int c = 0; c < channels; ++c) {
             waveformOverview(d->samples[c].data(), d->frames(), static_cast<size_t>(view0_), static_cast<size_t>(view1_), columns, shape.data());
             const float mid = w.y + w.h * (channels == 1 ? 0.5f : 0.25f + 0.5f * c), half = w.h * (channels == 1 ? 0.46f : 0.23f);
-            line(w.x, mid, w.x + w.w, mid, kPanelEdge);
+            gridLine(w.x, mid, w.x + w.w, mid);
             beginPath(); // the outline of the wave: its highest values from left to right, its lowest back again
             for (int i = 0; i < columns; ++i) {
                 const float y = mid - half * std::clamp(shape[static_cast<size_t>(2 * i + 1)], -1.0f, 1.0f) - 0.5f;
@@ -1037,7 +1141,7 @@ private:
             }
             for (int i = columns - 1; i >= 0; --i) lineTo(w.x + i, mid - half * std::clamp(shape[static_cast<size_t>(2 * i)], -1.0f, 1.0f) + 0.5f);
             closePath();
-            fillColor(rgb(kAccent, 0.85f));
+            fillColor(rgb(k.accent, 0.85f));
             UI::fill();
         }
         { // a ruler of time, under the flags of start and end
@@ -1049,8 +1153,8 @@ private:
                 if (step >= 1.0) std::snprintf(text, sizeof(text), "%.0f s", t);
                 else if (step >= 0.01) std::snprintf(text, sizeof(text), "%.2f s", t);
                 else std::snprintf(text, sizeof(text), "%.1f ms", 1000.0 * t);
-                line(x, w.y + 14, x, w.y + 19, kDim, 1.0f, 0.7f);
-                if (x < w.x + w.w - 40) label(text, x + 3, w.y + 21, 6.5f, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+                line(x, w.y + 14, x, w.y + 19, k.dim, 1.0f, 0.7f);
+                if (x < w.x + w.w - 40) label(text, x + 3, w.y + 21, 6.5f, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
             }
         }
         static const char* const kLetters[4] = {"S", "E", "LS", "LE"};
@@ -1058,28 +1162,28 @@ private:
             if (i >= 2 && z->v[kZLoop] < 0.5) continue;
             const float x = waveX(mark[i]);
             if (x < w.x - 1 || x > w.x + w.w + 1) continue;
-            const uint32_t colour = i < 2 ? kText : kWarm;
+            const uint32_t colour = i < 2 ? k.text : kWarm;
             line(x, w.y, x, w.y + w.h, colour, 1.2f);
             const float fw = i < 2 ? 12.0f : 17.0f; // the flag: to the right of a start, to the left of an end
             fillBox({i % 2 == 0 ? x : x - fw, i < 2 ? w.y : w.y + w.h - 12, fw, 12}, colour, 2);
-            label(kLetters[i], (i % 2 == 0 ? x : x - fw) + fw * 0.5f, (i < 2 ? w.y : w.y + w.h - 12) + 6.5f, 8, rgb(kBg), ALIGN_CENTER | ALIGN_MIDDLE);
+            label(kLetters[i], (i % 2 == 0 ? x : x - fw) + fw * 0.5f, (i < 2 ? w.y : w.y + w.h - 12) + 6.5f, 8, rgb(inkOn(k)), ALIGN_CENTER | ALIGN_MIDDLE);
         }
         if (sampler_->engine.meters.zone.load(std::memory_order_relaxed) == z->id) { // where the newest note of this zone is
             const double s = z->v[kZStart], e = mark[1];
             const float x = waveX(s + sampler_->engine.meters.position.load(std::memory_order_relaxed) * (e - s));
-            if (x >= w.x && x <= w.x + w.w) line(x, w.y, x, w.y + w.h, kGreen, 1.0f);
+            if (x >= w.x && x <= w.x + w.w) line(x, w.y, x, w.y + w.h, k.green, 1.0f);
         }
         const Sample* s = doc_->findSample(z->sample);
         char facts[160];
         std::snprintf(facts, sizeof(facts), "%s   %.0f Hz   %d bit%s   %s   %.2f s", d->format.c_str(), d->sampleRate, d->bits, d->isFloat ? " float" : "", channels == 2 ? "stereo" : "mono",
                       frames / d->sampleRate);
-        fitted(s != nullptr ? fileName(s->path) + "   " + facts : facts, kPageArea.x + 56, kPageArea.y + 383, 9, 560, rgb(kText));
+        fitted(s != nullptr ? fileName(s->path) + "   " + facts : facts, kPageArea.x + 56, kPageArea.y + 383, 9, 560, rgb(k.plateText));
         // The places are counted in samples; under each, the same as time.
         const double places[5] = {mark[0], mark[1], mark[2], mark[3], z->v[kZCrossfade]};
         static const int kColumn[5] = {0, 1, 3, 4, 5};
-        for (int i = 0; i < 5; ++i) label(timeText(places[i], d->sampleRate).c_str(), kPageArea.x + 10 + kColumn[i] * 68.0f + 31, kPageArea.y + 435, 7.5f, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
-        label("Places are in samples, with the time under them.", kPageArea.x + 10, kPageArea.y + 462, 8, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
-        if (!toolNote_.empty()) label(toolNote_.c_str(), kPageArea.x + 632, kPageArea.y + 462, 9, rgb(kWarm), ALIGN_LEFT | ALIGN_MIDDLE);
+        for (int i = 0; i < 5; ++i) label(timeText(places[i], d->sampleRate).c_str(), kPageArea.x + 10 + kColumn[i] * 68.0f + 31, kPageArea.y + 435, 7.5f, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
+        label("Places are in samples, with the time under them.", kPageArea.x + 10, kPageArea.y + 462, 8, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        if (!toolNote_.empty()) label(toolNote_.c_str(), kPageArea.x + 632, kPageArea.y + 462, 9, rgb(noteOn(k)), ALIGN_LEFT | ALIGN_MIDDLE);
     }
 
     bool waveDown(float x) {
@@ -1216,7 +1320,7 @@ private:
         for (int e = 0; e < kEnvs; ++e) {
             const Box& p = panels_[static_cast<size_t>(8 + e)].box; // after the two rows of panels above
             const Box g = {p.x + 10, p.y + 24, p.w - 20, p.h - 24 - 70};
-            fillBox(g, kWell, 3);
+            window(g, 3);
             const double* v = &part().v[envParam(e, 0)];
             const double times[5] = {v[kEnvDelay], v[kEnvAttack], v[kEnvHold], v[kEnvDecay], v[kEnvRelease]};
             double total = 0;
@@ -1236,7 +1340,7 @@ private:
             x += 32;
             const float rx = unit * static_cast<float>(std::sqrt(times[4]));
             for (int i = 1; i <= 8; ++i) lineTo(x + rx * i / 8.0f, base + (sustain - base) * std::pow(1.0f - i / 8.0f, 1.0f + 3.0f * bend));
-            strokeColor(rgb(kAccent));
+            strokeColor(rgb(skin().accent));
             strokeWidth(1.6f);
             stroke();
         }
@@ -1245,25 +1349,26 @@ private:
     Box stepsBox() const { return panels_.size() > 4 ? Box{panels_[4].box.x + 8, panels_[4].box.y + 8, panels_[4].box.w - 16, panels_[4].box.h - 16} : Box{}; }
 
     void drawSteps() {
+        const hnl::ui::Skin k = skin();
         const Box b = stepsBox();
-        fillBox(b, kWell, 3);
+        if (!k.solid) fillBox(b, k.well, 3); // solid: its whole panel is the window
         const int steps = static_cast<int>(part().v[kPSeqSteps]);
         const float w = b.w / kSteps, mid = b.y + b.h * 0.5f;
-        line(b.x, mid, b.x + b.w, mid, kPanelEdge);
+        gridLine(b.x, mid, b.x + b.w, mid);
         for (int i = 0; i < kSteps; ++i) {
             const float v = static_cast<float>(0.01 * part().v[kPSeqValue + i]), h = v * (b.h * 0.5f - 3);
-            fillBox({b.x + i * w + 2, h >= 0 ? mid - h : mid, w - 4, std::max(1.5f, std::fabs(h))}, kAccent, 1, i < steps ? 1.0f : 0.25f);
+            fillBox({b.x + i * w + 2, h >= 0 ? mid - h : mid, w - 4, std::max(1.5f, std::fabs(h))}, k.accent, 1, i < steps ? 1.0f : 0.25f);
         }
         for (int column = 0; column < 2; ++column) {
             static const char* const kHeads[4] = {"SOURCE", "VIA", "TARGET", "AMOUNT"};
-            for (int h = 0; h < 4; ++h) label(kHeads[h], kPageArea.x + 62 + column * 480.0f + h * 116.0f, matrixY() + 22, 7.5f, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+            for (int h = 0; h < 4; ++h) label(kHeads[h], kPageArea.x + 62 + column * 480.0f + h * 116.0f, matrixY() + 22, 7.5f, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
         }
         for (int s = 0; s < kSlots; ++s) {
             char text[8];
             std::snprintf(text, sizeof(text), "%d", s + 1);
-            label(text, kPageArea.x + 44 + (s / 6) * 480.0f, matrixY() + 41 + (s % 6) * 37.0f, 9, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+            label(text, kPageArea.x + 44 + (s / 6) * 480.0f, matrixY() + 41 + (s % 6) * 37.0f, 9, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
         }
-        label("Click a macro's name to change it.", kPageArea.x + 976 - 10, kPageArea.y + kRowH + 6 + 11, 7.5f, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label("Click a macro's name to change it.", kPageArea.x + 976 - 10, kPageArea.y + kRowH + 6 + 11, 7.5f, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
     }
 
     void stepDrag(float x, float y) {
@@ -1278,17 +1383,18 @@ private:
     }
 
     void drawStrips() {
+        const hnl::ui::Skin k = skin();
         for (int p = 0; p < kParts; ++p) {
             const float x = kPageArea.x + p * 92.0f;
-            if (p == part_) edge({x, kPageArea.y, 88, 480}, kAccent, 6);
+            if (p == part_) edge({x, kPageArea.y, 88, 480}, hnl::ui::printed(k, k.accent), 6);
             const std::string& name = doc_->parts[p].name;
             char count[24];
             std::snprintf(count, sizeof(count), "%zu zones", doc_->parts[p].zones.size());
-            label(count, x + 78, kPageArea.y + 11, 7.5f, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+            label(count, x + 78, kPageArea.y + 11, 7.5f, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
             if (editKind_ == kEditPart && editIndex_ == p) continue;
-            fitted(name.empty() ? "name" : name, x + 10, kPageArea.y + 24, 8, 76, rgb(name.empty() ? kDim : kText, name.empty() ? 0.6f : 1.0f));
+            fitted(name.empty() ? "name" : name, x + 10, kPageArea.y + 24, 8, 76, rgb(name.empty() ? k.plateDim : k.plateText, name.empty() ? 0.6f : 1.0f));
         }
-        label(doc_->tuningName.empty() ? "Equal temperament" : doc_->tuningName.c_str(), kPageArea.x + 750, kPageArea.y + 449, 10, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
+        label(doc_->tuningName.empty() ? "Equal temperament" : doc_->tuningName.c_str(), kPageArea.x + 750, kPageArea.y + 449, 10, rgb(k.plateText), ALIGN_LEFT | ALIGN_MIDDLE);
     }
 
     // --------------------------------------------------------------- files
@@ -1346,31 +1452,33 @@ private:
     }
 
     void drawFiles() {
+        const hnl::ui::Skin k = skin();
         const Box b = listBox();
-        fitted(folder_.empty() ? "This computer" : folder_, b.x + 160, b.y + 16, 10, b.w - (folderCut_ ? 330 : 170), rgb(kText));
-        if (folderCut_) label("Too many to show them all", b.x + b.w - 10, b.y + 16, 9, rgb(kWarm), ALIGN_RIGHT | ALIGN_MIDDLE);
+        if (k.solid) hnl::ui::displayPanel(*this, k, {b.x + 3, b.y + 30, b.w - 6, b.h - 33}); // the list in a window, under the keys and the folder's name
+        fitted(folder_.empty() ? "This computer" : folder_, b.x + 160, b.y + 16, 10, b.w - (folderCut_ ? 330 : 170), rgb(k.plateText));
+        if (folderCut_) label("Too many to show them all", b.x + b.w - 10, b.y + 16, 9, rgb(noteOn(k)), ALIGN_RIGHT | ALIGN_MIDDLE);
         for (int row = 0; row < kRows; ++row) {
             const int i = scroll_ + row;
             if (i >= static_cast<int>(entries_.size())) break;
             const float y = b.y + 32 + row * 20.0f;
-            if (i == chosen_) fillBox({b.x + 4, y, b.w - 8, 20}, kTrack, 3);
+            if (i == chosen_) fillBox({b.x + 4, y, b.w - 8, 20}, k.button, 3);
             const Entry& e = entries_[static_cast<size_t>(i)];
             if (e.folder) fillBox({b.x + 12, y + 6, 12, 9}, kWarm, 2);
-            else dot(b.x + 18, y + 10, 3, isAudioFileName(e.name) ? kAccent : kGreen);
-            fitted(e.name, b.x + 34, y + 10, 10, b.w - 50, rgb(e.folder ? kText : (isAudioFileName(e.name) ? kText : kGreen)));
+            else dot(b.x + 18, y + 10, 3, isAudioFileName(e.name) ? k.accent : k.green);
+            fitted(e.name, b.x + 34, y + 10, 10, b.w - 50, rgb(e.folder ? k.text : (isAudioFileName(e.name) ? k.text : k.green)));
         }
-        if (entries_.empty()) label("Nothing here that the sampler can use.", b.x + b.w * 0.5f, b.y + 120, 10, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
+        if (entries_.empty()) label("Nothing here that the sampler can use.", b.x + b.w * 0.5f, b.y + 120, 10, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
         if (static_cast<int>(entries_.size()) > kRows) { // how far down the list is
             const float h = b.h - 40, part = static_cast<float>(kRows) / entries_.size();
-            fillBox({b.x + b.w - 5, b.y + 34 + h * scroll_ / entries_.size(), 2.5f, h * part}, kDim, 1);
+            fillBox({b.x + b.w - 5, b.y + 34 + h * scroll_ / entries_.size(), 2.5f, h * part}, k.dim, 1);
         }
         const float x = kPageArea.x + 652, y = kPageArea.y;
         const int kind = chosenKind();
-        if (chosen_ >= 0 && chosen_ < static_cast<int>(entries_.size())) fitted(entries_[static_cast<size_t>(chosen_)].name, x, y + 34, 11, 312, rgb(kText));
+        if (chosen_ >= 0 && chosen_ < static_cast<int>(entries_.size())) fitted(entries_[static_cast<size_t>(chosen_)].name, x, y + 34, 11, 312, rgb(k.plateText));
         fontSize(9);
         textAlign(ALIGN_LEFT | ALIGN_TOP);
         textLineHeight(1.4f);
-        fillColor(rgb(kDim));
+        fillColor(rgb(k.plateDim));
         const std::string partText = "part " + std::to_string(part_ + 1);
         if (kind == kFileNone && chosen_ < 0) textBox(x, y + 30, 312, ("Click a sound to hear it, double-click to add it to " + partText + ". Double-click a folder to open it.").c_str(), nullptr);
         else textBox(x, y + 50, 312, fileFacts_.c_str(), nullptr);
@@ -1379,7 +1487,7 @@ private:
         float line = y + (kind == kFileSound ? 276 : 226);
         for (const std::string& n : notes_) {
             if (line > y + 466) break;
-            fitted(n, x, line, 9, 312, rgb(kWarm));
+            fitted(n, x, line, 9, 312, rgb(noteOn(k)));
             line += 14;
         }
     }
@@ -1472,9 +1580,10 @@ private:
     void drawNameEdit() {
         if (editKind_ == kEditNone || (editKind_ == kEditMacro) != (page_ == kPageMod) || (editKind_ == kEditPart && page_ != kPageMix)) return;
         const Box b = nameBox(editKind_, editIndex_);
-        fillBox(b, kWell, 2);
-        edge(b, kAccent, 2);
-        fitted(editText_ + "|", b.x + 3, b.y + b.h * 0.5f, 8, b.w + 6, rgb(kText));
+        const hnl::ui::Skin k = skin();
+        fillBox(b, k.solid ? k.popup : k.well, 2); // as the name box of the instruments
+        edge(b, k.accent, 2);
+        fitted(editText_ + "|", b.x + 3, b.y + b.h * 0.5f, 8, b.w + 6, rgb(k.text));
     }
 
     /** Does what belongs to the chosen file: a sound becomes a zone, an instrument is imported or loaded, a tuning is taken. */
@@ -1568,12 +1677,13 @@ private:
     void drawMenu() {
         if (menu_.items.empty()) return;
         const Box m = menuBoxFor(menu_.x, menu_.y);
-        fillBox(m, kTheme.popup, 4);
-        edge(m, kTheme.popupEdge, 4);
+        const hnl::ui::Skin k = skin();
+        fillBox(m, k.popup, 4);
+        edge(m, k.popupEdge, 4);
         for (int i = 0; i < static_cast<int>(menu_.items.size()); ++i) {
             const float x = m.x + (i / kMenuRows) * kMenuW, y = m.y + 3 + (i % kMenuRows) * kMenuRow;
-            if (i == menu_.hover) fillBox({x + 3, y, kMenuW - 6, kMenuRow}, kTrack, 3);
-            fitted(menu_.items[static_cast<size_t>(i)], x + 9, y + kMenuRow * 0.5f, 9.5f, kMenuW - 14, rgb(i == menu_.current ? kAccent : kText));
+            if (i == menu_.hover) fillBox({x + 3, y, kMenuW - 6, kMenuRow}, k.button, 3);
+            fitted(menu_.items[static_cast<size_t>(i)], x + 9, y + kMenuRow * 0.5f, 9.5f, kMenuW - 14, rgb(i == menu_.current ? k.accent : k.text));
         }
     }
 
@@ -1642,6 +1752,7 @@ private:
     Library library_;
     hnl::ui::PresetBar presetBar_{kPresetX, kHeaderY};
     hnl::ui::HelpTips help_;
+    hnl::ui::SkinMenu skin_;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SamplerUI)
 };

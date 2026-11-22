@@ -11,6 +11,7 @@
 
 #include "DistrhoUI.hpp"
 
+#include "../../common/ui/Skin.hpp"
 #include "../../common/ui/Widgets.hpp"
 #include "dsp/Thickener.hpp"
 #include "Help.hpp"
@@ -27,17 +28,16 @@ Color rgb(uint32_t hex, float alpha = 1.0f) {
     return Color(((hex >> 16) & 255) / 255.0f, ((hex >> 8) & 255) / 255.0f, (hex & 255) / 255.0f, alpha);
 }
 
-const uint32_t kBg = 0x181615, kPanel = 0x22201e, kPanelEdge = 0x35302d, kTrack = 0x403a36, kWell = 0x0f0d0c;
-const uint32_t kText = 0xece8e4, kDim = 0x988f88, kAccent = 0xf0855a;
-const uint32_t kLeft = 0x7fc4e8; // the left channel in the plot; the right one is the accent
-const uint32_t kGreen = 0x4cd27a, kYellow = 0xe8d44d, kRed = 0xef5b5b;
+// The classic look in this plugin's own colours; the other looks are the same for every plugin (common/ui/Skin.hpp).
+hnl::ui::Skin classicLook() {
+    hnl::ui::Skin k = hnl::ui::classicSkin(0x181615, 0x22201e, 0x35302d, 0x403a36, 0x0f0d0c, 0xece8e4, 0x988f88, 0xf0855a, 0x2c2826, 0x4a433e);
+    k.knobHi = k.knobLo = k.knobEdge = 0x2e2a28;
+    return k;
+}
+const hnl::ui::Skin kClassic = classicLook();
+const uint32_t kLeft = 0x7fc4e8; // the left channel in the plot, in every look; the right one is the accent
 
-const float kPi = 3.14159265f;
-
-struct Rect {
-    float x, y, w, h;
-    bool contains(float px, float py) const { return px >= x && px <= x + w && py >= y && py <= y + h; }
-};
+typedef hnl::ui::Box Rect;
 
 const Rect kPlotPanel = {12, 52, 484, 194}, kLevelPanel = {504, 52, 304, 194};
 const Rect kSwitchPanel = {12, 254, 796, 70}, kCopyPanel = {12, 332, 796, 120}, kBusPanel = {12, 460, 796, 120};
@@ -64,8 +64,8 @@ const Selector kSelectors[] = {
 // Lines between groups of knobs: x, and the top of the panel they stand in.
 const float kDividers[4][2] = {{467.5f, 332}, {694.5f, 332}, {467.5f, 460}, {694.5f, 460}};
 
-const float kPresetX = 552, kHeaderY = 14; // the preset bar ends 10 px before the help button
-const hnl::ui::Theme kTheme = {kBg, kPanel, kPanelEdge, kTrack, 0x2c2826, 0x4a433e, kText, kDim, kAccent};
+const float kPresetX = 524, kHeaderY = 14; // the preset bar ends 10 px before the help button
+const float kHelpX = UI_BASE_WIDTH - 52, kSkinX = UI_BASE_WIDTH - 24; // help, and right of it the choice of look
 
 std::string upper(const char* s) {
     std::string out(s);
@@ -84,8 +84,10 @@ public:
         if (s != 1.0) setSize(static_cast<uint>(std::lround(UI_BASE_WIDTH * s)), static_cast<uint>(std::lround(UI_BASE_HEIGHT * s)));
 
         // Help: wide areas first, single controls on top.
-        help_.setButton(UI_BASE_WIDTH - 24, kHeaderY + 12);
+        help_.setButton(kHelpX, kHeaderY + 12);
+        skin_.setButton(kSkinX, kHeaderY + 12);
         help_.add(help_.buttonBox(), "HELP", help::kHelp);
+        help_.add(skin_.buttonBox(), "LOOK", hnl::ui::SkinMenu::help());
         help_.add(presetBar_.nameBox(), "PRESETS", help::kPresets);
         help_.add({kPlotPanel.x, kPlotPanel.y, kPlotPanel.w, kPlotPanel.h}, "RESPONSE", help::kResponse);
         help_.add({kLevelPanel.x, kLevelPanel.y, kLevelPanel.w, kLevelPanel.h}, "LEVELS", help::kLevels);
@@ -110,6 +112,10 @@ protected:
         repaint();
     }
 
+    void uiIdle() override {
+        if (skin_.poll()) repaint(); // another HNL window chose a look
+    }
+
     // ------------------------------------------------------------ drawing
 
     void onNanoDisplay() override {
@@ -117,36 +123,31 @@ protected:
         scale(s, s);
         fontFace(NANOVG_DEJAVU_SANS_TTF);
 
-        beginPath();
-        rect(0, 0, UI_BASE_WIDTH, UI_BASE_HEIGHT);
-        fillColor(rgb(kBg));
-        fill();
+        const hnl::ui::Skin k = skin();
+        const hnl::ui::Theme theme = k.theme();
+        hnl::ui::faceplate(*this, k, UI_BASE_WIDTH, UI_BASE_HEIGHT);
 
-        hnl::ui::title(*this, "THICKENER", rgb(kText), rgb(kDim));
+        hnl::ui::title(*this, "THICKENER", rgb(k.plateText), rgb(k.plateDim));
         std::string presetText = presetName_;
         if (presetModified()) presetText += " *";
         if (!presetNote_.empty()) presetText = presetNote_;
-        presetBar_.drawBar(*this, kTheme, presetText.c_str());
-        help_.drawButton(*this, kTheme);
+        presetBar_.drawBar(*this, theme, presetText.c_str());
+        help_.drawButton(*this, theme);
+        skin_.drawButton(*this, theme);
 
-        for (const Rect* p : {&kPlotPanel, &kLevelPanel, &kSwitchPanel, &kCopyPanel, &kBusPanel}) panel(*p);
+        for (const Rect* p : {&kPlotPanel, &kLevelPanel}) hnl::ui::displayPanel(*this, k, *p);
+        for (const Rect* p : {&kSwitchPanel, &kCopyPanel, &kBusPanel}) hnl::ui::platePanel(*this, k, *p);
 
         drawResponse();
         drawLevels();
 
         for (const Selector& sel : kSelectors) drawSelector(sel);
-        for (const float* at : {kDividers[0], kDividers[1], kDividers[2], kDividers[3]}) {
-            beginPath();
-            moveTo(at[0], at[1] + 16);
-            lineTo(at[0], at[1] + 104);
-            strokeColor(rgb(kPanelEdge));
-            strokeWidth(1);
-            stroke();
-        }
-        for (const Knob& k : kKnobs) drawKnob(k);
+        for (const float* at : {kDividers[0], kDividers[1], kDividers[2], kDividers[3]}) hnl::ui::groove(*this, k, at[0], at[1] + 16, at[0], at[1] + 104);
+        for (const Knob& knob : kKnobs) drawKnob(knob);
 
-        presetBar_.drawMenu(*this, kTheme, list_.count(), preset_, list_.factoryCount(), canSavePreset(), [this](int i) { return list_.name(i); });
-        if (!presetBar_.isOpen() && drag_ < 0) help_.drawTip(*this, kTheme, UI_BASE_WIDTH, UI_BASE_HEIGHT);
+        presetBar_.drawMenu(*this, theme, list_.count(), preset_, list_.factoryCount(), canSavePreset(), [this](int i) { return list_.name(i); });
+        skin_.drawMenu(*this, theme);
+        if (!presetBar_.isOpen() && !skin_.isOpen() && drag_ < 0) help_.drawTip(*this, theme, UI_BASE_WIDTH, UI_BASE_HEIGHT);
     }
 
     // -------------------------------------------------------- interaction
@@ -164,6 +165,11 @@ protected:
         }
 
         presetNote_.clear();
+        if (!presetBar_.isBusy() && skin_.mouseDown(x, y) != hnl::ui::SkinMenu::kNotMine) { // the cog, or its list while it is open
+            help_.hide();
+            repaint();
+            return true;
+        }
         if (!presetBar_.isBusy() && presetBar_.nameBox().contains(x, y)) { // another window may have saved or deleted one
             list_.rescan();
             preset_ = list_.find(presetName_);
@@ -212,6 +218,10 @@ protected:
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
         if (presetBar_.isOpen()) {
             if (presetBar_.motion(x, y, list_.count())) repaint();
+            return true;
+        }
+        if (skin_.isOpen()) {
+            if (skin_.motion(x, y)) repaint();
             return true;
         }
         if (drag_ < 0) {
@@ -320,21 +330,14 @@ private:
         return false;
     }
 
+    /** The look: in every one of them what is on or lit has this plugin's own colour. */
+    hnl::ui::Skin skin() const { return skin_.skin() == hnl::ui::kSkinClassic ? kClassic : hnl::ui::solidSkin(skin_.skin(), kClassic.accent); }
+
     void label(const char* text, float x, float y, float size, const Color& colour, int align) {
         fontSize(size);
         textAlign(align);
         fillColor(colour);
         this->text(x, y, text, nullptr);
-    }
-
-    void panel(const Rect& p) {
-        beginPath();
-        roundedRect(p.x, p.y, p.w, p.h, 6);
-        fillColor(rgb(kPanel));
-        fill();
-        strokeColor(rgb(kPanelEdge));
-        strokeWidth(1);
-        stroke();
     }
 
     // ----------------------------------------------------------- response
@@ -362,31 +365,34 @@ private:
 
     /** What each channel does to a steady tone; the room, Clean Hit, Crush and Drive are left out. */
     void drawResponse() {
+        const hnl::ui::Skin k = skin();
         const Rect& p = kPlotPanel;
         const hnl::ThickenerParams now = settings();
-        label("RESPONSE", p.x + 16, p.y + 16, 10, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
+        label("RESPONSE", p.x + 16, p.y + 16, 10, rgb(k.text), ALIGN_LEFT | ALIGN_MIDDLE);
         char text[96];
         const double step = 1000.0 / now.delayMs;
         std::snprintf(text, sizeof(text), "%s %.1f MS LATE: DIPS FROM %.0f HZ, EVERY %.0f HZ", now.side == hnl::kSideLeft ? "LEFT" : "RIGHT", now.delayMs, 0.5 * step, step);
-        label(text, p.x + 84, p.y + 16, 8, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        label(text, p.x + 84, p.y + 16, 8, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
         label("LEFT", p.x + p.w - 84, p.y + 16, 8, rgb(kLeft), ALIGN_RIGHT | ALIGN_MIDDLE);
-        label("RIGHT", p.x + p.w - 40, p.y + 16, 8, rgb(kAccent), ALIGN_RIGHT | ALIGN_MIDDLE);
-        label("dB", p.x + p.w - 16, p.y + 16, 8, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label("RIGHT", p.x + p.w - 40, p.y + 16, 8, rgb(k.accent), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label("dB", p.x + p.w - 16, p.y + 16, 8, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
 
         beginPath();
         rect(kPlot.x, kPlot.y, kPlot.w, kPlot.h);
-        fillColor(rgb(kWell));
+        fillColor(rgb(k.well));
         fill();
+        // Behind glass the lines of the grid are lit faintly; flat, they are the colours of the panel.
+        const Color grid = k.solid ? rgb(k.dim, 0.22f) : rgb(k.panelEdge), zero = k.solid ? rgb(k.dim, 0.5f) : rgb(k.track);
         for (int db = -6; db <= 6; db += 6) {
             const float y = std::floor(plotY(static_cast<float>(db))) + 0.5f;
             beginPath();
             moveTo(kPlot.x, y);
             lineTo(kPlot.x + kPlot.w, y);
-            strokeColor(rgb(db == 0 ? kTrack : kPanelEdge));
+            strokeColor(db == 0 ? zero : grid);
             strokeWidth(1);
             stroke();
             std::snprintf(text, sizeof(text), db > 0 ? "+%d" : "%d", db);
-            label(text, kPlot.x - 6, y, 8, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+            label(text, kPlot.x - 6, y, 8, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
         }
         static const struct { float hz; const char* text; } kMarks[] = {{50, "50"}, {100, "100"}, {200, "200"}, {500, "500"}, {1000, "1k"},
                                                                          {2000, "2k"}, {5000, "5k"}, {10000, "10k"}};
@@ -395,10 +401,10 @@ private:
             beginPath();
             moveTo(x, kPlot.y);
             lineTo(x, kPlot.y + kPlot.h);
-            strokeColor(rgb(kPanelEdge));
+            strokeColor(grid);
             strokeWidth(1);
             stroke();
-            label(m.text, x, kPlot.y + kPlot.h + 10, 8, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
+            label(m.text, x, kPlot.y + kPlot.h + 10, 8, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
         }
 
         // Towards the right the dips lie closer together than the plot can show: there each
@@ -409,8 +415,8 @@ private:
             beginPath();
             for (int i = 0; i <= columns; ++i) {
                 float low = 1e9f, high = -1e9f, last = 0.0f;
-                for (int k = 0; k < 8; ++k) {
-                    const double hz = kPlotLowHz * std::pow(static_cast<double>(kPlotHighHz / kPlotLowHz), (i + k / 8.0) / columns);
+                for (int sub = 0; sub < 8; ++sub) {
+                    const double hz = kPlotLowHz * std::pow(static_cast<double>(kPlotHighHz / kPlotLowHz), (i + sub / 8.0) / columns);
                     last = static_cast<float>(hnl::thickenerResponseDb(hz, channel, now));
                     low = std::min(low, last);
                     high = std::max(high, last);
@@ -423,7 +429,7 @@ private:
                     lineTo(x, plotY(last));
                 }
             }
-            strokeColor(rgb(channel ? kAccent : kLeft));
+            strokeColor(rgb(channel ? k.accent : kLeft));
             strokeWidth(1.5f);
             stroke();
         }
@@ -437,21 +443,22 @@ private:
     }
 
     void drawLevels() {
+        const hnl::ui::Skin k = skin();
         const Rect& p = kLevelPanel;
         const float x = p.x + 56, w = p.w - 72;
-        label("LEVELS", p.x + 16, p.y + 16, 10, rgb(kText), ALIGN_LEFT | ALIGN_MIDDLE);
-        label("dBFS", p.x + p.w - 16, p.y + 16, 8, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label("LEVELS", p.x + 16, p.y + 16, 10, rgb(k.text), ALIGN_LEFT | ALIGN_MIDDLE);
+        label("dBFS", p.x + p.w - 16, p.y + 16, 8, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
         static const char* const kRows[4] = {"IN L", "IN R", "OUT L", "OUT R"};
         static const uint32_t kMeters[4] = {kMeterInL, kMeterInR, kMeterOutL, kMeterOutR};
         for (int row = 0; row < 4; ++row) {
             const float y = p.y + 32 + row * 15 + (row >= 2 ? 8 : 0), top = levelPos(values_[kMeters[row]]);
-            label(kRows[row], p.x + 16, y + 5, 8, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+            label(kRows[row], p.x + 16, y + 5, 8, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
             beginPath();
             rect(x, y, w, 10);
-            fillColor(rgb(kWell));
+            fillColor(rgb(k.solid ? k.track : k.well)); // solid: the segments that are not lit
             fill();
             struct Zone { float from, to; uint32_t colour; };
-            const Zone zones[3] = {{-48, -12, kGreen}, {-12, -3, kYellow}, {-3, 6, kRed}};
+            const Zone zones[3] = {{-48, -12, k.green}, {-12, -3, k.yellow}, {-3, 6, k.red}};
             for (const Zone& z : zones) {
                 const float a = levelPos(z.from), b = std::min(levelPos(z.to), top);
                 if (b <= a) continue;
@@ -460,33 +467,35 @@ private:
                 fillColor(rgb(z.colour));
                 fill();
             }
+            hnl::ui::segments(*this, k, x, y, w, 10);
         }
         static const int kMarks[] = {-48, -36, -24, -12, 0, 6};
         for (int db : kMarks) {
             char text[8];
             std::snprintf(text, sizeof(text), "%d", db);
-            label(text, x + w * levelPos(static_cast<float>(db)), p.y + 108, 8, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
+            label(text, x + w * levelPos(static_cast<float>(db)), p.y + 108, 8, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
         }
 
         // How alike the two outputs are: from cancelling each other, over unrelated, to the same.
         const float cy = p.y + 124, corr = values_[kMeterCorrelation];
-        label("L/R", p.x + 16, cy + 5, 8, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        label("L/R", p.x + 16, cy + 5, 8, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
         beginPath();
         rect(x, cy, w, 10);
-        fillColor(rgb(kWell));
+        fillColor(rgb(k.solid ? k.track : k.well));
         fill();
         beginPath();
         rect(x, cy, w * 0.5f, 10);
-        fillColor(rgb(kRed, 0.16f));
+        fillColor(rgb(k.red, 0.16f));
         fill();
+        hnl::ui::segments(*this, k, x, cy, w, 10);
         const float at = x + w * 0.5f * (1.0f + (corr < -1.0f ? -1.0f : (corr > 1.0f ? 1.0f : corr)));
         beginPath();
         rect(at - 2, cy - 1, 4, 12);
-        fillColor(rgb(corr < 0.0f ? kRed : kText));
+        fillColor(rgb(corr < 0.0f ? k.red : k.text));
         fill();
-        label("-1", x, cy + 19, 8, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
-        label("WIDE", x + w * 0.5f, cy + 19, 8, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
-        label("MONO", x + w, cy + 19, 8, rgb(kDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label("-1", x, cy + 19, 8, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
+        label("WIDE", x + w * 0.5f, cy + 19, 8, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
+        label("MONO", x + w, cy + 19, 8, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
 
         // The peak coming out, what Level Match applies and how far Crush turns the copy down.
         const float out = std::max(values_[kMeterOutL], values_[kMeterOutR]);
@@ -496,13 +505,14 @@ private:
     }
 
     void readout(const char* name, float value, bool none, bool hot, float x) {
+        const hnl::ui::Skin k = skin();
         const float y = kLevelPanel.y + 172;
         char text[24];
         if (none) std::snprintf(text, sizeof(text), "--");
         else std::snprintf(text, sizeof(text), "%.1f", value);
-        label(name, x, y - 12, 8, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
-        label(text, x, y + 4, 16, rgb(hot ? kRed : kText), ALIGN_LEFT | ALIGN_MIDDLE);
-        label("dB", x + 56, y + 6, 8, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        label(name, x, y - 12, 8, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
+        label(text, x, y + 4, 16, rgb(hot ? k.red : k.text), ALIGN_LEFT | ALIGN_MIDDLE);
+        label("dB", x + 56, y + 6, 8, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
     }
 
     // ----------------------------------------------------------- controls
@@ -510,60 +520,23 @@ private:
     int choice(uint32_t id) const { return static_cast<int>(std::lround(values_[id])); }
 
     void drawSelector(const Selector& sel) {
+        const hnl::ui::Skin k = skin();
         const Rect& b = sel.box;
-        const int count = static_cast<int>(kParams[sel.id].max) + 1, active = choice(sel.id);
-        const float w = b.w / count;
-        label(sel.label, b.x, b.y - 13, 9, rgb(kDim), ALIGN_LEFT | ALIGN_MIDDLE);
-        beginPath();
-        roundedRect(b.x, b.y, b.w, b.h, 4);
-        fillColor(rgb(kTrack));
-        fill();
-        for (int i = 0; i < count; ++i) {
-            if (i == active) {
-                beginPath();
-                roundedRect(b.x + i * w + 2, b.y + 2, w - 4, b.h - 4, 3);
-                fillColor(rgb(kAccent));
-                fill();
-            }
-            label(upper(kParams[sel.id].choices[i]).c_str(), b.x + (i + 0.5f) * w, b.y + b.h * 0.5f, 9, rgb(i == active ? kBg : kText),
-                  ALIGN_CENTER | ALIGN_MIDDLE);
-        }
+        label(sel.label, b.x, b.y - 13, 9, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        std::string text;
+        hnl::ui::keys(*this, k, b, static_cast<int>(kParams[sel.id].max) + 1, choice(sel.id), [&](int i) {
+            text = upper(kParams[sel.id].choices[i]);
+            return text.c_str();
+        });
     }
 
     void drawKnob(const Knob& k) {
-        const ParamInfo& p = kParams[k.id];
-        const float a0 = 0.75f * kPi, a1 = 2.25f * kPi;
-        const float angle = a0 + paramToNorm(k.id, values_[k.id]) * (a1 - a0);
+        const hnl::ui::Skin look = skin();
         // Parameters centred on zero grow from the middle.
-        const float from = p.min < 0.0f ? a0 + paramToNorm(k.id, 0.0f) * (a1 - a0) : a0;
+        const float from = kParams[k.id].min < 0.0f ? paramToNorm(k.id, 0.0f) : 0.0f;
+        hnl::ui::knob(*this, look, k.x, k.y, k.r, paramToNorm(k.id, values_[k.id]), from, look.ring, 15);
 
-        beginPath();
-        arc(k.x, k.y, k.r, a0, a1, CW);
-        strokeColor(rgb(kTrack));
-        strokeWidth(3.5f);
-        lineCap(ROUND);
-        stroke();
-
-        if (std::fabs(angle - from) > 0.01f) {
-            beginPath();
-            arc(k.x, k.y, k.r, std::min(from, angle), std::max(from, angle), CW);
-            strokeColor(rgb(kAccent));
-            strokeWidth(3.5f);
-            stroke();
-        }
-
-        beginPath();
-        circle(k.x, k.y, k.r - 6);
-        fillColor(rgb(0x2e2a28));
-        fill();
-        beginPath();
-        moveTo(k.x + std::cos(angle) * (k.r - 15), k.y + std::sin(angle) * (k.r - 15));
-        lineTo(k.x + std::cos(angle) * (k.r - 7), k.y + std::sin(angle) * (k.r - 7));
-        strokeColor(rgb(kText));
-        strokeWidth(2);
-        stroke();
-
-        label(k.label, k.x, k.y - k.r - 14, 9, rgb(kDim), ALIGN_CENTER | ALIGN_MIDDLE);
+        label(k.label, k.x, k.y - k.r - 14, 9, rgb(look.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
         char text[32];
         const float v = values_[k.id];
         if (k.id == kDelay) std::snprintf(text, sizeof(text), "%.1f ms", v);
@@ -575,7 +548,7 @@ private:
         else if (k.id == kHighCut && v >= 1000.0f) std::snprintf(text, sizeof(text), "%.1f kHz", v / 1000.0f);
         else if (k.id == kGuard || k.id == kLowCut || k.id == kHighCut) std::snprintf(text, sizeof(text), "%.0f Hz", v);
         else std::snprintf(text, sizeof(text), "%.0f %%", v);
-        label(text, k.x, k.y + k.r + 15, 11, rgb(kText), ALIGN_CENTER | ALIGN_MIDDLE);
+        label(text, k.x, k.y + k.r + 15, 11, rgb(look.plateText), ALIGN_CENTER | ALIGN_MIDDLE);
     }
 
     float values_[kParamCount];
@@ -589,6 +562,7 @@ private:
     hnl::PresetList list_ = presets::list();
     std::string presetNote_; // shown in place of the name until the next click
     hnl::ui::HelpTips help_;
+    hnl::ui::SkinMenu skin_;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ThickenerUI)
 };

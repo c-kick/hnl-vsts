@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 
-// Writes the plugin UI as an SVG file: preview <out.svg> <folder with sounds> [busy|map|sample|slices|mod|mix|files|help|menu]; busy is the SYNTH page
+// Writes the plugin UI as an SVG file: preview <out.svg> <folder with sounds> [busy|map|sample|slices|mod|mix|files|help|menu|look]; busy is the SYNTH page
+// The look is the one in the settings file of HNL_SETTINGS_DIR (preview.sh writes one per look).
 // The instrument shown is made here: a looped tone over the keyboard in part 1 and a sliced drum pattern in part 2.
 #include <chrono>
 #include <fstream>
@@ -108,7 +109,7 @@ int main(int argc, char** argv) {
         ui->parameterChanged(kMacro1, 40.0f);
     }
     const auto page = [ui](int p) { click(ui, 988.0 - (6 - p) * 76.0 + 36.0, 66.0); };
-    if (mode == "busy" || mode == "help" || mode == "menu") page(2);
+    if (mode == "busy" || mode == "help" || mode == "menu" || mode == "look") page(2);
     if (mode == "map" || mode == "emptymap") page(0);
     if (mode == "emptysample") page(1);
     if (mode == "emptyfiles") page(5);
@@ -118,12 +119,13 @@ int main(int argc, char** argv) {
     if (mode == "files") { page(5); click(ui, 200, 86 + 32 + 10); }
     if (mode == "slices") { click(ui, 12 + 56 + 26, 66); page(1); click(ui, 12 + 632 + 90 + 40, 86 + 422 + 10); page(0); }
     if (mode == "help") {
-        click(ui, UI_BASE_WIDTH - 24, 24);
+        click(ui, UI_BASE_WIDTH - 52, 24);
         DISTRHO::MotionEvent move; // the filter panel
         move.pos.x = 300;
         move.pos.y = 230;
         ui->onMotion(move);
     }
+    if (mode == "look") click(ui, UI_BASE_WIDTH - 24, 24); // the cog
     if (mode == "menu") click(ui, 160, 86 + 98 + 46 + 9, false); // the list of filters
     ui->onNanoDisplay();
     std::ofstream out(argv[1]);

@@ -116,8 +116,9 @@ The plugins are free software under the GNU General Public License, version 3 or
   plugin and its NanoVG UI next to it, and offline tests in `tests/`.
 - `common/dsp/`: building blocks shared by the plugins (filters, oversampling, true-peak detection, a small reverb),
   and `Safety.hpp`: the guards every plugin puts between itself and the host (see "What a plugin must survive").
-- `common/ui/`: UI parts shared by the plugins (preset bar, help tips); `common/Presets.hpp`: how factory presets
-  are defined; `common/UserPresets.hpp`: the presets a user saves (see "Presets of your own").
+- `common/ui/`: UI parts shared by the plugins (preset bar, help tips, meters, and the looks: see "Looks");
+  `common/Presets.hpp`: how factory presets are defined; `common/UserPresets.hpp`: the presets a user saves (see
+  "Presets of your own"); `common/UserSettings.hpp`: the settings that hold for all plugins.
 - `dpf/`: the [DISTRHO Plugin Framework](https://github.com/DISTRHO/DPF), as a git submodule.
 - `toolchain/`: wrappers that run zig as the Windows cross-compiler.
 - `tools/ui-preview/`: a stand-in for DPF's drawing API that writes a plugin UI as SVG, to check a layout on a
@@ -195,6 +196,33 @@ The designs and the switch are shared: `hnl::ui::drawMeter` and `MeterSwitch` in
 only describes its scale (`MeterScale`: the marks, where the red begins, where a bar starts).
 `common/tests/ui_meter_test.cpp` steps through the designs in each of these plugins' own UI class.
 
+## Looks
+
+Every plugin has three looks built in. **Classic** is the flat look the plugins have always had, and it is what a
+plugin shows unless you choose another. **Hi-Fi Black** and **Hi-Fi Silver** dress the same window as a piece of
+hi-fi equipment: a brushed front plate, meters and figures behind dark glass, knobs of turned metal, keys with a
+light in them. Nothing moves between the looks, and each plugin, and each stage of HNL Master, keeps its own colour
+in all three.
+
+The cog at the top right, next to the **?**, opens the list; a click on a look, or on the arrows above the list,
+changes the window at once, so the looks can be tried one after the other. The choice holds for every HNL plugin and
+every song, and other HNL windows that are open follow within a second. It changes nothing about the sound and is
+not stored in the song: it is kept in `settings.txt` in the HNL folder (`%APPDATA%\HNL\` on Windows, beside the
+plugins' preset folders). Without that file, or with a look in it that a plugin does not know, a plugin shows
+Classic.
+
+| Classic | Hi-Fi Black | Hi-Fi Silver |
+| --- | --- | --- |
+| ![HNL Master, Classic](plugins/hnl-master/docs/everything-on.png) | ![HNL Master, Hi-Fi Black](plugins/hnl-master/docs/hifi-black-all.png) | ![HNL Master, Hi-Fi Silver](plugins/hnl-master/docs/hifi-silver-all.png) |
+| ![HNL Tape Master, Classic](plugins/hnl-tape-master/docs/preview.png) | ![HNL Tape Master, Hi-Fi Black](plugins/hnl-tape-master/docs/hifi-black-busy.png) | ![HNL Tape Master, Hi-Fi Silver](plugins/hnl-tape-master/docs/hifi-silver-busy.png) |
+
+The looks are shared code: `common/ui/Skin.hpp` holds the colours of each look (`Skin`), the parts a window is
+drawn with (`faceplate`, `platePanel`, `displayPanel`, `knob`, `keys`, `toggle`, `button` and others, each of which
+draws the flat or the solid version) and the cog with its list (`SkinMenu`); `common/UserSettings.hpp` reads and
+writes the settings file. A plugin only supplies its Classic colours. `common/tests/ui_skin_test.cpp` runs against
+each plugin's own UI class and checks, among other things, that a new user gets Classic, that a choice reaches the
+settings file and nothing else (no parameter, no plugin state), and that every look draws.
+
 ## What a plugin must survive
 
 A host can hand a plugin anything, and a plugin that goes wrong takes the whole song with it. Every plugin here
@@ -223,6 +251,15 @@ not show it.
 Create `plugins/<name>/` with a `Makefile` that includes `../../dpf/Makefile.plugins.mk` (copy the one from
 `hnl-master`), a `DistrhoPluginInfo.h` with its own `DISTRHO_PLUGIN_UNIQUE_ID`, and `tests/run.sh`. Copy the guards named above from an existing plugin, with their
 tests. `build.sh` and `test.sh` pick it up by folder name.
+
+A plugin with a window has all three looks (see "Looks") from its first version. Its own design is its Classic
+look, given to `hnl::ui::classicSkin`; it draws everything through the parts in `common/ui/Skin.hpp` with the
+colours of `skin()`, never with a colour of its own in the drawing code, so that the two Hi-Fi looks follow without
+more work; and it puts the cog (`SkinMenu`) right of the help button. Where things stand may not depend on the look.
+`plugins/hnl-leveller` is the example for a plugin with one colour, `plugins/hnl-master` for one with a colour per
+stage. Its `tests/run.sh` sets `HNL_SETTINGS_DIR` to an empty folder under `build/` and runs
+`common/tests/ui_skin_test.cpp` against the UI class, and its `tests/preview.sh` renders the Hi-Fi looks beside
+Classic. `test.sh` refuses a plugin with a UI whose `tests/run.sh` does not run that test.
 
 ## Versions
 

@@ -15,5 +15,15 @@ SOUNDS=/tmp/Sounds
 rm -rf "$SOUNDS"
 mkdir -p "$HNL_PRESET_DIR" "$SOUNDS"
 export HOME="$SOUNDS" USERPROFILE="$SOUNDS"
-for mode in busy map sample slices mod mix files help menu empty emptymap emptysample emptyfiles; do "$OUT/preview" "$OUT/$mode.svg" "$SOUNDS" $mode; done
+# The classic look from an empty settings folder, as a new user has it.
+export HNL_SETTINGS_DIR="$PWD/$OUT/settings"
+rm -rf "$HNL_SETTINGS_DIR"
+for mode in busy map sample slices mod mix files help menu look empty emptymap emptysample emptyfiles; do "$OUT/preview" "$OUT/$mode.svg" "$SOUNDS" $mode; done
+# The other looks, as someone who chose one has them: every page, a list, and a page with nothing on it yet.
+mkdir -p "$HNL_SETTINGS_DIR"
+for look in hifi-black hifi-silver; do
+    printf 'skin = %s\n' $look > "$HNL_SETTINGS_DIR/settings.txt"
+    for mode in busy map sample mod mix files menu look emptysample; do "$OUT/preview" "$OUT/$look-$mode.svg" "$SOUNDS" $mode; done
+done
+rm -rf "$HNL_SETTINGS_DIR"
 ls "$OUT"/*.svg

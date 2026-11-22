@@ -54,7 +54,7 @@ int main(int argc, char** argv) {
     }
     if (mode == "help") {
         DISTRHO::MouseEvent click; // the ? button
-        click.pos.x = ui->getWidth() - 24;
+        click.pos.x = ui->getWidth() - 52;
         click.pos.y = 26;
         ui->onMouse(click);
         DISTRHO::MouseEvent release = click;
