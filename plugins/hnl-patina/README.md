@@ -134,7 +134,6 @@ Someone playing keys through it live will feel it.
 
 ## What is not in it yet
 
-- Nobody has heard it. See the note at the top.
 - A change of type cuts the old type's sound in 25 ms. For Space that cuts the old tail; letting it ring out
   while the new one comes in needs two reverbs running at once and is not built.
 - The record's speed is not tied to the song's tempo.
