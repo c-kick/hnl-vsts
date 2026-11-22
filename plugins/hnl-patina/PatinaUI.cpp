@@ -4,9 +4,9 @@
 // HNL Patina: user interface (NanoVG). All coordinates are in a fixed
 // UI_BASE_WIDTH x UI_BASE_HEIGHT design space, scaled by the host's UI scale.
 //
-// The knobs of the six modules show one of the two scenes, A or B (the edit switch). On each of
-// them the arc is the scene being edited, a tick outside it the other scene, and a dot where
-// Morph has the knob now.
+// The knobs of the six modules show one of the two scenes, A or B (the edit switch). Around each
+// of them are two arcs, the outer one scene A's value and the inner one scene B's, each in its
+// scene's colour, and a short line in Morph's colour outside them where Morph has the knob now.
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -46,7 +46,19 @@ uint32_t between(uint32_t a, uint32_t b, float t) {
 // Two colours: brass for scene A and verdigris for scene B, what a metal starts as and what it ages into.
 const uint32_t kBrass = 0xd1a758, kVerdigris = 0x58b8a6;
 const uint32_t kSceneColour[2] = {kBrass, kVerdigris};
+const uint32_t kMorphColour = 0xb9a3ee; // Morph has a colour of its own: its dial, and the line it puts at every knob
+
+/**
+ * One of the three colours as it stands on the front plate. On the dark looks it is a light and
+ * stays as it is. On bare metal a light colour is lost and a darkened one turns to mud, so there
+ * each has a strong printed ink of its own: orange, teal and violet.
+ */
+uint32_t plate(const hnl::ui::Skin& k, uint32_t colour) {
+    if (!k.scale) return colour;
+    return colour == kBrass ? 0xd97a00 : (colour == kVerdigris ? 0x008f78 : (colour == kMorphColour ? 0x7436e8 : hnl::ui::printed(k, colour)));
+}
 const uint32_t kVinylBlack = 0x0f0e0d; // the record itself, in every look
+const uint32_t kPlatter = 0x34312d, kMetal = 0xc4beb4, kMetalDark = 0x6b665f, kArm = 0x56524d; // the turntable, in every look
 
 /** The classic look in this plugin's own colours; the other looks are the same for every plugin (common/ui/Skin.hpp). */
 hnl::ui::Skin classic() {
@@ -510,45 +522,209 @@ private:
         const float motion = amountNow(kMotion), vinyl = amountNow(kVinyl);
         label("RECORD", p.x + 16, p.y + 16, 10, rgb(k.text), ALIGN_LEFT | ALIGN_MIDDLE);
         char text[96];
-        if (!turns) std::snprintf(text, sizeof(text), "NO RECORD: MOTION AND VINYL ARE OFF");
+        if (!turns) std::snprintf(text, sizeof(text), "NO RECORD");
         else if (motion > 0.0f) std::snprintf(text, sizeof(text), "%s RPM \xC2\xB7 %s \xC2\xB1%.0f CENT", kSpeedNames[speed], upper(kMotionTypes[typeNow(kMotion)]).c_str(),
                                               motion * (typeNow(kMotion) == hnl::patina::Platter::kBelt ? 7.0f : 50.0f));
         else std::snprintf(text, sizeof(text), "%s RPM \xC2\xB7 RUNS TRUE", kSpeedNames[speed]);
         label(text, p.x + 74, p.y + 16, 8, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
 
         const float pi = 3.14159265f, turn = 2 * pi * values_[kMeterAngle];
-        disc(kRecordX, kRecordY, kRecordR + 4, rgb(k.track)); // the platter
+        const float R = kRecordR;
+        const int motionType = typeNow(kMotion), vinylType = typeNow(kVinyl);
+        const bool shellac = turns && vinyl > 0.0f && vinylType == 3;
+
+        // The platter: its shadow on the plinth, the mat, and the bright edge of the rim around it.
+        disc(kRecordX + 1.5f, kRecordY + 2.5f, R + 5, rgb(0x000000, 0.45f));
+        disc(kRecordX, kRecordY, R + 4.5f, rgb(0x161514));
+        ring(kRecordX, kRecordY, R + 4.0f, 0.8f, rgb(kMetal, 0.8f));
+
+        // An off-centre hole: the record swings around the spindle as it turns.
+        const float off = turns && motionType == hnl::patina::Platter::kOffCentre ? 4.0f * motion : 0.0f;
+        const float cx = kRecordX + off * std::cos(turn), cy = kRecordY + off * std::sin(turn);
+
+        // The arm is one stiff piece that turns on its bearing: a tube, and a head set at an angle to it.
+        // On the record the needle rides at one distance from the record's centre, so an off-centre
+        // record swings the arm; with no record the arm lies on its rest, straight down.
+        const float ax = kRecordX + 70, ay = kRecordY - 44;                 // the bearing
+        const float tube = 76.0f, headTurn = 0.38f, toNeedle = 9.0f;        // the needle sits this far into the head
+        const float px = tube + toNeedle * std::cos(headTurn), py = toNeedle * std::sin(headTurn); // the needle, seen along the tube
+        const float reach = std::hypot(px, py), lead = std::atan2(py, px);
+        float swing = 0.5f * pi; // the direction of the tube: straight down on the rest
         if (turns) {
-            // An off-centre hole: the record swings around the spindle as it turns.
-            const float off = typeNow(kMotion) == hnl::patina::Platter::kOffCentre ? 4.0f * motion : 0.0f;
-            const float cx = kRecordX + off * std::cos(turn), cy = kRecordY + off * std::sin(turn);
-            disc(cx, cy, kRecordR, rgb(kVinylBlack));
-            for (float r = 24; r < kRecordR - 2; r += 4.2f) {
-                beginPath();
-                circle(cx, cy, r);
-                strokeColor(rgb(k.track, 0.5f));
-                strokeWidth(0.6f);
-                stroke();
+            const float far = std::hypot(cx - ax, cy - ay), groove = 43.0f;
+            const float open = std::acos(std::clamp((far * far + reach * reach - groove * groove) / (2 * far * reach), -1.0f, 1.0f));
+            swing = std::atan2(cy - ay, cx - ax) - open - lead;
+        }
+        const float ux = std::cos(swing), uy = std::sin(swing), vx = -uy, vy = ux;                     // along the tube, and across it
+        const float hx = std::cos(swing + headTurn), hy = std::sin(swing + headTurn), wx = -hy, wy = hx; // along the head, and across it
+        const float ex = ax + tube * ux, ey = ay + tube * uy;                // where the tube meets the head
+        const float nx = ex + toNeedle * hx, ny = ey + toNeedle * hy;
+        const float needle = std::atan2(ny - cy, nx - cx); // where the needle sits, seen from the record's centre
+        if (turns) {
+            const float labelR = shellac ? 23.0f : 19.0f, grooveIn = labelR + 7.0f, grooveOut = R - 2.5f;
+            disc(cx, cy, R, rgb(shellac ? 0x15100c : kVinylBlack));
+            ring(cx, cy, R - 0.7f, 0.9f, rgb(0xffffff, 0.10f)); // the raised edge
+            // The grooves: a band a little lighter than the bare vinyl of the edge and the run-out.
+            band(cx, cy, grooveIn, grooveOut, 0.0f, 2 * pi, rgb(0xffffff, shellac ? 0.035f : 0.05f));
+            for (float r = grooveIn + 1.2f; r < grooveOut; r += 2.3f) ring(cx, cy, r, 0.5f, rgb(0x000000, 0.35f));
+
+            // The light on the grooves: two fans opposite each other that stay where the lamp is while the
+            // record turns under them. A warped record throws them about; a worn one is dull.
+            const float worn = vinyl > 0.0f ? (vinylType == 2 ? 0.75f : 0.35f) * vinyl : 0.0f;
+            const float shine = (shellac ? 0.5f : 1.0f) * (1.0f - worn);
+            const float sway = motionType == hnl::patina::Platter::kWarped ? 0.22f * motion : 0.0f;
+            for (int side = 0; side < 2; ++side) {
+                const float at = -0.80f + pi * side + sway * std::sin(2 * turn + 1.3f * side);
+                const float wide = 0.34f * (1.0f + (side == 0 ? 1.0f : -1.0f) * 1.2f * sway * std::cos(2 * turn));
+                for (int layer = 0; layer < 5; ++layer) {
+                    const float half = wide * (1.0f - layer / 5.0f);
+                    band(cx, cy, grooveIn, grooveOut, at - half, at + half, rgb(0xffffff, 0.05f * shine));
+                }
             }
-            const float needle = -0.35f; // where the needle sits, seen from the spindle
-            if (vinyl > 0.0f && typeNow(kVinyl) == 1) { // the scratches, where the engine has them
+            if (worn > 0.0f && vinylType == 2) band(cx, cy, grooveIn + 4, grooveOut - 6, 0.0f, 2 * pi, rgb(0x8a8378, 0.10f * vinyl)); // played grey
+
+            // The gaps between the songs cut through the light; a 78 has one song a side.
+            if (!shellac) {
+                static const float kGaps[4] = {0.19f, 0.43f, 0.60f, 0.83f};
+                for (float g : kGaps) ring(cx, cy, grooveIn + g * (grooveOut - grooveIn), 1.1f, rgb(kVinylBlack));
+            }
+            ring(cx, cy, labelR + 3.2f, 0.5f, rgb(0xffffff, 0.08f)); // the run-out groove
+
+            if (vinyl > 0.0f && vinylType == 0) { // dust, more of it with Amount, lying still on the record
+                hnl::patina::Rng dust;
+                dust.seed(0x51ed270bu);
+                const int specks = static_cast<int>(10 + 70 * vinyl);
+                for (int i = 0; i < specks; ++i) {
+                    const float a = turn + 2 * pi * static_cast<float>(dust.unit());
+                    const float r = grooveIn - 4 + (R - grooveIn + 2) * std::sqrt(static_cast<float>(dust.unit()));
+                    const float size = 0.35f + 0.5f * static_cast<float>(dust.unit());
+                    disc(cx + r * std::cos(a), cy + r * std::sin(a), size, rgb(0xd8d2c6, 0.30f + 0.35f * static_cast<float>(dust.unit())));
+                }
+            }
+            if (vinyl > 0.0f && vinylType == 1) { // the scratches, where the engine has them: each passes the needle as it clicks
                 const int count = hnl::patina::scratchesAt(vinyl);
                 for (int i = 0; i < count; ++i) {
                     const float a = needle + turn - 2 * pi * static_cast<float>(hnl::patina::kScratchAngle[i]);
-                    const float from = 26 + 6 * (i % 3), to = kRecordR - 4 - 5 * (i % 2);
-                    line(cx + from * std::cos(a), cy + from * std::sin(a), cx + to * std::cos(a + 0.07f), cy + to * std::sin(a + 0.07f), 1.1f, rgb(k.text, 0.85f));
+                    const float from = grooveIn + 5 * (i % 3), to = grooveOut - 1 - 5 * (i % 2), bend = 0.02f + 0.015f * (i % 4);
+                    beginPath(); // a little bent, as a slip of the hand is
+                    for (int step = 0; step <= 6; ++step) {
+                        const float t = step / 6.0f, r = from + (to - from) * t, b = a + bend * t * t;
+                        if (step == 0) moveTo(cx + r * std::cos(b), cy + r * std::sin(b));
+                        else lineTo(cx + r * std::cos(b), cy + r * std::sin(b));
+                    }
+                    strokeColor(rgb(0xe9e4da, 0.6f));
+                    strokeWidth(0.6f);
+                    lineCap(ROUND);
+                    stroke();
                 }
             }
-            disc(cx, cy, 19, rgb(between(kBrass, kVerdigris, morph()))); // the label takes the colour of the scene
-            line(cx + 6 * std::cos(turn), cy + 6 * std::sin(turn), cx + 16 * std::cos(turn), cy + 16 * std::sin(turn), 1.2f, rgb(kVinylBlack, 0.7f));
+
+            // The label, in the colour of the scene: a printed rim, two lines of type that turn, and the hole.
+            const uint32_t paper = between(kBrass, kVerdigris, morph()), ink = between(paper, 0x000000, 0.62f);
+            disc(cx, cy, labelR, rgb(paper));
+            ring(cx, cy, labelR - 1.6f, 0.7f, rgb(ink, 0.7f));
+            band(cx, cy, 0.0f, labelR - 2.6f, turn + 0.25f * pi, turn + 0.75f * pi, rgb(ink, 0.16f)); // the darker half of the print
+            band(cx, cy, 0.0f, labelR - 2.6f, turn + 1.25f * pi, turn + 1.75f * pi, rgb(ink, 0.16f));
+            curve(cx, cy, labelR - 5.0f, turn - 1.15f, turn + 1.15f, 1.5f, rgb(ink, 0.8f)); // the name
+            curve(cx, cy, labelR - 8.2f, turn - 0.75f, turn + 0.75f, 0.9f, rgb(ink, 0.6f));
+            curve(cx, cy, labelR - 5.5f, turn + pi - 0.9f, turn + pi + 0.9f, 0.8f, rgb(ink, 0.6f)); // the small print
+            curve(cx, cy, labelR - 7.6f, turn + pi - 0.6f, turn + pi + 0.6f, 0.8f, rgb(ink, 0.45f));
+            ring(cx, cy, 5.2f, 0.6f, rgb(ink, 0.5f));
         }
-        disc(kRecordX, kRecordY, 2.2f, rgb(k.well));
-        // The arm.
-        const float ax = kRecordX + kRecordR + 12, ay = kRecordY - kRecordR + 2;
-        const float nx = kRecordX + 40, ny = kRecordY - 14;
-        disc(ax, ay, 6, rgb(k.dim, 0.6f));
-        line(ax, ay, turns ? nx : ax + 4, turns ? ny : ay + 70, 2.6f, rgb(k.dim));
-        if (turns) disc(nx, ny, 4, rgb(k.text, 0.8f));
+        // The spindle stands still.
+        disc(kRecordX, kRecordY, 2.3f, rgb(kMetalDark));
+        disc(kRecordX - 0.6f, kRecordY - 0.6f, 1.0f, rgb(kMetal));
+
+        // The arm's board with the dial for the side force, and the rest the arm lies on when it is not playing.
+        disc(ax + 1.5f, ay + 2.5f, 13.5f, rgb(0x000000, 0.4f));
+        disc(ax, ay, 13.0f, rgb(0x121110));
+        ring(ax, ay, 12.6f, 0.6f, rgb(kMetal, 0.22f));
+        disc(ax + 8.5f, ay + 1.5f, 2.6f, rgb(kMetalDark));
+        disc(ax + 8.5f, ay + 1.5f, 1.2f, rgb(kMetal));
+        thick(ax - 3.5f, ay + 22, ax + 5.5f, ay + 22, 3.2f, rgb(0x2a2725));
+        thick(ax - 3.5f, ay + 21, ax + 5.5f, ay + 21, 0.6f, rgb(kMetal, 0.35f));
+
+        const float sx = 2.0f, sy = 3.5f; // the shadow of what floats above the record
+        thick(ax + sx, ay + sy, ex + sx, ey + sy, 2.8f, rgb(0x000000, 0.35f));
+        quad(ex + sx - 3.4f * wx, ey + sy - 3.4f * wy, ex + sx + 3.4f * wx, ey + sy + 3.4f * wy, 13.0f * hx, 13.0f * hy, rgb(0x000000, 0.35f));
+        // The weight behind the bearing, the tube with the light along it, the bearing itself.
+        thick(ax - 7 * ux, ay - 7 * uy, ax - 19 * ux, ay - 19 * uy, 10.5f, rgb(kArm));
+        thick(ax - 7 * ux, ay - 7 * uy, ax - 8.2f * ux, ay - 8.2f * uy, 10.5f, rgb(kMetal, 0.45f));
+        thick(ax - 18 * ux, ay - 18 * uy, ax - 19 * ux, ay - 19 * uy, 10.5f, rgb(0x000000, 0.4f));
+        thick(ax - 7 * ux, ay - 7 * uy, ex, ey, 2.8f, rgb(kArm));
+        line(ax + 6 * ux - 0.6f * vx, ay + 6 * uy - 0.6f * vy, ex - 0.6f * vx, ey - 0.6f * vy, 0.6f, rgb(kMetal, 0.75f));
+        disc(ax, ay, 6.0f, rgb(kArm));
+        ring(ax, ay, 6.0f, 0.7f, rgb(kMetal, 0.6f));
+        disc(ax, ay, 2.6f, rgb(0x121110));
+        disc(ax - 0.5f, ay - 0.5f, 1.0f, rgb(kMetal, 0.8f));
+        // The head, wider at its tip, with the pick-up under it and the finger lift on the outside.
+        beginPath();
+        moveTo(ex - 2.2f * wx, ey - 2.2f * wy);
+        lineTo(ex + 2.2f * wx, ey + 2.2f * wy);
+        lineTo(ex + 13 * hx + 3.6f * wx, ey + 13 * hy + 3.6f * wy);
+        lineTo(ex + 13 * hx - 3.6f * wx, ey + 13 * hy - 3.6f * wy);
+        closePath();
+        fillColor(rgb(kArm));
+        fill();
+        quad(ex + 5.5f * hx - 2.7f * wx, ey + 5.5f * hy - 2.7f * wy, ex + 5.5f * hx + 2.7f * wx, ey + 5.5f * hy + 2.7f * wy, 6.5f * hx, 6.5f * hy, rgb(0x191716));
+        thick(ex + 11.2f * hx - 2.7f * wx, ey + 11.2f * hy - 2.7f * wy, ex + 11.2f * hx + 2.7f * wx, ey + 11.2f * hy + 2.7f * wy, 0.8f, rgb(k.text, 0.85f));
+        line(ex + 3 * hx - 2.6f * wx, ey + 3 * hy - 2.6f * wy, ex + 4.5f * hx - 8.0f * wx, ey + 4.5f * hy - 8.0f * wy, 1.1f, rgb(kMetal, 0.8f));
+    }
+
+    /** A circle drawn as a line. */
+    void ring(float x, float y, float r, float width, const Color& colour) {
+        beginPath();
+        circle(x, y, r);
+        strokeColor(colour);
+        strokeWidth(width);
+        stroke();
+    }
+    /** Part of a circle's line, from one angle to another. */
+    void curve(float x, float y, float r, float from, float to, float width, const Color& colour) {
+        beginPath();
+        arc(x, y, r, from, to, CW);
+        strokeColor(colour);
+        strokeWidth(width);
+        lineCap(BUTT);
+        stroke();
+    }
+    /** A filled piece of a ring between two radii and two angles; with an inner radius of 0, a slice. */
+    void band(float x, float y, float inner, float outer, float from, float to, const Color& colour) {
+        const int steps = std::max(4, static_cast<int>((to - from) * 14.0f));
+        beginPath();
+        for (int i = 0; i <= steps; ++i) {
+            const float a = from + (to - from) * i / steps;
+            if (i == 0) moveTo(x + outer * std::cos(a), y + outer * std::sin(a));
+            else lineTo(x + outer * std::cos(a), y + outer * std::sin(a));
+        }
+        for (int i = steps; i >= 0; --i) {
+            const float a = from + (to - from) * i / steps;
+            lineTo(x + inner * std::cos(a), y + inner * std::sin(a));
+        }
+        closePath();
+        fillColor(colour);
+        fill();
+    }
+    /** A line with square ends. */
+    void thick(float x0, float y0, float x1, float y1, float width, const Color& colour) {
+        beginPath();
+        moveTo(x0, y0);
+        lineTo(x1, y1);
+        strokeColor(colour);
+        strokeWidth(width);
+        lineCap(BUTT);
+        stroke();
+    }
+    /** A box that stands on the line from (x0, y0) to (x1, y1) and reaches (dx, dy) from it. */
+    void quad(float x0, float y0, float x1, float y1, float dx, float dy, const Color& colour) {
+        beginPath();
+        moveTo(x0, y0);
+        lineTo(x1, y1);
+        lineTo(x1 + dx, y1 + dy);
+        lineTo(x0 + dx, y0 + dy);
+        closePath();
+        fillColor(colour);
+        fill();
     }
 
     void drawTrace(const hnl::ui::Skin& k) {
@@ -602,6 +778,14 @@ private:
         const Rect& p = kScenes;
         label("SCENES", p.x + 16, p.y + 16, 10, rgb(k.plateText), ALIGN_LEFT | ALIGN_MIDDLE);
         label(edit_ == 0 ? "EDITING A" : "EDITING B", p.x + p.w - 16, p.y + 16, 8, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        // What the rings around the knobs below mean.
+        const float lx = p.x + 78, ly = p.y + 16;
+        disc(lx, ly, 3, rgb(plate(k, kBrass)));
+        label("A", lx + 6, ly, 8, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        disc(lx + 24, ly, 3, rgb(plate(k, kVerdigris)));
+        label("B", lx + 30, ly, 8, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        line(lx + 48, ly - 4, lx + 48, ly + 4, 2.4f, rgb(plate(k, kMorphColour)));
+        label("NOW", lx + 54, ly, 8, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
         hnl::ui::keys(*this, k, kEditKeys, 2, edit_, [](int i) { return i == 0 ? "A" : "B"; }, kSceneColour[edit_], k.text);
         static const char* const kCopyText[3] = {"A \xE2\x96\xB8 B", "B \xE2\x96\xB8 A", "SWAP"};
         for (int i = 0; i < 3; ++i) hnl::ui::button(*this, k, kCopy[i], kCopyText[i]);
@@ -618,33 +802,20 @@ private:
 
         for (int i = 0; i < kGlobalKnobs; ++i) drawGlobalKnob(k, knobSpot(i));
         const Knob m = knobSpot(0);
-        label("A", m.x - 44, m.y + 50, 10, rgb(hnl::ui::printed(k, kBrass)), ALIGN_CENTER | ALIGN_MIDDLE);
-        label("B", m.x + 44, m.y + 50, 10, rgb(hnl::ui::printed(k, kVerdigris)), ALIGN_CENTER | ALIGN_MIDDLE);
+        label("A", m.x - 44, m.y + 50, 10, rgb(plate(k, kBrass)), ALIGN_CENTER | ALIGN_MIDDLE);
+        label("B", m.x + 44, m.y + 50, 10, rgb(plate(k, kVerdigris)), ALIGN_CENTER | ALIGN_MIDDLE);
         // The knobs change little that can be heard while the other scene has most of the morph.
         const float share = edit_ == 0 ? 1.0f - morph() : morph();
         if (share < 0.25f)
-            label(edit_ == 0 ? "you hear mostly B" : "you hear mostly A", m.x, m.y + 82, 8, rgb(hnl::ui::printed(k, kSceneColour[1 - edit_])), ALIGN_CENTER | ALIGN_MIDDLE);
+            label(edit_ == 0 ? "you hear mostly B" : "you hear mostly A", m.x, m.y + 82, 8, rgb(plate(k, kSceneColour[1 - edit_])), ALIGN_CENTER | ALIGN_MIDDLE);
     }
 
     void drawGlobalKnob(const hnl::ui::Skin& k, const Knob& spot) {
         const uint32_t id = spot.which;
         const float norm = paramToNorm(id, values_[id]);
         const bool big = id == kMorph;
-        hnl::ui::knob(*this, k, spot.x, spot.y, spot.r, norm, id == kOutput ? paramToNorm(kOutput, 0.0f) : 0.0f, big ? hnl::ui::printed(k, kBrass) : k.ring, big ? 22 : 9);
-        if (big && norm > 0.005f) { // Morph's arc runs from the colour of A to the colour of B
-            const float pi = 3.14159265f, a0 = 0.75f * pi, sweep = 1.5f * pi;
-            const int parts = 24;
-            for (int i = 0; i < parts; ++i) {
-                const float from = static_cast<float>(i) / parts, to = std::min(norm, static_cast<float>(i + 1) / parts);
-                if (to <= from) break;
-                beginPath();
-                arc(spot.x, spot.y, spot.r, a0 + from * sweep, a0 + to * sweep + 0.01f, CW);
-                strokeColor(rgb(hnl::ui::printed(k, between(kBrass, kVerdigris, from))));
-                strokeWidth(k.solid ? 1.6f : 3.5f);
-                lineCap(BUTT);
-                stroke();
-            }
-        }
+        hnl::ui::knob(*this, k, spot.x, spot.y, spot.r, norm, id == kOutput ? paramToNorm(kOutput, 0.0f) : 0.0f, big ? plate(k, kMorphColour) : k.ring, big ? 22 : 9);
+        if (big && k.solid) ringArc(spot.x, spot.y, spot.r, 0.0f, norm, 3.0f, rgb(plate(k, kMorphColour))); // the shared knob's ring of light is thin
         label(spot.label, spot.x, spot.y - spot.r - (big ? 12 : 11), big ? 9 : 8, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
         char text[32];
         if (id == kOutput) std::snprintf(text, sizeof(text), "%+.1f dB", values_[id]);
@@ -686,44 +857,70 @@ private:
         }
     }
 
+    /** An arc of a knob's ring, from one position 0..1 to another. */
+    void ringArc(float x, float y, float r, float from, float to, float width, const Color& colour) {
+        const float pi = 3.14159265f, a0 = 0.75f * pi, sweep = 1.5f * pi;
+        if (to < from) std::swap(from, to);
+        if (to - from < 0.002f) return;
+        beginPath();
+        arc(x, y, r, a0 + from * sweep, a0 + to * sweep, CW);
+        strokeColor(colour);
+        strokeWidth(width);
+        lineCap(BUTT);
+        stroke();
+    }
+
+    /**
+     * A module's knob. The pointer is the scene being edited. Around it two arcs, always in the same
+     * place: the outer one is the knob in scene A, the inner one in scene B, each in its scene's
+     * colour, the one being edited at full strength. The line outside them is where Morph has the knob now.
+     */
     void drawModuleKnob(const hnl::ui::Skin& k, const Knob& spot, bool on) {
-        const int m = spot.module, other = 1 - edit_;
-        const uint32_t id = moduleParam(edit_, m, spot.which), twin = moduleParam(other, m, spot.which);
-        const float norm = paramToNorm(id, values_[id]), twinNorm = paramToNorm(twin, values_[twin]);
+        const int m = spot.module;
+        const uint32_t id = moduleParam(edit_, m, spot.which);
         const bool twoWay = m == kDrive && spot.which == mThird; // Tone goes both ways from the middle
         const bool steps = kParams[id].kind == kChoice;
+        const bool isAmount = spot.which == mAmount;
+        const float norm = paramToNorm(id, values_[id]), from = twoWay ? 0.5f : 0.0f;
         const float pi = 3.14159265f, a0 = 0.75f * pi, sweep = 1.5f * pi;
-        hnl::ui::knob(*this, k, spot.x, spot.y, spot.r, norm, twoWay ? 0.5f : 0.0f, on ? hnl::ui::printed(k, kSceneColour[edit_]) : k.plateDim, spot.r > 20 ? 17 : 9);
+        const bool large = spot.r > 20;
 
-        // The other scene's value: a tick outside the arc, in that scene's colour.
-        const bool twinOn = isOn(other, m);
-        const float tick = spot.which == mAmount && !twinOn ? 0.0f : twinNorm;
-        const float a = a0 + tick * sweep, r0 = spot.r + 3, r1 = spot.r + (spot.r > 20 ? 8.5f : 7);
-        line(spot.x + r0 * std::cos(a), spot.y + r0 * std::sin(a), spot.x + r1 * std::cos(a), spot.y + r1 * std::sin(a), 2, rgb(hnl::ui::printed(k, kSceneColour[other])));
-
-        // Where Morph has the knob now: a dot on the arc.
-        if (!steps && (on || twinOn)) {
-            float mine = norm, theirs = twinNorm;
-            if (spot.which == mAmount) { // off counts as nothing
-                if (!on) mine = 0.0f;
-                if (!twinOn) theirs = 0.0f;
-            } else if (!on) mine = theirs; // everything else comes from the scene in which the module is on
-            else if (!twinOn) theirs = mine;
-            const float share = edit_ == 0 ? morph() : 1.0f - morph(); // how far towards the other scene
-            const float now = a0 + (mine + share * (theirs - mine)) * sweep;
-            disc(spot.x + spot.r * std::cos(now), spot.y + spot.r * std::sin(now), spot.r > 20 ? 3.4f : 2.8f, rgb(k.solid ? k.groove : k.bg));
-            disc(spot.x + spot.r * std::cos(now), spot.y + spot.r * std::sin(now), spot.r > 20 ? 2.4f : 1.9f, rgb(k.plateText));
+        // The knob itself, with no arc of its own: the two scenes' arcs are drawn over its ring.
+        hnl::ui::knob(*this, k, spot.x, spot.y, spot.r, norm, norm, k.ring, large ? 17 : 9);
+        const float radius[2] = {spot.r + 1.0f, spot.r - 2.0f}, width = 2.4f;
+        float at[2];
+        for (int scene = 0; scene < 2; ++scene) {
+            const uint32_t sid = moduleParam(scene, m, spot.which);
+            const bool sceneOn = isOn(scene, m);
+            at[scene] = isAmount && !sceneOn ? from : paramToNorm(sid, values_[sid]); // off counts as nothing
+            ringArc(spot.x, spot.y, radius[scene], 0.0f, 1.0f, width, rgb(k.solid ? k.groove : k.track, k.scale ? 0.16f : (k.solid ? 0.5f : 1.0f)));
+            // The scene that is not being edited is fainter; on bare metal less so, where faint ink is soon gone.
+            const float strength = (scene == edit_ ? 1.0f : (k.scale ? 0.75f : 0.55f)) * (sceneOn ? 1.0f : 0.45f);
+            ringArc(spot.x, spot.y, radius[scene], from, at[scene], width, rgb(plate(k, kSceneColour[scene]), strength));
         }
 
-        label(upper(spot.label).c_str(), spot.x, spot.y - spot.r - (spot.r > 20 ? 16 : 14), spot.r > 20 ? 8 : 7.5f, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
+        // Where Morph has the knob now, in Morph's colour. A knob with steps is on the step of the scene Morph is nearer to.
+        if (isOn(0, m) || isOn(1, m)) {
+            float a = at[0], b = at[1];
+            if (!isAmount) { // everything but Amount comes from the scene in which the module is on
+                if (!isOn(0, m)) a = b;
+                if (!isOn(1, m)) b = a;
+            }
+            const float now = steps ? (sceneNow(m) == 0 ? a : b) : a + morph() * (b - a);
+            // A short line just outside the two arcs, so it covers neither.
+            const float angle = a0 + now * sweep, r0 = spot.r + 3.5f, r1 = spot.r + (large ? 9.0f : 7.5f);
+            line(spot.x + r0 * std::cos(angle), spot.y + r0 * std::sin(angle), spot.x + r1 * std::cos(angle), spot.y + r1 * std::sin(angle), 2.4f, rgb(plate(k, kMorphColour)));
+        }
+
+        label(upper(spot.label).c_str(), spot.x, spot.y - spot.r - (large ? 14 : 12), large ? 8 : 7.5f, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
         char text[32];
         const float v = values_[id];
-        if (spot.which == mAmount && !on) std::snprintf(text, sizeof(text), "Off");
+        if (isAmount && !on) std::snprintf(text, sizeof(text), "Off");
         else if (steps) std::snprintf(text, sizeof(text), "%s", kParams[id].choices[choice(id)]);
         else if (twoWay) std::snprintf(text, sizeof(text), std::fabs(v) < 0.5f ? "0 %%" : "%+.0f %%", v);
         else if (m == kSpace && spot.which == mThird) std::snprintf(text, sizeof(text), "%.1f s", v);
         else std::snprintf(text, sizeof(text), "%.0f %%", v);
-        label(text, spot.x, spot.y + spot.r + (spot.r > 20 ? 21 : 16), spot.r > 20 ? 11 : 9.5f, rgb(on ? k.plateText : k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
+        label(text, spot.x, spot.y + spot.r + (large ? 21 : 16), large ? 11 : 9.5f, rgb(on ? k.plateText : k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
     }
 
     float values_[kParamCount];

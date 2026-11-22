@@ -71,8 +71,10 @@ module passes its input unchanged, sample for sample, whatever else is set.
 ### Scenes and Morph
 
 A scene is everything the six modules hold. **A / B** chooses which one the knobs show and change; the
-choice is kept with the song. On each knob the arc is the scene being edited, the tick outside it is the other
-scene, and the dot is where Morph has the knob now.
+choice is kept with the song. Around each knob are two arcs, always in the same place and each in its scene's
+colour: the outer one is the knob in scene A, the inner one in scene B. The scene being edited is the stronger
+of the two. Morph has a colour of its own: a short line outside the arcs shows where Morph has the knob now,
+which is what you hear.
 
 **Morph** goes from A (0%) to B (100%); at either end the sound is exactly that scene. Knobs move straight
 from one value to the other. A module that is off in one scene fades in over the whole morph, with the type
@@ -158,6 +160,16 @@ may do (`common/tests/HostAbuse.hpp`), and the UI class on the drawing stand-in:
 (`ui_scenes_test`) and the choice of look.
 
 ## Changelog
+
+### 0.2.0 (2026-11-22), alpha
+
+- New: every knob of a module shows both scenes at once, as two arcs in the colours of A and B, where it showed
+  the scene being edited as an arc and the other as a tick. Morph has its own colour, on its dial and as a short
+  line at every knob for the value Morph makes of the two. Hi-Fi Silver has stronger inks for the three colours.
+- New: the turntable is drawn again: a platter with a mat and a bright rim, a record with grooves, gaps between
+  the songs, light on it and a printed label, and an arm with its weight, bearing and head that turns on its
+  bearing and lies beside the platter when there is no record. The record shows the Vinyl type: dust, scratches
+  where they click, a worn groove, a 78 with its large label.
 
 ### 0.1.0 (2026-11-22), alpha
 

@@ -39,7 +39,7 @@ const char* const kMix = "One strip for each part: level, pan, how much goes to 
 const char* const kFx = "The delay, reverb and chorus all parts can send to. They always come back on the first output pair.";
 const char* const kTuning = "The tuning of the keys. A Scala file (.scl) from the FILES page replaces equal temperament; Equal brings it back.";
 
-const char* const kFiles = "Folders and files on this computer: sounds (WAV, AIFF, FLAC), instruments of others (SFZ, SoundFont), tunings (Scala) and instruments saved here. Click a sound to hear it; double-click a folder to open it, a file to use it. UP goes to the folder above, HOME to your own folder, and the last button to the drives of this computer. The page opens where a sound was last taken from.";
+const char* const kFiles = "Folders and files on this computer: sounds (WAV, AIFF, FLAC), instruments of others (SFZ, SoundFont), tunings (Scala) and instruments saved here. Click a sound to hear it; double-click a folder to open it, a file to use it. UP goes to the folder above, HOME to your own folder, and the last button to the drives of this computer. The page opens in the folder it was last in.";
 const char* const kFileActions = "What can be done with the chosen file. A sound: Add as zone puts it on all keys of the part, or on the keys its file names; Add on next key gives it the key after the highest zone, for building a drum kit; Stop preview ends the listening. An SFZ file or a SoundFont is imported into the chosen part, replacing its zones. A Scala file becomes the tuning, and a saved instrument replaces the one that is here.";
 
 } // namespace help

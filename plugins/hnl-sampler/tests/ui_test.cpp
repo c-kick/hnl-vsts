@@ -271,6 +271,23 @@ int main(int argc, char** argv) {
     ui->onNanoDisplay();
     check(sampler.document()->parts[0].zones.size() == zonesBefore && ui->svg.find("Not added") != std::string::npos, "a sound with a line end in its name is not added, and the page says why");
     delete ui;
+
+    // The window is closed and opened again: FILES is in the folder it was left in, though no sound was taken from it.
+    ui = DISTRHO::createUI();
+    page(5);
+    ui->svg.clear();
+    ui->onNanoDisplay();
+    check(ui->svg.find("s 0000.wav") != std::string::npos && ui->svg.find("0 many") != std::string::npos, "FILES opens again in the folder it was left in");
+    delete ui;
+    // And the folder is on disk, for the next run of the host.
+    std::string kept;
+    if (std::FILE* f = std::fopen((fs::path(std::getenv("HNL_PRESET_DIR")) / "last-folder.txt").c_str(), "rb")) {
+        char text[2000];
+        kept.assign(text, std::fread(text, 1, sizeof(text), f));
+        std::fclose(f);
+    }
+    std::error_code same;
+    check(!kept.empty() && fs::equivalent(fs::path(kept), many, same), "the folder is kept in a file for the next run of the host");
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
     return failures ? 1 : 0;
 }

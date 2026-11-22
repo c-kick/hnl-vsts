@@ -39,7 +39,7 @@ The row of numbers chooses the part; the pages work on that part.
 | SYNTH | Oscillator (sine, triangle, sawtooth, square, pulse) and noise, playing along with the sample or alone; a modulation oscillator for FM, AM and ring modulation of sample and oscillator; unison of up to eight and chords of up to four notes inside one voice; saturation and a filter for every note on its own; three envelopes. |
 | MOD | Three LFOs, a row of sixteen steps, the eight macros (click a name to type another), and the matrix: twelve rows of source, via, target and amount. |
 | MIX | For each part: level, pan, sends, MIDI channel, output pair, mute, MPE. The delay, reverb and chorus all parts send to. The tuning. |
-| FILES | Folders and files. A click plays a sound; a double click uses it. The buttons beside the list follow the kind of file chosen. The page opens in the folder a sound was last taken from. |
+| FILES | Folders and files. A click plays a sound; a double click uses it. The buttons beside the list follow the kind of file chosen. The page opens in the folder it was last in. |
 
 Drag a knob or a number up and down; hold Shift for fine steps; double-click (or Ctrl-click) for the default.
 The **?** in the corner switches on help tips for every part of the window.
@@ -111,6 +111,12 @@ everything a host may do (`common/tests/HostAbuse.hpp`), and the UI class clicke
 stand-in (`ui_test`).
 
 ## Changelog
+
+### 0.2.1 (2026-11-22), alpha
+
+- Fixed: the FILES page opens in the folder it was last in. It kept the folder only when a file was used, and
+  did not always find it again when the window was opened anew; now every folder that is opened is kept, for
+  as long as the host runs and in a file for the next time.
 
 ### 0.2.0 (2026-11-22), alpha
 

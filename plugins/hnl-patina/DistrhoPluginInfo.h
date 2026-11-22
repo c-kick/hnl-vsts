@@ -14,7 +14,7 @@
 
 // The version: reported to the host, shown behind the title, and read by package.sh.
 #define HNL_VERSION_MAJOR 0
-#define HNL_VERSION_MINOR 1
+#define HNL_VERSION_MINOR 2
 #define HNL_VERSION_PATCH 0
 // An alpha: it passes its offline tests and has not been played in a host yet.
 #define HNL_STAGE "alpha"

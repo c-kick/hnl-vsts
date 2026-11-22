@@ -189,9 +189,12 @@ public:
         if (home == nullptr) home = std::getenv("HOME");
         home_ = home != nullptr ? home : "/";
         folder_ = home_;
-        std::string last; // where a sound was last taken from
+        // Where the FILES page was last: from this run of the host, or else from the run before.
+        std::string last = lastFolder();
         std::error_code ec;
-        if (!library_.dir.empty() && Library::read(library_.dir / "last-folder.txt", last) && !last.empty() && last.size() < 2000 && fs::is_directory(fs::u8path(last), ec)) folder_ = last;
+        if (last.empty() && !library_.dir.empty() && !Library::read(library_.dir / "last-folder.txt", last)) last.clear();
+        if (!last.empty() && last.size() < 2000 && fs::is_directory(fs::u8path(last), ec)) folder_ = last;
+        lastFolder() = folder_;
         help_.setButton(kHelpX, kHeaderY + 12);
         skin_.setButton(kSkinX, kHeaderY + 12);
         layout();
@@ -1427,6 +1430,7 @@ private:
             if (folder_.empty()) return;
         }
         folder_ = fs::u8path(folder_).lexically_normal().u8string();
+        rememberFolder();
         // The whole folder is read, so that what is shown is in order and nothing is left out without a word.
         // The two limits are there for a folder beyond any use, and the page says so when one is reached.
         folderCut_ = false;
@@ -1445,6 +1449,25 @@ private:
         std::sort(entries_.begin(), entries_.end(), [](const Entry& a, const Entry& b) {
             return a.folder != b.folder ? a.folder : SampleCache::lower(a.name) < SampleCache::lower(b.name);
         });
+    }
+    /**
+     * The page opens next time in the folder it shows now. The window is made anew every time the
+     * host opens it, so the folder is kept outside it, and in a file for the next run of the host.
+     */
+    static std::string& lastFolder() {
+        static std::string folder;
+        return folder;
+    }
+    void rememberFolder() {
+        if (folder_ == lastFolder()) return;
+        lastFolder() = folder_;
+        if (library_.dir.empty()) return;
+        std::error_code ec;
+        hnl::presetfile::fs::create_directories(library_.dir, ec);
+        if (std::FILE* f = hnl::presetfile::open(library_.dir / "last-folder.txt", true)) {
+            std::fwrite(folder_.data(), 1, folder_.size(), f);
+            std::fclose(f);
+        }
     }
     std::string chosenPath() const {
         if (chosen_ < 0 || chosen_ >= static_cast<int>(entries_.size())) return "";
@@ -1592,14 +1615,6 @@ private:
         const std::string path = chosenPath(), ext = extension(path);
         std::string error;
         notes_.clear();
-        if (!library_.dir.empty()) { // the folder to open in next time
-            std::error_code ec;
-            hnl::presetfile::fs::create_directories(library_.dir, ec);
-            if (std::FILE* f = hnl::presetfile::open(library_.dir / "last-folder.txt", true)) {
-                std::fwrite(folder_.data(), 1, folder_.size(), f);
-                std::fclose(f);
-            }
-        }
         if (isAudioFileName(path)) {
             int lo = 0, hi = 127, root = 60;
             if (nextKey) {

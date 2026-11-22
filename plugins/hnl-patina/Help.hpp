@@ -61,7 +61,7 @@ inline const char* forScene(uint32_t s) {
 const char* const kPresets = "Starting points, each with two scenes. The arrows step through them. A * after the name means a control was changed since the preset was chosen. Save as... at the end of the list keeps the settings of this moment under a name of your own, for use in every song; the x behind such a preset deletes it.";
 const char* const kRecord = "The record as it turns, drawn off-centre as far as Motion is turned up, with its scratches where Vinyl has them. Next to it the pitch over the last seconds, with a mark where a hit dragged it. An empty platter: Motion and Vinyl are both off.";
 const char* const kListener = "What the plugin hears in the music, for every React knob. Level: this moment against the last few seconds, not against full scale, so React works the same on quiet and loud tracks. Hits: the start of a note. Gaps: how far the level has dropped. A sound that stays at one level gives React little to follow.";
-const char* const kEdit = "Which scene the knobs below show and change. On every knob the arc is the scene being edited, the tick outside it is the other scene, and the dot is where Morph has it now.";
+const char* const kEdit = "Which scene the knobs below show and change. Around every knob are two arcs: the outer one is the knob in scene A, the inner one in scene B, each in its scene's colour. The short line outside them, in Morph's colour, is where Morph has the knob now: that is what you hear.";
 const char* const kCopy = "A > B copies scene A over scene B, B > A the other way, Swap exchanges them.";
 const char* const kOut = "Peak level coming out, left and right, in dBFS.";
 const char* const kReactBar = "What React is doing to this module right now.";

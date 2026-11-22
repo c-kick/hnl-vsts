@@ -114,7 +114,7 @@ int main() {
         ui->parameterChanged(moduleParam(s, kMotion, mOn), 0.0f);
         ui->parameterChanged(moduleParam(s, kVinyl, mOn), 0.0f);
     }
-    check(has(draw(ui), ">NO RECORD: MOTION AND VINYL ARE OFF<"), "Motion and Vinyl off: the window shows an empty platter");
+    check(has(draw(ui), ">NO RECORD<"), "Motion and Vinyl off: the window shows an empty platter");
 
     delete ui;
     std::printf("%s\n", failures ? "FAILED" : "ALL PASSED");
