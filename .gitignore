@@ -1,2 +1,6 @@
 build/
 dist/
+# Agent settings and skills, and local reports (the plugins keep their own docs/ folders)
+/.claude/
+/.codex/
+/docs/
