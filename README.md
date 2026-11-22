@@ -5,23 +5,6 @@ Reason 12.5+). For macOS there are experimental
 [test builds](https://github.com/c-kick/hnl-vsts/releases/tag/macos-test) (VST3, CLAP and Audio Unit) that nobody has tried on a real Mac yet; to compile them on a Mac
 yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
 
-## Three looks for every plugin
-
-Every plugin comes in three looks. **Classic** is the flat look the plugins have always had, and it is what a
-plugin shows unless you choose another. **Hi-Fi Black** and **Hi-Fi Silver** dress the same window as a piece of
-hi-fi equipment: a brushed front plate, meters and figures behind dark glass, knobs of turned metal, keys with a
-light in them. Nothing moves between the looks, and each plugin, and each stage of HNL Master, keeps its own colour
-in all three.
-
-| Classic | Hi-Fi Black | Hi-Fi Silver |
-| --- | --- | --- |
-| ![HNL Master, Classic](plugins/hnl-master/docs/everything-on.png) | ![HNL Master, Hi-Fi Black](plugins/hnl-master/docs/hifi-black-all.png) | ![HNL Master, Hi-Fi Silver](plugins/hnl-master/docs/hifi-silver-all.png) |
-| ![HNL Tape Master, Classic](plugins/hnl-tape-master/docs/preview.png) | ![HNL Tape Master, Hi-Fi Black](plugins/hnl-tape-master/docs/hifi-black-busy.png) | ![HNL Tape Master, Hi-Fi Silver](plugins/hnl-tape-master/docs/hifi-silver-busy.png) |
-
-The cog at the top right of a plugin, next to the **?**, opens the list of looks. A click on a look changes the
-window at once, and the choice holds for every HNL plugin and every song. It changes nothing about the sound. More
-under [Looks](#looks).
-
 ## Effects
 
 <table>
@@ -133,6 +116,23 @@ Every plugin says what stage it is in, next to its version:
   neither has been played in a host yet. Do not build a song on them.
 
 The plugins are free software under the GNU General Public License, version 3 or later: see [Licence](#licence).
+
+## Three looks for every plugin
+
+Every plugin comes in three looks. **Classic** is the flat look the plugins have always had, and it is what a
+plugin shows unless you choose another. **Hi-Fi Black** and **Hi-Fi Silver** dress the same window as a piece of
+hi-fi equipment: a brushed front plate, meters and figures behind dark glass, knobs of turned metal, keys with a
+light in them. Nothing moves between the looks, and each plugin, and each stage of HNL Master, keeps its own colour
+in all three.
+
+| Classic | Hi-Fi Black | Hi-Fi Silver |
+| --- | --- | --- |
+| ![HNL Master, Classic](plugins/hnl-master/docs/everything-on.png) | ![HNL Master, Hi-Fi Black](plugins/hnl-master/docs/hifi-black-all.png) | ![HNL Master, Hi-Fi Silver](plugins/hnl-master/docs/hifi-silver-all.png) |
+| ![HNL Tape Master, Classic](plugins/hnl-tape-master/docs/preview.png) | ![HNL Tape Master, Hi-Fi Black](plugins/hnl-tape-master/docs/hifi-black-busy.png) | ![HNL Tape Master, Hi-Fi Silver](plugins/hnl-tape-master/docs/hifi-silver-busy.png) |
+
+The cog at the top right of a plugin, next to the **?**, opens the list of looks. A click on a look changes the
+window at once, and the choice holds for every HNL plugin and every song. It changes nothing about the sound. More
+under [Looks](#looks).
 
 ## Layout
 
