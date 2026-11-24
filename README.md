@@ -95,7 +95,7 @@ yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
     <th align="left"><a href="plugins/hnl-sampler">HNL Sampler</a></th>
   </tr>
   <tr>
-    <td valign="top">Sampler in eight parts: WAV, AIFF, FLAC, SFZ and SoundFont sounds over keys and velocities, loops with crossfade, unison, an oscillator, a filter and saturation for every note, envelopes, LFOs, a modulation matrix with eight macros, MPE, tunings, eight stereo outputs. An alpha: a first version that passes its offline tests and has not been played in a host yet<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Sampler-win64.zip"><b>Download</b></a> · <!-- version:hnl-sampler -->v0.2.1<!-- /version --> · <b>alpha, largely untested</b> · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Sampler in eight parts: WAV, AIFF, FLAC, SFZ and SoundFont sounds over keys and velocities, loops with crossfade, unison, an oscillator, a filter and saturation for every note, envelopes, LFOs, a modulation matrix with eight macros, MPE, tunings, eight stereo outputs. Comes with three demo instruments: a drum kit, strings and a pipe organ<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Sampler-win64.zip"><b>Download</b></a> · <!-- version:hnl-sampler -->v0.2.1<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
 </table>
 
@@ -112,8 +112,8 @@ A host needs only one of the two. Each plugin shows its version behind its title
 Every plugin says what stage it is in, next to its version:
 
 - **beta**: it passes its offline tests and has been tried in Reason, but it is young; expect rough edges.
-- **alpha**: it passes its offline tests and is otherwise largely untested. HNL Sampler is the one. Do not build a
-  song on it.
+- **alpha**: it passes its offline tests and is otherwise largely untested. Do not build a song on one. At the
+  moment no plugin is an alpha.
 
 The plugins are free software under the GNU General Public License, version 3 or later: see [Licence](#licence).
 
@@ -281,7 +281,7 @@ Each plugin has its own version (`HNL_VERSION_MAJOR`, `_MINOR` and `_PATCH` in i
 tagged `<name>/v<version>`. The plugin reports it to the host and shows it behind its title, so a screenshot or a
 question about a plugin tells which build it is about.
 
-A plugin is a beta unless its `DistrhoPluginInfo.h` says otherwise with `HNL_STAGE` (`"alpha"` for HNL Sampler).
+A plugin is a beta unless its `DistrhoPluginInfo.h` says otherwise with `HNL_STAGE` (`"alpha"`; none does at the moment).
 The stage stands next to the version in the table above and in the notes of the Downloads release.
 
 A change that a user of the plugin can notice gets a new version: a bug fix raises the patch number, a new

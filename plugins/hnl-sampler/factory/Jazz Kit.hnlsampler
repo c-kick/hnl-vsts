@@ -1,0 +1,533 @@
+HNL Sampler instrument
+name = Jazz Kit
+g.reverb_decay = 0.9
+sample 2 = factory:kit/kick_1a.flac
+sample 5 = factory:kit/kick_1b.flac
+sample 8 = factory:kit/kick_2a.flac
+sample 11 = factory:kit/kick_2b.flac
+sample 14 = factory:kit/kick_3a.flac
+sample 17 = factory:kit/kick_3b.flac
+sample 20 = factory:kit/stick_1.flac
+sample 22 = factory:kit/stick_2.flac
+sample 24 = factory:kit/snare_1a.flac
+sample 26 = factory:kit/snare_1b.flac
+sample 28 = factory:kit/snare_2a.flac
+sample 30 = factory:kit/snare_2b.flac
+sample 32 = factory:kit/snare_3a.flac
+sample 34 = factory:kit/snare_3b.flac
+sample 36 = factory:kit/rim_1.flac
+sample 38 = factory:kit/rim_2.flac
+sample 40 = factory:kit/tom_low_1.flac
+sample 43 = factory:kit/tom_low_2.flac
+sample 46 = factory:kit/tom_low_3.flac
+sample 49 = factory:kit/tom_high_1.flac
+sample 54 = factory:kit/tom_high_2.flac
+sample 59 = factory:kit/tom_high_3.flac
+sample 64 = factory:kit/hat_closed_1a.flac
+sample 66 = factory:kit/hat_closed_1b.flac
+sample 68 = factory:kit/hat_closed_2a.flac
+sample 70 = factory:kit/hat_closed_2b.flac
+sample 72 = factory:kit/hat_closed_3a.flac
+sample 74 = factory:kit/hat_closed_3b.flac
+sample 76 = factory:kit/hat_pedal_1.flac
+sample 78 = factory:kit/hat_pedal_2.flac
+sample 80 = factory:kit/hat_open_1.flac
+sample 82 = factory:kit/hat_open_2.flac
+sample 84 = factory:kit/crash_1.flac
+sample 86 = factory:kit/crash_2.flac
+sample 88 = factory:kit/ride_1.flac
+sample 90 = factory:kit/ride_2.flac
+sample 92 = factory:kit/bell.flac
+part 1
+part_name = Kit
+p.level = -3
+p.velocity = 85
+p.reverb_send = 8
+p.env1_release = 200
+zone
+z.sample = 2
+z.lokey = 36
+z.hikey = 36
+z.hivel = 42
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+zone
+z.sample = 2
+z.lokey = 35
+z.hikey = 35
+z.hivel = 42
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+zone
+z.sample = 5
+z.lokey = 36
+z.hikey = 36
+z.hivel = 42
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 5
+z.lokey = 35
+z.hikey = 35
+z.hivel = 42
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 8
+z.lokey = 36
+z.hikey = 36
+z.lovel = 43
+z.hivel = 84
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+zone
+z.sample = 8
+z.lokey = 35
+z.hikey = 35
+z.lovel = 43
+z.hivel = 84
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+zone
+z.sample = 11
+z.lokey = 36
+z.hikey = 36
+z.lovel = 43
+z.hivel = 84
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 11
+z.lokey = 35
+z.hikey = 35
+z.lovel = 43
+z.hivel = 84
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 14
+z.lokey = 36
+z.hikey = 36
+z.lovel = 85
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+zone
+z.sample = 14
+z.lokey = 35
+z.hikey = 35
+z.lovel = 85
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+zone
+z.sample = 17
+z.lokey = 36
+z.hikey = 36
+z.lovel = 85
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 17
+z.lokey = 35
+z.hikey = 35
+z.lovel = 85
+z.root = 36
+z.one_shot = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 20
+z.lokey = 37
+z.hikey = 37
+z.hivel = 63
+z.root = 37
+z.gain = -6
+z.one_shot = 1
+zone
+z.sample = 22
+z.lokey = 37
+z.hikey = 37
+z.lovel = 64
+z.root = 37
+z.gain = -6
+z.one_shot = 1
+zone
+z.sample = 24
+z.lokey = 38
+z.hikey = 38
+z.hivel = 42
+z.root = 38
+z.gain = -1
+z.one_shot = 1
+z.seq_length = 2
+zone
+z.sample = 26
+z.lokey = 38
+z.hikey = 38
+z.hivel = 42
+z.root = 38
+z.gain = -1
+z.one_shot = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 28
+z.lokey = 38
+z.hikey = 38
+z.lovel = 43
+z.hivel = 84
+z.root = 38
+z.gain = -1
+z.one_shot = 1
+z.seq_length = 2
+zone
+z.sample = 30
+z.lokey = 38
+z.hikey = 38
+z.lovel = 43
+z.hivel = 84
+z.root = 38
+z.gain = -1
+z.one_shot = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 32
+z.lokey = 38
+z.hikey = 38
+z.lovel = 85
+z.root = 38
+z.gain = -1
+z.one_shot = 1
+z.seq_length = 2
+zone
+z.sample = 34
+z.lokey = 38
+z.hikey = 38
+z.lovel = 85
+z.root = 38
+z.gain = -1
+z.one_shot = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 36
+z.lokey = 40
+z.hikey = 40
+z.hivel = 63
+z.root = 40
+z.gain = -1
+z.one_shot = 1
+zone
+z.sample = 38
+z.lokey = 40
+z.hikey = 40
+z.lovel = 64
+z.root = 40
+z.gain = -1
+z.one_shot = 1
+zone
+z.sample = 40
+z.lokey = 43
+z.hikey = 43
+z.hivel = 42
+z.root = 43
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 40
+z.lokey = 41
+z.hikey = 41
+z.hivel = 42
+z.root = 43
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 43
+z.lokey = 43
+z.hikey = 43
+z.lovel = 43
+z.hivel = 84
+z.root = 43
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 43
+z.lokey = 41
+z.hikey = 41
+z.lovel = 43
+z.hivel = 84
+z.root = 43
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 46
+z.lokey = 43
+z.hikey = 43
+z.lovel = 85
+z.root = 43
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 46
+z.lokey = 41
+z.hikey = 41
+z.lovel = 85
+z.root = 43
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 49
+z.lokey = 48
+z.hikey = 48
+z.hivel = 42
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 49
+z.lokey = 45
+z.hikey = 45
+z.hivel = 42
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 49
+z.lokey = 47
+z.hikey = 47
+z.hivel = 42
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 49
+z.lokey = 50
+z.hikey = 50
+z.hivel = 42
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 54
+z.lokey = 48
+z.hikey = 48
+z.lovel = 43
+z.hivel = 84
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 54
+z.lokey = 45
+z.hikey = 45
+z.lovel = 43
+z.hivel = 84
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 54
+z.lokey = 47
+z.hikey = 47
+z.lovel = 43
+z.hivel = 84
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 54
+z.lokey = 50
+z.hikey = 50
+z.lovel = 43
+z.hivel = 84
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 59
+z.lokey = 48
+z.hikey = 48
+z.lovel = 85
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 59
+z.lokey = 45
+z.hikey = 45
+z.lovel = 85
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 59
+z.lokey = 47
+z.hikey = 47
+z.lovel = 85
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 59
+z.lokey = 50
+z.hikey = 50
+z.lovel = 85
+z.root = 48
+z.gain = -2
+z.one_shot = 1
+zone
+z.sample = 64
+z.lokey = 42
+z.hikey = 42
+z.hivel = 42
+z.root = 42
+z.gain = -9
+z.one_shot = 1
+z.group = 1
+z.seq_length = 2
+zone
+z.sample = 66
+z.lokey = 42
+z.hikey = 42
+z.hivel = 42
+z.root = 42
+z.gain = -9
+z.one_shot = 1
+z.group = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 68
+z.lokey = 42
+z.hikey = 42
+z.lovel = 43
+z.hivel = 84
+z.root = 42
+z.gain = -9
+z.one_shot = 1
+z.group = 1
+z.seq_length = 2
+zone
+z.sample = 70
+z.lokey = 42
+z.hikey = 42
+z.lovel = 43
+z.hivel = 84
+z.root = 42
+z.gain = -9
+z.one_shot = 1
+z.group = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 72
+z.lokey = 42
+z.hikey = 42
+z.lovel = 85
+z.root = 42
+z.gain = -9
+z.one_shot = 1
+z.group = 1
+z.seq_length = 2
+zone
+z.sample = 74
+z.lokey = 42
+z.hikey = 42
+z.lovel = 85
+z.root = 42
+z.gain = -9
+z.one_shot = 1
+z.group = 1
+z.seq_length = 2
+z.seq_position = 2
+zone
+z.sample = 76
+z.lokey = 44
+z.hikey = 44
+z.hivel = 63
+z.root = 44
+z.gain = -10
+z.one_shot = 1
+z.group = 1
+zone
+z.sample = 78
+z.lokey = 44
+z.hikey = 44
+z.lovel = 64
+z.root = 44
+z.gain = -10
+z.one_shot = 1
+z.group = 1
+zone
+z.sample = 80
+z.lokey = 46
+z.hikey = 46
+z.hivel = 63
+z.root = 46
+z.gain = -8
+z.one_shot = 1
+z.off_by = 1
+zone
+z.sample = 82
+z.lokey = 46
+z.hikey = 46
+z.lovel = 64
+z.root = 46
+z.gain = -8
+z.one_shot = 1
+z.off_by = 1
+zone
+z.sample = 84
+z.lokey = 49
+z.hikey = 49
+z.hivel = 63
+z.root = 49
+z.gain = -5
+z.one_shot = 1
+zone
+z.sample = 86
+z.lokey = 49
+z.hikey = 49
+z.lovel = 64
+z.root = 49
+z.gain = -5
+z.one_shot = 1
+zone
+z.sample = 88
+z.lokey = 51
+z.hikey = 51
+z.hivel = 63
+z.root = 51
+z.gain = -8
+z.one_shot = 1
+zone
+z.sample = 90
+z.lokey = 51
+z.hikey = 51
+z.lovel = 64
+z.root = 51
+z.gain = -8
+z.one_shot = 1
+zone
+z.sample = 92
+z.lokey = 53
+z.hikey = 53
+z.root = 53
+z.gain = -8
+z.one_shot = 1

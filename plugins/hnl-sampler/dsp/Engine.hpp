@@ -844,6 +844,8 @@ private:
                         w.hi = static_cast<long long>(v.loopHi);
                         // Ping-pong turns round at the end; backward does so once and from then on jumps from start to end.
                         w.above = v.loopType == 1 || (v.loopType == 3 && pl.inLoop) ? ReadWindow::kWrap : ReadWindow::kMirror;
+                        // On the way in, what lies below the loop is the sound itself, but past the loop's end still comes its start.
+                        w.turn = static_cast<long long>(v.loopHi) - static_cast<long long>(v.loopLo);
                         // With a crossfade the sound just before the loop is what was last heard, so that is what lies below its start.
                         if (pl.inLoop && pl.pos >= v.loopLo && v.crossfade < 1.0) {
                             w.lo = static_cast<long long>(v.loopLo);

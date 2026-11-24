@@ -11,8 +11,10 @@ filter, envelopes, LFOs and modulation matrix. Eight stereo outputs.
 
 *Rendered from the plugin's drawing code; not yet screenshots from a host.*
 
-**This is an alpha (0.1.0).** It passes its offline tests and is otherwise largely untested: it has not been
-played in a host yet. Expect faults, and do not build a song on it.
+**A beta.** It passes its offline tests and has been played in a host, but it is young; expect rough edges.
+
+Three demo instruments come with it, their sounds inside the plugin: a jazz drum kit, strings and a pipe organ.
+See [What comes with it](#what-comes-with-it).
 
 ## How it is put together
 
@@ -26,7 +28,29 @@ state. To automate something inside the instrument, give a macro a target in the
 
 Sounds are not stored in the song or in a saved instrument: they are named by their place on disk and read
 again when the song opens. A sound that is no longer there is shown in red on the MAP page; the rest of the
-instrument plays on.
+instrument plays on. The sounds of the instruments that come with the plugin are inside the plugin itself, so a
+song that uses them opens on any computer.
+
+## What comes with it
+
+Three demo instruments stand in the list at the top, below Init, so that the plugin plays as soon as it is
+loaded. They are there to play, and to take apart: every setting of them can be changed, and Save as... keeps the
+result as an instrument of your own.
+
+| Instrument | What it is | Keys | What it shows |
+| --- | --- | --- | --- |
+| Jazz Kit | A jazz drum kit played with sticks: kick, snare, rimshot, cross-stick, two toms, hi-hat (closed, pedal, open), crash, ride and its bell. 37 sounds. | The General MIDI drum keys, B0 to F2. The two toms are spread over the six tom keys, each a little lower or higher than recorded. | Two or three layers by velocity; two takes in turn on kick, snare and closed hi-hat (round robin); the closed and the pedal hi-hat cut off the open one; one shot. |
+| Strings | A cello section below and a violin section above, sustained with vibrato. 16 notes, three or four semitones apart. | C1 to C7 | Loops; a filter that opens with a harder touch; macro 1, "Darker", which closes it. |
+| Pipe Organ | A church organ, one loud stop. 11 notes, six semitones apart. | C1 to C7 | Loops; no answer to touch, as on an organ; the reverb. |
+
+The sounds are cut from recordings that their makers gave to the public domain (CC0): Virtuosity Drums by
+Versilian Studios and Karoryfer Samples, the strings of VSCO 2 Community Edition by Versilian Studios, and the
+pipe organ of the Versilian Community Sample Library, sampled by Simon Dalzell.
+[`factory/SOURCES.md`](factory/SOURCES.md) says where each comes from and what was done to it. They are mono,
+16 bit, and take 3.9 MB together.
+
+Which sounds and how they are balanced was decided from measurements. The levels of the drums against each
+other in particular may want adjusting to taste (Gain of each zone, on the MAP page).
 
 ## Pages
 
@@ -102,15 +126,30 @@ The list this plugin was started from is longer than a first version can hold. N
 - `dsp/AudioFile.hpp`, `Import.hpp`, `Analysis.hpp`: reading sound files, reading SFZ, SoundFont and Scala,
   and finding pitch, hits, tempo and loop points. The FLAC reader agrees with all 64 files of the IETF's FLAC
   conformance set that a decoder must handle, checked once by the checksum each file carries.
+- `dsp/Factory.hpp`, `FactoryData.cpp`, `factory/`: the sounds and instruments that come with the plugin. The
+  files under `factory/` are compiled into it with `#embed`, or by the assembler (`.incbin`) when the compiler
+  is too old for that; `tools/factory-sounds/` makes them from the recordings, with a FLAC writer of its own
+  (`FlacEncode.hpp`).
 - `SamplerPlugin.cpp`, `SamplerUI.cpp`: the DPF plugin and its UI. The UI works on the plugin's own document,
   which it reaches through the plugin instance (`DISTRHO_PLUGIN_WANT_DIRECT_ACCESS`).
 
-`tests/run.sh` runs seven test programs: the three readers and the analysis (each also on damaged and random
-input), measurements of the engine (`dsp_test`), the plugin in DPF's host-side wrapper, the host that does
+`tests/run.sh` runs eight test programs: the three readers and the analysis (each also on damaged and random
+input), measurements of the engine (`dsp_test`), what comes with the plugin (`factory_test`: every sound reads,
+every key of the three instruments plays, a note held for 12 seconds keeps its level and passes its loop without
+a click, and is in tune), the plugin in DPF's host-side wrapper, the host that does
 everything a host may do (`common/tests/HostAbuse.hpp`), and the UI class clicked and dragged on the drawing
 stand-in (`ui_test`).
 
 ## Changelog
+
+### 0.3.0 (2026-11-24)
+
+- The plugin is a beta now: it has been played in a host.
+- New: three demo instruments come with the plugin, in the list at the top: Jazz Kit, Strings and Pipe Organ. Their
+  sounds are inside the plugin (3.9 MB), so a song that uses them opens anywhere. See "What comes with it".
+- Fixed: a click the first time a note reached the end of a forward loop that does not start at the beginning of
+  its sound. For the last few samples before the jump back, what was read past the loop's end came from the start
+  of the sound and not from the start of the loop. Later turns of the loop were right.
 
 ### 0.2.1 (2026-11-22), alpha
 

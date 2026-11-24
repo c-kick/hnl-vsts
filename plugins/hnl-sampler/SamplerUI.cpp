@@ -298,7 +298,7 @@ protected:
         drawKeyboard();
         drawMenu();
         std::vector<std::string> names = presetNames();
-        presetBar_.drawMenu(*this, theme, static_cast<int>(names.size()), -1, 1, !library_.dir.empty() && names.size() < 46, [&names](int i) { return names[static_cast<size_t>(i)].c_str(); });
+        presetBar_.drawMenu(*this, theme, static_cast<int>(names.size()), -1, firstSaved(), canSave(), [&names](int i) { return names[static_cast<size_t>(i)].c_str(); });
         skin_.drawMenu(*this, theme);
         if (!presetBar_.isOpen() && !skin_.isOpen() && menu_.items.empty() && drag_ < 0) help_.drawTip(*this, theme, UI_BASE_WIDTH, UI_BASE_HEIGHT);
     }
@@ -321,7 +321,7 @@ protected:
         }
         if (!presetBar_.isBusy() && presetBar_.nameBox().contains(x, y)) library_.rescan();
         const std::vector<std::string> names = presetNames();
-        const int picked = presetBar_.mouseDown(x, y, -1, static_cast<int>(names.size()), 1, !library_.dir.empty() && names.size() < 46);
+        const int picked = presetBar_.mouseDown(x, y, -1, static_cast<int>(names.size()), firstSaved(), canSave());
         if (picked != hnl::ui::PresetBar::kNotMine) {
             help_.hide();
             presetAction(picked, names);
@@ -1704,18 +1704,25 @@ private:
 
     // --------------------------------------------------------- instruments
 
-    /** What the instrument list shows: Init, then the saved ones. */
+    /** What the instrument list shows: Init, the ones that came with the plugin, then the saved ones. */
     std::vector<std::string> presetNames() const {
         std::vector<std::string> names = {"Init"};
+        names.insert(names.end(), factory_.begin(), factory_.end());
         names.insert(names.end(), library_.names.begin(), library_.names.end());
         return names;
     }
+    /** The first place in that list that holds a saved instrument: those can be deleted. */
+    int firstSaved() const { return 1 + static_cast<int>(factory_.size()); }
+    /** The list is full at 45 saved instruments. */
+    bool canSave() const { return !library_.dir.empty() && library_.names.size() < 45; }
 
     void presetAction(int picked, const std::vector<std::string>& names) {
         typedef hnl::ui::PresetBar Bar;
         if (picked == 0) {
             sampler_->edit([](Instrument& doc) { Sampler::initDocument(doc); });
-        } else if (picked > 0 && picked < static_cast<int>(names.size())) {
+        } else if (picked > 0 && picked < firstSaved()) {
+            if (!sampler_->setText(hnl::sampler::factory::instrument(names[static_cast<size_t>(picked)]))) note_ = "Could not load";
+        } else if (picked >= firstSaved() && picked < static_cast<int>(names.size())) {
             std::string text;
             if (!Library::read(library_.file(names[static_cast<size_t>(picked)]), text) || !sampler_->setText(text)) note_ = "Could not load";
         } else if (picked == Bar::kEdit) {
@@ -1730,7 +1737,7 @@ private:
         } else if (picked == Bar::kDelete) {
             std::error_code ec;
             const int target = presetBar_.target();
-            if (target < 1 || target >= static_cast<int>(names.size()) || !hnl::presetfile::fs::remove(library_.file(names[static_cast<size_t>(target)]), ec)) note_ = "Could not delete";
+            if (target < firstSaved() || target >= static_cast<int>(names.size()) || !hnl::presetfile::fs::remove(library_.file(names[static_cast<size_t>(target)]), ec)) note_ = "Could not delete";
             library_.rescan();
         } else return;
         zone_ = 0;
@@ -1765,6 +1772,7 @@ private:
     int scroll_ = 0, chosen_ = -1;
 
     Library library_;
+    const std::vector<std::string> factory_ = hnl::sampler::factory::instruments(); // the instruments that came with the plugin
     hnl::ui::PresetBar presetBar_{kPresetX, kHeaderY};
     hnl::ui::HelpTips help_;
     hnl::ui::SkinMenu skin_;

@@ -18,7 +18,8 @@
 // after its zone was deleted.
 //
 // Sounds are shared by everything in the process: two samplers that use the
-// same file hold it in memory once (SampleCache).
+// same file hold it in memory once (SampleCache). A sound that came with the
+// plugin (Factory.hpp) is decoded from the plugin itself, on the same thread.
 #pragma once
 
 #include <atomic>
@@ -32,6 +33,7 @@
 
 #include "AudioFile.hpp"
 #include "Engine.hpp"
+#include "Factory.hpp"
 #include "Import.hpp"
 
 namespace hnl {
@@ -77,7 +79,11 @@ public:
         const size_t mark = path.rfind('#');
         bool ok = false;
         try {
-            if (mark != std::string::npos && mark > 4 && lower(path.substr(mark - 4, 4)) == ".sf2") {
+            if (factory::isFactory(path)) { // one that came with the plugin: decoded from the plugin itself
+                const factory::Item* item = factory::find(path.substr(std::strlen(factory::kPrefix)));
+                if (item == nullptr) { error = "not in this version of the plugin"; return nullptr; }
+                ok = decodeAudio(item->data, item->size, *data, error);
+            } else if (mark != std::string::npos && mark > 4 && lower(path.substr(mark - 4, 4)) == ".sf2") {
                 double index = 0.0;
                 if (!text::parse(path.substr(mark + 1), index) || index < 0.0 || index > 1e6) { error = "bad sample number"; return nullptr; }
                 const std::string file = path.substr(0, mark);

@@ -189,21 +189,49 @@ int main(int argc, char** argv) {
 
     // Saving the instrument under a name, starting again, and loading it back.
     const std::string before = sampler.text();
-    click(400, 24);                                   // the instrument's name: the list opens (Init, Save as...)
-    click(400, 12 + 24 + 2 + 4 + 22 + 11);            // Save as...
+    const float kRow0 = 12 + 24 + 2 + 4 + 11;         // the middle of the list's first row; the rows are 22 apart
+    click(400, 24);                                   // the instrument's name: the list opens (Init, the three that came with it, Save as...)
+    click(400, kRow0 + 4 * 22);                       // Save as...
     for (int i = 0; i < 20; ++i) key(0x08);
     type("Test kit");
     key(0x0D);
     check(sampler.document()->name == "Test kit" && fs::exists(dir / "presets" / "Test kit.hnlsampler"), "Save as... writes the instrument under its name");
     click(400, 24);
-    click(400, 12 + 24 + 2 + 4 + 11);                 // Init
+    click(400, kRow0);                                // Init
     check(sampler.document()->parts[0].zones.empty() && sampler.document()->name == "Init", "Init starts again with an empty instrument");
     click(400, 24);
-    click(400, 12 + 24 + 2 + 4 + 22 + 11);            // the saved one
+    click(400, kRow0 + 4 * 22);                       // the saved one, below the three
     wait(sampler);
     doc = sampler.document();
     check(doc->name == "Test kit" && doc->parts[0].zones.size() == 5 && doc->samples.size() == 2 && doc->samples[0].data != nullptr && doc->parts[0].v[kPFilterType] == 2,
           "and the saved instrument loads again, sounds and all", doc->parts[0].zones.size());
+
+    // The instruments that came with the plugin: a click loads one, sounds and all, and it cannot be deleted.
+    click(400, 24);
+    click(400, kRow0 + 2 * 22);                       // Strings
+    wait(sampler);
+    doc = sampler.document();
+    int unread = 0;
+    for (const Sample& sm : doc->samples) unread += sm.data == nullptr;
+    check(doc->name == "Strings" && doc->parts[0].zones.size() == 16 && unread == 0, "a click on Strings in the list loads it, with its sounds", doc->parts[0].zones.size());
+    click(400, 24);
+    click(298 + 170 - 15, kRow0 + 1 * 22);            // where a saved instrument has its cross: Jazz Kit has none, so this loads it
+    wait(sampler);
+    doc = sampler.document();
+    check(doc->name == "Jazz Kit" && !doc->parts[0].zones.empty() && fs::exists(dir / "presets" / "Test kit.hnlsampler"), "an instrument that came with the plugin has no cross: a click there loads it");
+    // A song keeps one of them by the names of its sounds, and gets it back from the plugin itself.
+    const std::string kit = sampler.text();
+    sampler.edit([](Instrument& d) { Sampler::initDocument(d); });
+    check(kit.find("factory:kit/snare_1a.flac") != std::string::npos && sampler.setText(kit), "its text names the sounds as factory:..., and loads again");
+    wait(sampler);
+    unread = 0;
+    for (const Sample& sm : sampler.document()->samples) unread += sm.data == nullptr;
+    check(unread == 0, "and every sound is there again", unread);
+    // Back to the saved instrument, which the checks below work on.
+    click(400, 24);
+    click(400, kRow0 + 4 * 22);
+    wait(sampler);
+    doc = sampler.document();
 
     // Every page draws, with help on, without leaving the window.
     click(UI_BASE_WIDTH - 52, 24);

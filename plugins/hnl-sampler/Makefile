@@ -5,7 +5,7 @@
 
 NAME = HNL-Sampler
 
-FILES_DSP = SamplerPlugin.cpp
+FILES_DSP = SamplerPlugin.cpp FactoryData.cpp
 FILES_UI  = SamplerUI.cpp
 
 DPF_BUILD_DIR  = ../../build/hnl-sampler

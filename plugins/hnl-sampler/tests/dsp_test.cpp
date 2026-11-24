@@ -262,6 +262,22 @@ static void loops() {
         // Forward joins whole periods; the turning points of the other two bend the wave but do not jump.
         check(sounding > 0.3 && step < 1.3 * own, name, "rms %.3f, step %.4f (own %.4f)", sounding, step, own);
     }
+    {   // The first time round, what follows the loop's end is the loop's start, not the start of the sound.
+        // A sound that begins with silence, played a little off its own pitch so that it is read between samples;
+        // at several pitches, as how near the last sample read lies to the loop's end decides how much a wrong one weighs.
+        double worst = 0.0;
+        for (int tune = 5; tune <= 95; tune += 10) {
+            Rig r;
+            std::shared_ptr<AudioData> late = sine(hz, 1.0);
+            for (size_t i = 0; i < 5000; ++i) late->samples[0][i] = 0.0f;
+            Zone& z = r.zone(0, late);
+            z.v[kZLoop] = 1; z.v[kZLoopStart] = 10000; z.v[kZLoopEnd] = 20000; z.v[kZTune] = tune;
+            r.engine->noteOn(0, 60, 127);
+            r.run(0.6);
+            worst = std::max(worst, largestStep(r.out[0], 9000, 28000) / (0.5 * kTwoPi * hz * std::exp2(tune / 1200.0) / 48000.0));
+        }
+        check(worst < 1.05, "loop Forward: no jump the first time round when the sound begins otherwise", "largest step %.3f times the wave's own", worst);
+    }
     {
         Rig r;
         r.zone(0, sine(hz, 1.0));

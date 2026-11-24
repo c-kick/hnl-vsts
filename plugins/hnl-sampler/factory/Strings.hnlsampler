@@ -1,0 +1,176 @@
+HNL Sampler instrument
+name = Strings
+macro1 = Darker
+g.reverb_decay = 2.4
+sample 2 = factory:strings/c2.flac
+sample 4 = factory:strings/e2.flac
+sample 6 = factory:strings/g2.flac
+sample 8 = factory:strings/b2.flac
+sample 10 = factory:strings/d3.flac
+sample 12 = factory:strings/f3.flac
+sample 14 = factory:strings/g3.flac
+sample 16 = factory:strings/b3.flac
+sample 18 = factory:strings/d4.flac
+sample 20 = factory:strings/fs4.flac
+sample 22 = factory:strings/a4.flac
+sample 24 = factory:strings/c5.flac
+sample 26 = factory:strings/e5.flac
+sample 28 = factory:strings/g5.flac
+sample 30 = factory:strings/b5.flac
+sample 32 = factory:strings/d6.flac
+part 1
+part_name = Strings
+p.level = -9
+p.velocity = 55
+p.reverb_send = 30
+p.filter_type = 1
+p.cutoff = 7000
+p.resonance = 0
+p.filter_vel = 45
+p.env1_attack = 40
+p.env1_release = 380
+p.mod1_source = 15
+p.mod1_dest = 7
+p.mod1_amount = -40
+zone
+z.sample = 2
+z.lokey = 24
+z.hikey = 38
+z.root = 36
+z.tune = 4
+z.loop = 1
+z.loop_start = 35523
+z.loop_end = 88840
+zone
+z.sample = 4
+z.lokey = 39
+z.hikey = 41
+z.root = 40
+z.tune = -16
+z.loop = 1
+z.loop_start = 35763
+z.loop_end = 104253
+zone
+z.sample = 6
+z.lokey = 42
+z.hikey = 45
+z.root = 43
+z.tune = 8
+z.loop = 1
+z.loop_start = 37100
+z.loop_end = 95312
+zone
+z.sample = 8
+z.lokey = 46
+z.hikey = 48
+z.root = 47
+z.tune = -10
+z.loop = 1
+z.loop_start = 44198
+z.loop_end = 97120
+zone
+z.sample = 10
+z.lokey = 49
+z.hikey = 51
+z.root = 50
+z.loop = 1
+z.loop_start = 52738
+z.loop_end = 109483
+zone
+z.sample = 12
+z.lokey = 52
+z.hikey = 54
+z.root = 53
+z.tune = 5
+z.loop = 1
+z.loop_start = 46584
+z.loop_end = 104204
+zone
+z.sample = 14
+z.lokey = 55
+z.hikey = 57
+z.root = 55
+z.loop = 1
+z.loop_start = 51008
+z.loop_end = 104107
+zone
+z.sample = 16
+z.lokey = 58
+z.hikey = 60
+z.root = 59
+z.tune = -8
+z.loop = 1
+z.loop_start = 51860
+z.loop_end = 108624
+zone
+z.sample = 18
+z.lokey = 61
+z.hikey = 64
+z.root = 62
+z.tune = -7
+z.loop = 1
+z.loop_start = 53899
+z.loop_end = 108493
+zone
+z.sample = 20
+z.lokey = 65
+z.hikey = 67
+z.root = 66
+z.tune = 5
+z.loop = 1
+z.loop_start = 49285
+z.loop_end = 102409
+zone
+z.sample = 22
+z.lokey = 68
+z.hikey = 70
+z.root = 69
+z.tune = 7
+z.loop = 1
+z.loop_start = 48919
+z.loop_end = 102028
+zone
+z.sample = 24
+z.lokey = 71
+z.hikey = 74
+z.root = 72
+z.tune = -1
+z.loop = 1
+z.loop_start = 48217
+z.loop_end = 103680
+zone
+z.sample = 26
+z.lokey = 75
+z.hikey = 77
+z.root = 76
+z.tune = 3
+z.loop = 1
+z.loop_start = 54501
+z.loop_end = 108569
+zone
+z.sample = 28
+z.lokey = 78
+z.hikey = 81
+z.root = 79
+z.tune = 2
+z.loop = 1
+z.loop_start = 47664
+z.loop_end = 101278
+zone
+z.sample = 30
+z.lokey = 82
+z.hikey = 84
+z.root = 83
+z.tune = 7
+z.loop = 1
+z.loop_start = 45942
+z.loop_end = 100239
+zone
+z.sample = 32
+z.lokey = 85
+z.hikey = 96
+z.root = 86
+z.tune = -7
+z.loop = 1
+z.loop_start = 40850
+z.loop_end = 94296

@@ -82,15 +82,17 @@ struct ReadWindow {
     enum Edge { kSilence, kWrap, kMirror };
     long long lo = 0, hi = 0; // frames lo..hi-1 can be read as they are
     Edge below = kSilence, above = kSilence;
+    /** How far back a place above `hi` wraps when that is not the whole window: the length of a loop that starts above `lo`. */
+    long long turn = 0;
 
     /** The frame that stands at place i, or -1 for silence. */
     inline long long map(long long i) const {
         const long long length = hi - lo;
         if (length <= 0) return -1;
-        for (int turn = 0; turn < 4 && (i < lo || i >= hi); ++turn) {
+        for (int tries = 0; tries < 4 && (i < lo || i >= hi); ++tries) {
             if (i >= hi) {
                 if (above == kSilence) return -1;
-                i = above == kWrap ? i - length : 2 * hi - 1 - i;
+                i = above == kWrap ? i - (turn > 0 && turn < length ? turn : length) : 2 * hi - 1 - i;
             } else {
                 if (below == kSilence) return -1;
                 i = below == kWrap ? i + length : 2 * lo - i;

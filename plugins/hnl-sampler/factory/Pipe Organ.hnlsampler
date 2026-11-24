@@ -1,0 +1,115 @@
+HNL Sampler instrument
+name = Pipe Organ
+g.reverb_decay = 3.5
+sample 2 = factory:organ/c1.flac
+sample 4 = factory:organ/fs1.flac
+sample 6 = factory:organ/c2.flac
+sample 8 = factory:organ/fs2.flac
+sample 10 = factory:organ/c3.flac
+sample 12 = factory:organ/fs3.flac
+sample 14 = factory:organ/c4.flac
+sample 16 = factory:organ/fs4.flac
+sample 18 = factory:organ/c5.flac
+sample 20 = factory:organ/fs5.flac
+sample 22 = factory:organ/c6.flac
+part 1
+part_name = Organ
+p.level = -12
+p.velocity = 0
+p.reverb_send = 45
+p.env1_attack = 4
+p.env1_release = 220
+zone
+z.sample = 2
+z.lokey = 24
+z.hikey = 27
+z.root = 24
+z.tune = -2
+z.loop = 1
+z.loop_start = 24482
+z.loop_end = 66233
+zone
+z.sample = 4
+z.lokey = 28
+z.hikey = 33
+z.root = 30
+z.tune = -2
+z.loop = 1
+z.loop_start = 23103
+z.loop_end = 49762
+zone
+z.sample = 6
+z.lokey = 34
+z.hikey = 39
+z.root = 36
+z.tune = -2
+z.loop = 1
+z.loop_start = 22756
+z.loop_end = 69891
+zone
+z.sample = 8
+z.lokey = 40
+z.hikey = 45
+z.root = 42
+z.tune = -2
+z.loop = 1
+z.loop_start = 24482
+z.loop_end = 58766
+zone
+z.sample = 10
+z.lokey = 46
+z.hikey = 51
+z.root = 48
+z.tune = 4
+z.loop = 1
+z.loop_start = 22241
+z.loop_end = 48893
+zone
+z.sample = 12
+z.lokey = 52
+z.hikey = 57
+z.root = 54
+z.loop = 1
+z.loop_start = 22086
+z.loop_end = 49494
+zone
+z.sample = 14
+z.lokey = 58
+z.hikey = 63
+z.loop = 1
+z.loop_start = 43389
+z.loop_end = 70022
+zone
+z.sample = 16
+z.lokey = 64
+z.hikey = 69
+z.root = 66
+z.loop = 1
+z.loop_start = 40668
+z.loop_end = 69987
+zone
+z.sample = 18
+z.lokey = 70
+z.hikey = 75
+z.root = 72
+z.loop = 1
+z.loop_start = 36351
+z.loop_end = 62976
+zone
+z.sample = 20
+z.lokey = 76
+z.hikey = 81
+z.root = 78
+z.tune = -1
+z.loop = 1
+z.loop_start = 35902
+z.loop_end = 62589
+zone
+z.sample = 22
+z.lokey = 82
+z.hikey = 96
+z.root = 84
+z.tune = -1
+z.loop = 1
+z.loop_start = 24603
+z.loop_end = 52400

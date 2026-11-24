@@ -6,6 +6,7 @@
 #   import_test     reading SFZ, SoundFont and Scala files
 #   analysis_test   pitch, hits, tempo and loop points found in a sound
 #   dsp_test        measurements of the engine, and the core that reads files beside the audio
+#   factory_test    the sounds and instruments that come with the plugin: all read, all play, loops without a click
 #   plugin_test     the plugin driven through DPF's host-side wrapper
 #   abuse_test      the same, by a host that does everything a host may do (common/tests/HostAbuse.hpp)
 #   ui_test         the UI class itself, clicked and dragged, on the drawing stand-in of tools/ui-preview
@@ -23,11 +24,17 @@ for t in audiofile import analysis dsp; do
     "$OUT/${t}_test_release" > "$OUT/${t}_test.log" || { grep -v '^PASS' "$OUT/${t}_test.log"; exit 1; }
     echo "$t: $(grep -c '^PASS' "$OUT/${t}_test.log") checks passed, in both builds"
 done
+# What comes with the plugin (factory/, built into it by FactoryData.cpp), in both builds as well.
+g++ -std=gnu++17 -O2 -Wall -Wextra -o "$OUT/factory_test" tests/factory_test.cpp FactoryData.cpp -lpthread
+"$OUT/factory_test" > "$OUT/factory_test.log" || { grep -v '^PASS' "$OUT/factory_test.log"; exit 1; }
+g++ -std=gnu++17 -O3 -ffast-math -Wall -Wextra -o "$OUT/factory_test_release" tests/factory_test.cpp FactoryData.cpp -lpthread
+"$OUT/factory_test_release" > "$OUT/factory_test.log" || { grep -v '^PASS' "$OUT/factory_test.log"; exit 1; }
+echo "factory: $(grep -c '^PASS' "$OUT/factory_test.log") checks passed, in both builds"
 g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1 -o "$OUT/plugin_test" \
-    tests/plugin_test.cpp SamplerPlugin.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp -lpthread
+    tests/plugin_test.cpp SamplerPlugin.cpp FactoryData.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp -lpthread
 "$OUT/plugin_test"
 g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1 -o "$OUT/abuse_test" \
-    tests/abuse_test.cpp SamplerPlugin.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp -lpthread
+    tests/abuse_test.cpp SamplerPlugin.cpp FactoryData.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp -lpthread
 "$OUT/abuse_test"
 # The UI works in a folder of its own: its sounds, and the instruments it saves.
 rm -rf "$OUT/ui"
@@ -35,7 +42,7 @@ mkdir -p "$OUT/ui/presets"
 # The UI tests see the settings of a new user, not those of whoever runs them.
 export HNL_SETTINGS_DIR="$PWD/$OUT/settings"
 rm -rf "$HNL_SETTINGS_DIR"
-g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_test" tests/ui_test.cpp SamplerUI.cpp -lpthread
+g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_test" tests/ui_test.cpp SamplerUI.cpp FactoryData.cpp -lpthread
 HNL_PRESET_DIR="$PWD/$OUT/ui/presets" HOME="$PWD/$OUT/ui" USERPROFILE="$PWD/$OUT/ui" "$OUT/ui_test" "$OUT/ui"
 # The choice of look, shared by all plugins (common/tests/ui_skin_test.cpp).
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_skin_test" $ROOT/common/tests/ui_skin_test.cpp SamplerUI.cpp -lpthread
