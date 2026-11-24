@@ -107,8 +107,8 @@ static const int kCount = static_cast<int>(sizeof(kAll) / sizeof(kAll[0]));
 /** The value a preset gives to an input parameter. */
 inline float value(int preset, uint32_t id) { return hnl::presetValue(kAll[preset], id, kParams[id].def); }
 
-/** Every control belongs to a preset. */
-inline bool inPreset(uint32_t) { return true; }
+/** What is for listening and for the export stays as it is when a preset is chosen: solo and mute, bypass and match, dither. */
+inline bool inPreset(uint32_t id) { return !(id >= kLowSolo && id <= kMatch); }
 
 /** The factory presets followed by the ones the user saved (common/UserPresets.hpp). */
 inline hnl::PresetList list() {

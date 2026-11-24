@@ -49,17 +49,17 @@ struct ModuleInfo {
     float height;    // when open, for the modules stacked in a column
 };
 
-const float kHeight = UI_BASE_HEIGHT, kTop = 52, kBottom = 556, kMargin = 12, kGap = 12; // the gaps hold the lines of the signal path
+const float kHeight = UI_BASE_HEIGHT, kTop = 52, kBottom = 580, kMargin = 12, kGap = 12; // the gaps hold the lines of the signal path
 const float kInputW = 84, kCompW = 486, kColumnW = 212, kOutputW = 182, kBarH = 30;
 
 const ModuleInfo kModules[kModCount] = {
     {"INPUT", "INPUT", kBlue, kParamCount, 0},
     {"MULTIBAND COMPRESSOR", "COMPRESSOR", kAmber, kCompOn, 0},
-    {"EQUALISER", "EQUALISER", kViolet, kEqOn, 218}, // with the two modules under it, this fills the column
+    {"EQUALISER", "EQUALISER", kViolet, kEqOn, 242}, // with the two modules under it, this fills the column
     {"EXCITER", "EXCITER", kTeal, kExcOn, 148},
     {"STEREO WIDTH", "STEREO WIDTH", kSky, kWideOn, 114},
     {"REVERB", "REVERB", kRose, kRevOn, 114},
-    {"LIMITER", "LIMITER", kRed, kLimOn, 140},
+    {"LIMITER", "LIMITER", kRed, kLimOn, 162},
     {"OUTPUT", "OUTPUT", kBlue, kParamCount, 0},
 };
 
@@ -86,8 +86,14 @@ hnl::ui::Skin classicLook() {
 const hnl::ui::Skin kClassic = classicLook();
 const Rect kModeBox = {12, 36, 188, 22}; // exciter character, relative to its module
 const Rect kOrderBox = {12, 34, 188, 20}; // equaliser before or after the compressor, relative to its module
+const Rect kLimModeBox = {12, 34, 188, 20}; // limiter brickwall or soft, relative to its module
+const Rect kLinkBox = {12, 134, 96, 20};   // the link of the compressor's bands, relative to its module
+const Rect kSpecBox = {12, 36, 462, 72};   // the spectrum of what goes into the compressor
+const Rect kEqModeBox = {12, 58, 188, 20}; // what the equaliser works on
+const Rect kBypassBox = {20, 426, 69, 20}, kMatchBox = {93, 426, 69, 20}, kDitherBox = {66, 452, 96, 20}; // in the output module
+const float kBandNameY = 196, kSoloX = 96, kMuteX = 120, kKeyW = 22, kKeyH = 18; // solo and mute of a band, beside its name
 const uint32_t kFlow = 0x646c7d;          // the lines of the signal path
-const Rect kResetBox = {20, 448, 142, 28};
+const Rect kResetBox = {20, 484, 142, 28};
 const float kFoldX = 62, kFoldY = 15; // the fold arrow of a module: this far from its right edge, and from its top
 
 } // namespace
@@ -98,44 +104,46 @@ public:
         for (uint32_t i = 0; i < kParamCount; ++i) values_[i] = kParams[i].def;
         loadSharedResources();
 
-        knob(kInputGain, kModInput, 42, 448, 19, "GAIN");
+        knob(kInputGain, kModInput, 42, 472, 19, "GAIN");
 
-        knob(kXoverLow, kModComp, kBandWidth, 64, 15, "LOW X-OVER");
-        knob(kXoverHigh, kModComp, 2 * kBandWidth, 64, 15, "HIGH X-OVER");
+        knob(kXoverLow, kModComp, kBandWidth, 146, 15, "LOW X-OVER");
+        knob(kXoverHigh, kModComp, 2 * kBandWidth, 146, 15, "HIGH X-OVER");
         for (int b = 0; b < 3; ++b) {
             const float k1 = b * kBandWidth + 40, k2 = b * kBandWidth + 100;
             const uint32_t base = kLowThreshold + 5 * b;
-            knob(base + 0, kModComp, k1, 182, 20, "THRESHOLD");
-            knob(base + 1, kModComp, k2, 182, 20, "RATIO");
-            knob(base + 2, kModComp, k1, 294, 20, "ATTACK");
-            knob(base + 3, kModComp, k2, 294, 20, "RELEASE");
-            knob(base + 4, kModComp, k1, 406, 20, "GAIN");
+            knob(base + 0, kModComp, k1, 252, 20, "THRESHOLD");
+            knob(base + 1, kModComp, k2, 252, 20, "RATIO");
+            knob(base + 2, kModComp, k1, 356, 20, "ATTACK");
+            knob(base + 3, kModComp, k2, 356, 20, "RELEASE");
+            knob(base + 4, kModComp, k1, 460, 20, "GAIN");
         }
 
         const float four[4] = {31, 81, 131, 181}, three[3] = {46, 106, 166};
-        knob(kEqLowFreq, kModEq, four[0], 94, 16, "LOW FREQ");
-        knob(kEqLowGain, kModEq, four[1], 94, 16, "LOW GAIN");
-        knob(kEqHighFreq, kModEq, four[2], 94, 16, "HIGH FREQ");
-        knob(kEqHighGain, kModEq, four[3], 94, 16, "HIGH GAIN");
-        knob(kEqMidFreq, kModEq, three[0], 176, 16, "PEAK FREQ");
-        knob(kEqMidGain, kModEq, three[1], 176, 16, "PEAK GAIN");
-        knob(kEqMidQ, kModEq, three[2], 176, 16, "PEAK Q");
+        knob(kEqLowFreq, kModEq, four[0], 118, 16, "LOW FREQ");
+        knob(kEqLowGain, kModEq, four[1], 118, 16, "LOW GAIN");
+        knob(kEqHighFreq, kModEq, four[2], 118, 16, "HIGH FREQ");
+        knob(kEqHighGain, kModEq, four[3], 118, 16, "HIGH GAIN");
+        knob(kEqLowCut, kModEq, four[0], 200, 16, "LOW CUT");
+        knob(kEqMidFreq, kModEq, four[1], 200, 16, "PEAK FREQ");
+        knob(kEqMidGain, kModEq, four[2], 200, 16, "PEAK GAIN");
+        knob(kEqMidQ, kModEq, four[3], 200, 16, "PEAK Q");
 
         knob(kExcFreq, kModExc, four[0], 106, 16, "FREQ");
         knob(kExcDrive, kModExc, four[1], 106, 16, "DRIVE");
         knob(kExcColour, kModExc, four[2], 106, 16, "COLOUR");
         knob(kExcMix, kModExc, four[3], 106, 16, "MIX");
 
-        knob(kWideWidth, kModWide, 66, 72, 16, "WIDTH");
-        knob(kWideFreq, kModWide, 146, 72, 16, "ABOVE");
+        knob(kWideWidth, kModWide, three[0], 72, 16, "WIDTH");
+        knob(kWideFreq, kModWide, three[1], 72, 16, "ABOVE");
 
         knob(kRevDecay, kModRev, three[0], 72, 16, "DECAY");
         knob(kRevDamping, kModRev, three[1], 72, 16, "DAMPING");
         knob(kRevMix, kModRev, three[2], 72, 16, "AMOUNT");
 
-        knob(kLimGain, kModLim, three[0], 72, 16, "GAIN");
-        knob(kLimCeiling, kModLim, three[1], 72, 16, "CEILING");
-        knob(kLimRelease, kModLim, three[2], 72, 16, "RELEASE");
+        knob(kLimGain, kModLim, four[0], 94, 16, "GAIN");
+        knob(kLimCeiling, kModLim, four[1], 94, 16, "CEILING");
+        knob(kLimAttack, kModLim, four[2], 94, 16, "ATTACK");
+        knob(kLimRelease, kModLim, four[3], 94, 16, "RELEASE");
 
         for (int m = 0; m < kModCount; ++m)
             if (kModules[m].toggle != kParamCount)
@@ -159,6 +167,11 @@ protected:
                 folded_[m] = i < std::strlen(value) && value[i] == '1';
             }
             layout();
+            repaint();
+            return;
+        }
+        if (std::strcmp(key, "link") == 0) {
+            linked_ = value[0] == '1';
             repaint();
             return;
         }
@@ -199,7 +212,10 @@ protected:
         if (open(kModComp)) drawCompressor(rects_[kModComp]);
         if (open(kModExc)) drawExciterMode(rects_[kModExc]);
         if (open(kModEq)) drawEqOrder(rects_[kModEq]);
-        if (open(kModLim)) drawLimiter(rects_[kModLim]);
+        if (open(kModLim)) {
+            drawLimiterMode(rects_[kModLim]);
+            drawLimiter(rects_[kModLim]);
+        }
         drawOutput(rects_[kModOutput]);
 
         for (const Control& c : controls_) {
@@ -215,6 +231,8 @@ protected:
             fill();
         }
 
+        if (open(kModWide)) drawCorrelation(rects_[kModWide]); // of the output, whether the widener is on or not: never dim
+
         presetBar_.drawMenu(*this, theme, list_.count(), preset_, list_.factoryCount(), canSavePreset(), [this](int i) { return list_.name(i); });
         skin_.drawMenu(*this, theme);
         if (!presetBar_.isOpen() && !skin_.isOpen() && drag_ < 0) help_.drawTip(*this, theme, width_, kHeight);
@@ -229,7 +247,9 @@ protected:
 
         if (!ev.press) {
             if (drag_ < 0) return false;
-            editParameter(controls_[drag_].id, false);
+            uint32_t ids[3];
+            const int count = group(controls_[drag_].id, ids);
+            for (int i = 0; i < count; ++i) editParameter(ids[i], false);
             drag_ = -1;
             return true;
         }
@@ -279,6 +299,40 @@ protected:
             return true;
         }
 
+        if (open(kModEq) && inModule(kModEq, kEqModeBox, x, y)) {
+            const int mode = static_cast<int>((x - rects_[kModEq].x - kEqModeBox.x) / (kEqModeBox.w / 3.0f));
+            change(kEqMode, static_cast<float>(mode < 0 ? 0 : (mode > 2 ? 2 : mode)), true);
+            return true;
+        }
+        if (inModule(kModOutput, kDitherBox, x, y)) {
+            const int mode = static_cast<int>((x - rects_[kModOutput].x - kDitherBox.x) / (kDitherBox.w / 3.0f));
+            change(kDither, static_cast<float>(mode < 0 ? 0 : (mode > 2 ? 2 : mode)), true);
+            return true;
+        }
+        if (inModule(kModOutput, kBypassBox, x, y) || inModule(kModOutput, kMatchBox, x, y)) {
+            const uint32_t id = inModule(kModOutput, kBypassBox, x, y) ? kBypass : kMatch;
+            change(id, on(id) ? 0.0f : 1.0f, true);
+            return true;
+        }
+        if (open(kModComp))
+            for (int b = 0; b < 3; ++b)
+                for (int mute = 0; mute < 2; ++mute) {
+                    if (!inModule(kModComp, bandKey(b, mute == 1), x, y)) continue;
+                    const uint32_t id = kLowSolo + 2 * b + mute;
+                    change(id, on(id) ? 0.0f : 1.0f, true);
+                    return true;
+                }
+        if (open(kModLim) && inModule(kModLim, kLimModeBox, x, y)) {
+            change(kLimSoft, x - rects_[kModLim].x - kLimModeBox.x < kLimModeBox.w * 0.5f ? 0.0f : 1.0f, true);
+            return true;
+        }
+        if (open(kModComp) && inModule(kModComp, kLinkBox, x, y)) {
+            linked_ = !linked_;
+            setState("link", linked_ ? "1" : "0");
+            repaint();
+            return true;
+        }
+
         const int hit = controlAt(x, y);
         if (hit < 0) return false;
         const Control& c = controls_[hit];
@@ -292,14 +346,19 @@ protected:
         const bool doubleClick = hit == lastClick_ && ev.time - lastClickTime_ < 350;
         lastClick_ = hit;
         lastClickTime_ = ev.time;
+        uint32_t ids[3];
+        const int count = group(c.id, ids);
         if (doubleClick || (ev.mod & kModifierControl)) {
-            change(c.id, kParams[c.id].def, true);
+            for (int i = 0; i < count; ++i) change(ids[i], kParams[ids[i]].def, true);
             return true;
         }
         drag_ = hit;
         dragY_ = y;
-        dragNorm_ = paramToNorm(c.id, values_[c.id]);
-        editParameter(c.id, true);
+        dragNorm_ = dragStart_ = paramToNorm(c.id, shown(c.id));
+        for (int i = 0; i < count; ++i) {
+            linkStart_[i] = paramToNorm(ids[i], values_[ids[i]]);
+            editParameter(ids[i], true);
+        }
         return true;
     }
 
@@ -319,10 +378,15 @@ protected:
             return false;
         }
         const float range = (ev.mod & kModifierShift) ? 1200.0f : 200.0f;
-        dragNorm_ += (dragY_ - y) / range;
-        dragNorm_ = dragNorm_ < 0.0f ? 0.0f : (dragNorm_ > 1.0f ? 1.0f : dragNorm_);
+        const uint32_t id = controls_[drag_].id;
+        dragNorm_ = std::max(0.0f, std::min(maxNorm(id), dragNorm_ + (dragY_ - y) / range));
         dragY_ = y;
-        change(controls_[drag_].id, normToParam(controls_[drag_].id, dragNorm_), false);
+        change(id, normToParam(id, dragNorm_), false);
+        // Linked bands go the same way from where they stood when the drag began, each as far as its own
+        // range lets it: what is pushed against an end comes back when the knob is turned back.
+        uint32_t ids[3];
+        const int count = group(id, ids);
+        for (int i = 1; i < count; ++i) change(ids[i], normToParam(ids[i], linkStart_[i] + dragNorm_ - dragStart_), false);
         return true;
     }
 
@@ -348,8 +412,12 @@ protected:
         if (hit < 0 || controls_[hit].toggle) return false;
         const uint32_t id = controls_[hit].id;
         const float step = (ev.mod & kModifierShift) ? 0.004f : 0.02f;
-        const float norm = paramToNorm(id, values_[id]) + step * static_cast<float>(ev.delta.getY());
+        const float from = paramToNorm(id, shown(id));
+        const float norm = std::max(0.0f, std::min(maxNorm(id), from + step * static_cast<float>(ev.delta.getY())));
+        uint32_t ids[3];
+        const int count = group(id, ids);
         change(id, normToParam(id, norm), true);
+        for (int i = 1; i < count; ++i) change(ids[i], normToParam(ids[i], paramToNorm(ids[i], values_[ids[i]]) + norm - from), true);
         return true;
     }
 
@@ -359,8 +427,30 @@ private:
     }
 
     bool on(uint32_t id) const { return values_[id] > 0.5f; }
+
+    /** How far a knob turns, 0..1: all the way, but the limiter's attack as a brickwall stops at its longest look-ahead. */
+    float maxNorm(uint32_t id) const { return id == kLimAttack && !on(kLimSoft) ? paramToNorm(id, kBrickwallMaxAttack) : 1.0f; }
+    /** The value a knob shows, which is the one in use: the attack of a brickwall is never longer than that. */
+    float shown(uint32_t id) const { return id == kLimAttack && !on(kLimSoft) ? std::min(values_[id], kBrickwallMaxAttack) : values_[id]; }
+
+    /** The parameters that move with `id`, itself first: the same control of the other two bands when the bands are linked. */
+    int group(uint32_t id, uint32_t* ids) const {
+        ids[0] = id;
+        if (!linked_ || id < kLowThreshold || id > kHighMakeup) return 1;
+        int count = 1;
+        for (uint32_t other = kLowThreshold + (id - kLowThreshold) % 5; other <= kHighMakeup; other += 5)
+            if (other != id) ids[count++] = other;
+        return count;
+    }
     /** A module works when it has no on/off switch or is switched on. */
-    bool active(Module m) const { return kModules[m].toggle == kParamCount || on(kModules[m].toggle); }
+    bool active(Module m) const { return kModules[m].toggle == kParamCount || (on(kModules[m].toggle) && !on(kBypass)); }
+    /** The solo or mute key of a band, relative to the compressor. */
+    static Rect bandKey(int band, bool mute) { return {band * kBandWidth + (mute ? kMuteX : kSoloX), kBandNameY - kKeyH * 0.5f, kKeyW, kKeyH}; }
+    /** A band is heard unless it is muted, or another one is soloed and it is not. */
+    bool heard(int band) const {
+        const bool anySolo = on(kLowSolo) || on(kMidSolo) || on(kHighSolo);
+        return !on(kLowMute + 2 * band) && (!anySolo || on(kLowSolo + 2 * band));
+    }
     /** A module is open, showing its controls, unless it was folded. Switching it on or off does not change that. */
     bool open(Module m) const { return !folded_[m]; }
 
@@ -429,17 +519,33 @@ private:
         help_.add(skin_.buttonBox(), "LOOK", hnl::ui::SkinMenu::help());
         help_.add(presetBar_.nameBox(), "PRESETS", help::kPresets);
         const Rect& in = rects_[kModInput];
-        help_.add({in.x + 16, in.y + 34, 56, 372}, "INPUT LEVEL", help::kInputMeter);
+        help_.add({in.x + 16, in.y + 34, 56, 396}, "INPUT LEVEL", help::kInputMeter);
         const Rect& out = rects_[kModOutput];
-        help_.add({out.x + 14, out.y + 34, 60, 402}, "OUTPUT LEVEL", help::kOutputMeter);
-        help_.add({out.x + 84, out.y + 40, 96, 210}, "LOUDNESS", help::kLoudness);
-        help_.add({out.x + 84, out.y + 264, 96, 64}, "TRUE PEAK", help::kTruePeak);
+        help_.add({out.x + 14, out.y + 34, 60, 380}, "OUTPUT LEVEL", help::kOutputMeter);
+        help_.add({out.x + 84, out.y + 40, 96, 196}, "LOUDNESS", help::kLoudness);
+        help_.add({out.x + 84, out.y + 246, 96, 64}, "TRUE PEAK", help::kTruePeak);
+        help_.add({out.x + 84, out.y + 318, 96, 64}, "MATCH GAIN", help::kMatchGain);
+        help_.add({out.x + kBypassBox.x, out.y + kBypassBox.y, kBypassBox.w, kBypassBox.h}, "BYPASS", help::forParam(kBypass));
+        help_.add({out.x + kMatchBox.x, out.y + kMatchBox.y, kMatchBox.w, kMatchBox.h}, "MATCH LOUDNESS", help::forParam(kMatch));
+        help_.add({out.x + 20, out.y + kDitherBox.y, 142, kDitherBox.h}, "DITHER", help::forParam(kDither));
         help_.add({out.x + kResetBox.x, out.y + kResetBox.y, kResetBox.w, kResetBox.h}, "RESET METERS", help::kReset);
         if (open(kModComp)) {
             const Rect& p = rects_[kModComp];
-            for (int b = 0; b < 3; ++b) help_.add({p.x + b * kBandWidth + 70, p.y + 380, 86, 104}, "GAIN REDUCTION", help::kGainReduction);
+            help_.add({p.x + kSpecBox.x, p.y + kSpecBox.y, kSpecBox.w, kSpecBox.h}, "SPECTRUM", help::kSpectrum);
+            for (int b = 0; b < 3; ++b) {
+                help_.add({p.x + b * kBandWidth + 70, p.y + 430, 86, 90}, "GAIN REDUCTION", help::kGainReduction);
+                const Rect s = bandKey(b, false), m = bandKey(b, true);
+                help_.add({p.x + s.x, p.y + s.y, s.w, s.h}, "SOLO", help::forParam(kLowSolo));
+                help_.add({p.x + m.x, p.y + m.y, m.w, m.h}, "MUTE", help::forParam(kLowMute));
+            }
         }
-        if (open(kModLim)) help_.add({rects_[kModLim].x + 8, rects_[kModLim].y + 110, kColumnW - 16, 24}, "GAIN REDUCTION", help::kGainReduction);
+        if (open(kModWide)) help_.add({rects_[kModWide].x + 136, rects_[kModWide].y + 34, 68, 76}, "CORRELATION", help::kCorrelation);
+        if (open(kModComp)) help_.add({rects_[kModComp].x + kLinkBox.x, rects_[kModComp].y + kLinkBox.y, kLinkBox.w, kLinkBox.h}, "LINK BANDS", help::kLink);
+        if (open(kModLim)) {
+            const Rect& p = rects_[kModLim];
+            help_.add({p.x + 8, p.y + 132, kColumnW - 16, 24}, "GAIN REDUCTION", help::kGainReduction);
+            help_.add({p.x + kLimModeBox.x, p.y + kLimModeBox.y, kLimModeBox.w, kLimModeBox.h}, "LIMITER MODE", help::forParam(kLimSoft));
+        }
         if (open(kModExc)) {
             const Rect& p = rects_[kModExc];
             help_.add({p.x + kModeBox.x, p.y + kModeBox.y, kModeBox.w, kModeBox.h}, "EXCITER MODE", help::forParam(kExcMode));
@@ -447,6 +553,7 @@ private:
         if (open(kModEq)) {
             const Rect& p = rects_[kModEq];
             help_.add({p.x + kOrderBox.x, p.y + kOrderBox.y, kOrderBox.w, kOrderBox.h}, "EQUALISER PLACE", help::forParam(kEqFirst));
+            help_.add({p.x + kEqModeBox.x, p.y + kEqModeBox.y, kEqModeBox.w, kEqModeBox.h}, "EQUALISER WORKS ON", help::forParam(kEqMode));
         }
         for (int m = kModComp; m <= kModLim; ++m) {
             const Rect f = foldBox(static_cast<Module>(m));
@@ -519,7 +626,7 @@ private:
         presetName_ = list_.name(index);
         for (uint32_t id = 0; id < kInputParamCount; ++id) {
             const float v = list_.value(index, id);
-            if (values_[id] == v) continue;
+            if (!presets::inPreset(id) || values_[id] == v) continue;
             editParameter(id, true);
             values_[id] = v;
             setParameterValue(id, v);
@@ -535,7 +642,7 @@ private:
         if (preset_ < 0) return false;
         for (uint32_t id = 0; id < kInputParamCount; ++id) {
             const float tolerance = 1e-4f * (kParams[id].max - kParams[id].min);
-            if (std::fabs(values_[id] - list_.value(preset_, id)) > tolerance) return true;
+            if (presets::inPreset(id) && std::fabs(values_[id] - list_.value(preset_, id)) > tolerance) return true;
         }
         return false;
     }
@@ -593,27 +700,129 @@ private:
     }
 
     void drawInput(const Rect& p) {
-        window(p, 12, 30, 60, 380);
-        levelMeter(p.x + 22, p.y + 40, 12, 360, values_[kMeterInL]);
-        levelMeter(p.x + 38, p.y + 40, 12, 360, values_[kMeterInR]);
-        levelScale(p.x + 54, p.y + 40, 360);
+        window(p, 12, 30, 60, 404);
+        levelMeter(p.x + 22, p.y + 40, 12, 384, values_[kMeterInL]);
+        levelMeter(p.x + 38, p.y + 40, 12, 384, values_[kMeterInR]);
+        levelScale(p.x + 54, p.y + 40, 384);
     }
 
     void drawCompressor(const Rect& p) {
         static const char* const kBandNames[3] = {"LOW", "MID", "HIGH"};
+        static const char* const kLinkName[1] = {"LINK BANDS"}, *const kSolo[1] = {"S"}, *const kMute[1] = {"M"};
+        drawSpectrum(p);
+        drawChoice(p, kLinkBox, kLinkName, 1, linked_ ? 0 : -1, kAmber);
         for (int b = 0; b < 3; ++b) {
             const float x = p.x + b * kBandWidth;
             const hnl::ui::Skin k = skin();
-            label(kBandNames[b], x + kBandWidth * 0.5f, p.y + 120, 12, rgb(k.solid ? k.plateText : kAmber), ALIGN_CENTER | ALIGN_MIDDLE);
-            if (b > 0) hnl::ui::groove(*this, k, x, p.y + 108, x, p.y + 484);
+            label(kBandNames[b], x + 52, p.y + kBandNameY, 12, rgb(k.solid ? k.plateText : kAmber, heard(b) ? 1.0f : 0.4f), ALIGN_CENTER | ALIGN_MIDDLE);
+            drawChoice(p, bandKey(b, false), kSolo, 1, on(kLowSolo + 2 * b) ? 0 : -1, kAmber);
+            drawChoice(p, bandKey(b, true), kMute, 1, on(kLowMute + 2 * b) ? 0 : -1, kRed);
+            if (b > 0) hnl::ui::groove(*this, k, x, p.y + 184, x, p.y + 512);
             const float gr = values_[kMeterGrLow + b];
-            window(p, b * kBandWidth + 132, 148, 18, 328);
-            reductionMeter(x + 136, p.y + 152, 10, 320, gr, 20.0f, rgb(kModules[kModComp].accent), false);
-            label("GR", x + 100, p.y + 394, 9, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
+            window(p, b * kBandWidth + 132, 220, 18, 296);
+            reductionMeter(x + 136, p.y + 224, 10, 288, gr, 20.0f, rgb(kModules[kModComp].accent), false);
+            label("GR", x + 100, p.y + 448, 9, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
             char text[24];
             std::snprintf(text, sizeof(text), "%.1f dB", gr);
-            label(text, x + 100, p.y + 412, 12, rgb(k.plateText), ALIGN_CENTER | ALIGN_MIDDLE);
+            label(text, x + 100, p.y + 466, 12, rgb(k.plateText), ALIGN_CENTER | ALIGN_MIDDLE);
         }
+    }
+
+    /**
+     * The spectrum of what goes into the compressor, 20 Hz to 20 kHz over its width and 72 dB over its height,
+     * with the two crossovers as lines. A band that is not heard (muted, or not the soloed one) is dark.
+     */
+    void drawSpectrum(const Rect& p) {
+        const hnl::ui::Skin k = skin();
+        const Rect box = {p.x + kSpecBox.x, p.y + kSpecBox.y, kSpecBox.w, kSpecBox.h};
+        if (k.solid) {
+            hnl::ui::displayPanel(*this, k, box);
+        } else {
+            beginPath();
+            roundedRect(box.x, box.y, box.w, box.h, 4);
+            fillColor(rgb(k.well));
+            fill();
+        }
+        const float x0 = box.x + 4, w = box.w - 8, y0 = box.y + 5, h = box.h - 9, floor = y0 + h;
+        const auto at = [&](float hz) { return x0 + w * std::log(hz / 20.0f) / std::log(1000.0f); };
+        const uint32_t ink = k.solid ? k.yellow : kAmber;
+        static const struct { float hz; const char* name; } kMarks[] = {{100, "100"}, {1000, "1k"}, {10000, "10k"}};
+        for (const auto& m : kMarks) {
+            beginPath();
+            moveTo(at(m.hz), y0);
+            lineTo(at(m.hz), floor);
+            strokeColor(rgb(k.dim, 0.22f));
+            strokeWidth(1);
+            stroke();
+            label(m.name, at(m.hz) - 3, y0 + 4, 7, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        }
+        float ys[kSpectrumBands];
+        for (int i = 0; i < kSpectrumBands; ++i) {
+            const float t = (values_[kSpectrum + i] + 72.0f) / 72.0f;
+            ys[i] = floor - h * (t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t));
+        }
+        for (int pass = 0; pass < 2; ++pass) { // the area under the line, then the line
+            beginPath();
+            moveTo(x0, pass == 0 ? floor : ys[0]);
+            if (pass == 0) lineTo(x0, ys[0]);
+            for (int i = 0; i < kSpectrumBands; ++i) lineTo(x0 + w * (i + 0.5f) / kSpectrumBands, ys[i]);
+            lineTo(x0 + w, ys[kSpectrumBands - 1]);
+            if (pass == 0) {
+                lineTo(x0 + w, floor);
+                closePath();
+                fillColor(rgb(ink, 0.28f));
+                fill();
+            } else {
+                strokeColor(rgb(ink));
+                strokeWidth(1.5f);
+                stroke();
+            }
+        }
+        // The crossovers, where the compressor has them: the high one at least an octave above the low one.
+        const float f1 = values_[kXoverLow], f2 = std::max(values_[kXoverHigh], 2.0f * f1);
+        const float edges[4] = {x0, at(f1), std::min(at(f2), x0 + w), x0 + w};
+        for (int b = 0; b < 3; ++b) {
+            if (heard(b)) continue;
+            beginPath();
+            rect(edges[b], y0, edges[b + 1] - edges[b], h);
+            fillColor(rgb(k.solid ? 0x000000 : k.well, 0.7f));
+            fill();
+        }
+        for (int i = 1; i < 3; ++i) {
+            beginPath();
+            moveTo(edges[i], y0);
+            lineTo(edges[i], floor);
+            strokeColor(rgb(k.solid ? k.text : k.plateText, 0.75f));
+            strokeWidth(1);
+            stroke();
+        }
+    }
+
+    /** How alike left and right are at the output: a bar from the middle, to the right when they agree, to the left (red) when they cancel in mono. */
+    void drawCorrelation(const Rect& p) {
+        const hnl::ui::Skin k = skin();
+        const float v = std::max(-1.0f, std::min(1.0f, values_[kMeterCorr]));
+        const float x = p.x + 142, y = p.y + 68, w = 54, h = 8, mid = x + w * 0.5f;
+        label("CORRELATION", p.x + 169, p.y + 44, 8, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
+        window(p, 138, 64, 62, 16);
+        beginPath();
+        rect(x, y, w, h);
+        fillColor(rgb(k.solid ? k.track : k.well));
+        fill();
+        if (v != 0.0f) {
+            beginPath();
+            rect(v > 0.0f ? mid : mid + v * w * 0.5f, y, std::fabs(v) * w * 0.5f, h);
+            fillColor(rgb(v > 0.0f ? k.green : k.red));
+            fill();
+        }
+        hnl::ui::segments(*this, k, x, y, w, h);
+        beginPath();
+        rect(mid - 0.5f, y - 2, 1, h + 4);
+        fillColor(rgb(k.solid ? k.text : k.plateDim));
+        fill();
+        char text[16];
+        std::snprintf(text, sizeof(text), "%+.2f", v);
+        label(text, p.x + 169, p.y + 101, 10, rgb(v < 0.0f ? k.red : k.plateText), ALIGN_CENTER | ALIGN_MIDDLE);
     }
 
     /** A row of choices in a box, the chosen one in the module's colour. */
@@ -626,9 +835,15 @@ private:
         drawChoice(p, kModeBox, kNames, 3, static_cast<int>(std::lround(values_[kExcMode])), kTeal);
     }
 
+    void drawLimiterMode(const Rect& p) {
+        static const char* const kNames[2] = {"BRICKWALL", "SOFT"};
+        drawChoice(p, kLimModeBox, kNames, 2, on(kLimSoft) ? 1 : 0, kRed);
+    }
+
     void drawEqOrder(const Rect& p) {
-        static const char* const kNames[2] = {"BEFORE COMP", "AFTER COMP"};
+        static const char* const kNames[2] = {"BEFORE COMP", "AFTER COMP"}, *const kOn[3] = {"STEREO", "MID", "SIDE"}; // kEqModes
         drawChoice(p, kOrderBox, kNames, 2, on(kEqFirst) ? 0 : 1, kViolet);
+        drawChoice(p, kEqModeBox, kOn, 3, static_cast<int>(std::lround(values_[kEqMode])), kViolet);
     }
 
     // -------------------------------------------------------- signal path
@@ -676,26 +891,32 @@ private:
     void drawLimiter(const Rect& p) {
         const float gr = values_[kMeterGrLim];
         const hnl::ui::Skin k = skin();
-        label("GR", p.x + 12, p.y + 122, 9, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
-        window(p, 28, 114, 116, 16);
-        reductionMeter(p.x + 32, p.y + 118, 108, 8, gr, 12.0f, rgb(k.red), true);
+        label("GR", p.x + 12, p.y + 144, 9, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        window(p, 28, 136, 116, 16);
+        reductionMeter(p.x + 32, p.y + 140, 108, 8, gr, 12.0f, rgb(k.red), true);
         char text[24];
         std::snprintf(text, sizeof(text), "%.1f dB", gr);
-        label(text, p.x + p.w - 12, p.y + 122, 11, rgb(k.plateText), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label(text, p.x + p.w - 12, p.y + 144, 11, rgb(k.plateText), ALIGN_RIGHT | ALIGN_MIDDLE);
     }
 
     void drawOutput(const Rect& p) {
         const hnl::ui::Skin k = skin();
-        window(p, 10, 30, p.w - 20, 408);
-        levelMeter(p.x + 20, p.y + 40, 14, 390, values_[kMeterOutL]);
-        levelMeter(p.x + 38, p.y + 40, 14, 390, values_[kMeterOutR]);
-        levelScale(p.x + 56, p.y + 40, 390);
+        static const char* const kBypassName[1] = {"BYPASS"}, *const kMatchName[1] = {"MATCH"}, *const kDitherNames[3] = {"OFF", "16", "24"};
+        window(p, 10, 30, p.w - 20, 386);
+        levelMeter(p.x + 20, p.y + 40, 14, 368, values_[kMeterOutL]);
+        levelMeter(p.x + 38, p.y + 40, 14, 368, values_[kMeterOutR]);
+        levelScale(p.x + 56, p.y + 40, 368);
         const float x = p.x + 132;
-        readout("MOMENTARY", values_[kMeterLufsM], "LUFS", x, p.y + 52, 15, k.text);
-        readout("SHORT-TERM", values_[kMeterLufsS], "LUFS", x, p.y + 122, 15, k.text);
-        readout("INTEGRATED", values_[kMeterLufsI], "LUFS", x, p.y + 192, 20, k.text);
-        readout("TRUE PEAK MAX", values_[kMeterTruePeak], "dBTP", x, p.y + 278, 15,
-                values_[kMeterTruePeak] > values_[kLimCeiling] + 0.05f && on(kLimOn) ? k.red : k.text);
+        readout("MOMENTARY", values_[kMeterLufsM], "LUFS", x, p.y + 50, 15, k.text);
+        readout("SHORT-TERM", values_[kMeterLufsS], "LUFS", x, p.y + 116, 15, k.text);
+        readout("INTEGRATED", values_[kMeterLufsI], "LUFS", x, p.y + 182, 20, k.text);
+        readout("TRUE PEAK MAX", values_[kMeterTruePeak], "dBTP", x, p.y + 258, 15,
+                values_[kMeterTruePeak] > values_[kLimCeiling] + 0.05f && on(kLimOn) && !on(kBypass) ? k.red : k.text);
+        readout("MATCH GAIN", on(kMatch) ? values_[kMeterMatch] : -100.0f, "dB", x, p.y + 330, 15, on(kMatch) ? k.yellow : k.text);
+        drawChoice(p, kBypassBox, kBypassName, 1, on(kBypass) ? 0 : -1, kRed);
+        drawChoice(p, kMatchBox, kMatchName, 1, on(kMatch) ? 0 : -1, kAmber);
+        label("DITHER", p.x + 20, p.y + kDitherBox.y + kDitherBox.h * 0.5f, 9, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        drawChoice(p, kDitherBox, kDitherNames, 3, static_cast<int>(std::lround(values_[kDither])), kBlue);
         hnl::ui::button(*this, k, {p.x + kResetBox.x, p.y + kResetBox.y, kResetBox.w, kResetBox.h}, "RESET METERS");
     }
 
@@ -713,16 +934,20 @@ private:
         float from = 0.0f;
         if (c.id == kWideWidth) from = paramToNorm(c.id, 100.0f);
         else if (p.kind == kLinear && p.min < 0.0f && p.max > 0.0f) from = paramToNorm(c.id, 0.0f);
-        hnl::ui::knob(*this, k, x, y, c.r, paramToNorm(c.id, values_[c.id]), from, hnl::ui::printed(k, kModules[c.module].accent), 13);
+        hnl::ui::knob(*this, k, x, y, c.r, paramToNorm(c.id, shown(c.id)), from, hnl::ui::printed(k, kModules[c.module].accent), 13);
 
         const bool small = c.r < 18;
         label(c.label, x, y - c.r - 12, small ? 8 : 9, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
         char text[32];
-        formatValue(c.id, values_[c.id], text, sizeof(text));
+        formatValue(c.id, shown(c.id), text, sizeof(text));
         label(text, x, y + c.r + 13, small ? 10 : 11, rgb(k.plateText), ALIGN_CENTER | ALIGN_MIDDLE);
     }
 
     static void formatValue(uint32_t id, float v, char* out, size_t size) {
+        if (id == kEqLowCut && lowCutIsOff(v)) {
+            std::snprintf(out, size, "OFF");
+            return;
+        }
         switch (kParams[id].unit[0]) {
         case 'H':
             if (v >= 9995.0f) std::snprintf(out, size, "%.1f kHz", v / 1000.0f);
@@ -806,10 +1031,12 @@ private:
     std::vector<Control> controls_;
     Rect rects_[kModCount];
     bool folded_[kModCount] = {}; // by the arrow in a module's title; kept with the song as the state "folded"
+    bool linked_ = false;         // the compressor's bands move together; kept with the song as the state "link"
     float width_ = UI_BASE_WIDTH;
     int drag_ = -1, lastClick_ = -1;
     uint lastClickTime_ = 0;
-    float dragY_ = 0.0f, dragNorm_ = 0.0f;
+    float dragY_ = 0.0f, dragNorm_ = 0.0f, dragStart_ = 0.0f;
+    float linkStart_[3] = {}; // where the knobs of group() stood when the drag began
 
     int preset_ = 0;
     std::string presetName_ = "Default";

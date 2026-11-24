@@ -22,18 +22,36 @@ enum ParamId : uint32_t {
     kWideOn, kWideWidth, kWideFreq,
     kRevOn, kRevDecay, kRevDamping, kRevMix,
     kEqFirst, // added in 0.5.0
+    // Added in 0.7.0.
+    kLimSoft, kLimAttack,
+    kEqLowCut, kEqMode,
+    kLowSolo, kLowMute, kMidSolo, kMidMute, kHighSolo, kHighMute,
+    kDither, kBypass, kMatch,
     kInputParamCount,
 
     // Meters (plugin -> UI/host), in dB or LUFS.
     kMeterInL = kInputParamCount, kMeterInR, kMeterOutL, kMeterOutR, kMeterTruePeak,
     kMeterGrLow, kMeterGrMid, kMeterGrHigh, kMeterGrLim,
     kMeterLufsM, kMeterLufsS, kMeterLufsI,
-    kParamCount
+    kMeterMatch, kMeterCorr,
+    kSpectrum, // the first of kSpectrumBands, low to high (hnl::Spectrum)
+    kParamCount = kSpectrum + 32
 };
 
 enum ParamKind { kLinear, kLog, kToggle, kChoice, kMeter };
 
 static const char* const kExciterModes[3] = {"Tape", "Tube", "Retro"};
+static const char* const kEqModes[3] = {"Stereo", "Mid", "Side"};
+static const char* const kDitherModes[3] = {"Off", "16 bit", "24 bit"};
+constexpr int kSpectrumBands = 32;
+static_assert(kParamCount - kSpectrum == kSpectrumBands, "one output parameter for each band of the spectrum");
+
+/** The three names of a parameter that is a choice. */
+inline const char* const* choiceNames(uint32_t id) { return id == kExcMode ? kExciterModes : (id == kEqMode ? kEqModes : kDitherModes); }
+
+/** The low cut of the equaliser is off at the lowest setting of its knob. */
+constexpr float kLowCutOff = 15.f;
+inline bool lowCutIsOff(float hz) { return hz < kLowCutOff + 0.5f; }
 
 struct ParamInfo {
     const char* name;
@@ -101,6 +119,23 @@ static const ParamInfo kParams[kParamCount] = {
 
     {"EQ Before Compressor", "eq_first", "", 0.f, 1.f, 0.f, kToggle},
 
+    {"Limiter Soft", "lim_soft", "", 0.f, 1.f, 0.f, kToggle},
+    {"Limiter Attack", "lim_attack", "ms", 0.5f, 50.f, 3.f, kLog},
+
+    {"EQ Low Cut", "eq_low_cut", "Hz", kLowCutOff, 150.f, kLowCutOff, kLog},
+    {"EQ Works On", "eq_mode", "", 0.f, 2.f, 0.f, kChoice},
+
+    {"Low Solo", "low_solo", "", 0.f, 1.f, 0.f, kToggle},
+    {"Low Mute", "low_mute", "", 0.f, 1.f, 0.f, kToggle},
+    {"Mid Solo", "mid_solo", "", 0.f, 1.f, 0.f, kToggle},
+    {"Mid Mute", "mid_mute", "", 0.f, 1.f, 0.f, kToggle},
+    {"High Solo", "high_solo", "", 0.f, 1.f, 0.f, kToggle},
+    {"High Mute", "high_mute", "", 0.f, 1.f, 0.f, kToggle},
+
+    {"Dither", "dither", "", 0.f, 2.f, 0.f, kChoice},
+    {"Bypass", "bypass", "", 0.f, 1.f, 0.f, kToggle},
+    {"Match Loudness", "match", "", 0.f, 1.f, 0.f, kToggle},
+
     {"Meter In L", "meter_in_l", "dB", -100.f, 24.f, -100.f, kMeter},
     {"Meter In R", "meter_in_r", "dB", -100.f, 24.f, -100.f, kMeter},
     {"Meter Out L", "meter_out_l", "dB", -100.f, 24.f, -100.f, kMeter},
@@ -113,7 +148,18 @@ static const ParamInfo kParams[kParamCount] = {
     {"Loudness Momentary", "meter_lufs_m", "LUFS", -100.f, 24.f, -100.f, kMeter},
     {"Loudness Short-Term", "meter_lufs_s", "LUFS", -100.f, 24.f, -100.f, kMeter},
     {"Loudness Integrated", "meter_lufs_i", "LUFS", -100.f, 24.f, -100.f, kMeter},
+    {"Meter Match Gain", "meter_match", "dB", -24.f, 12.f, 0.f, kMeter},
+    {"Meter Correlation", "meter_corr", "", -1.f, 1.f, 0.f, kMeter},
+#define HM_SPEC(n) {"Spectrum " #n, "spectrum_" #n, "dB", -100.f, 24.f, -100.f, kMeter}
+    HM_SPEC(01), HM_SPEC(02), HM_SPEC(03), HM_SPEC(04), HM_SPEC(05), HM_SPEC(06), HM_SPEC(07), HM_SPEC(08),
+    HM_SPEC(09), HM_SPEC(10), HM_SPEC(11), HM_SPEC(12), HM_SPEC(13), HM_SPEC(14), HM_SPEC(15), HM_SPEC(16),
+    HM_SPEC(17), HM_SPEC(18), HM_SPEC(19), HM_SPEC(20), HM_SPEC(21), HM_SPEC(22), HM_SPEC(23), HM_SPEC(24),
+    HM_SPEC(25), HM_SPEC(26), HM_SPEC(27), HM_SPEC(28), HM_SPEC(29), HM_SPEC(30), HM_SPEC(31), HM_SPEC(32),
+#undef HM_SPEC
 };
+
+/** The longest attack of the limiter as a brickwall, in ms (hnl::Limiter::kMaxLookMs); soft it uses the whole range. */
+constexpr float kBrickwallMaxAttack = 5.f;
 
 /** Knob position 0..1 for a parameter value. */
 inline float paramToNorm(uint32_t id, float value) {

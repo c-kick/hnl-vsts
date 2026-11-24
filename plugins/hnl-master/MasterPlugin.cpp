@@ -12,9 +12,11 @@
 
 START_NAMESPACE_DISTRHO
 
+static_assert(kSpectrumBands == hnl::Spectrum::kBands, "the spectrum has a parameter for each band");
+
 class MasterPlugin : public Plugin {
 public:
-    MasterPlugin() : Plugin(kParamCount, 0, 2) {
+    MasterPlugin() : Plugin(kParamCount, 0, 3) {
         for (uint32_t i = 0; i < kInputParamCount; ++i) values_[i].store(kParams[i].def);
         for (uint32_t i = kInputParamCount; i < kParamCount; ++i) meters_[i - kInputParamCount] = kParams[i].def;
         prepare(getSampleRate());
@@ -23,7 +25,7 @@ public:
 protected:
     const char* getLabel() const override { return "HNLMaster"; }
     const char* getDescription() const override {
-        return "Mastering chain: 3-band compressor, equaliser, exciter, widener, reverb and true-peak limiter.";
+        return "Mastering chain: 3-band compressor, equaliser, exciter, widener, reverb and true-peak limiter, with a spectrum, a loudness-matched bypass and dither.";
     }
     const char* getMaker() const override { return "HNL Design"; }
     const char* getHomePage() const override { return "https://hnldesign.nl"; }
@@ -52,7 +54,7 @@ protected:
             ParameterEnumerationValue* const values = new ParameterEnumerationValue[3];
             for (int i = 0; i < 3; ++i) {
                 values[i].value = static_cast<float>(i);
-                values[i].label = kExciterModes[i];
+                values[i].label = choiceNames(index)[i];
             }
             parameter.enumValues.count = 3;
             parameter.enumValues.restrictedMode = true;
@@ -63,17 +65,21 @@ protected:
         }
     }
 
-    /** Saved with the song for the UI: the name of the preset last chosen, and which stages are folded
-        (a 1 or 0 for each stage with a switch, in signal order). */
+    /** Saved with the song for the UI: the name of the preset last chosen, which stages are folded
+        (a 1 or 0 for each stage with a switch, in signal order), and whether the compressor's bands are linked. */
     void initState(uint32_t index, State& state) override {
         if (index == 0) {
             state.key = "preset";
             state.label = "Preset";
             state.defaultValue = "Default";
-        } else {
+        } else if (index == 1) {
             state.key = "folded";
             state.label = "Folded stages";
             state.defaultValue = "";
+        } else {
+            state.key = "link";
+            state.label = "Linked bands";
+            state.defaultValue = "0";
         }
     }
 
@@ -91,7 +97,7 @@ protected:
     }
 
     /** The UI sends "reset" to clear integrated loudness and the true-peak hold.
-        "preset" and "folded" are only stored by the host; the UI acts on them itself. */
+        "preset", "folded" and "link" are only stored by the host; the UI acts on them itself. */
     void setState(const char* key, const char*) override {
         if (std::strcmp(key, "reset") == 0) resetMeters_.store(true, std::memory_order_relaxed);
     }
@@ -175,10 +181,22 @@ private:
         p.limiterGain = v[kLimGain];
         p.limiterCeiling = v[kLimCeiling];
         p.limiterRelease = v[kLimRelease];
+        p.limiterSoft = v[kLimSoft] > 0.5f;
+        p.limiterAttack = v[kLimAttack];
+        p.eqLowCut = lowCutIsOff(v[kEqLowCut]) ? 0.0 : v[kEqLowCut];
+        p.eqMode = static_cast<int>(std::lround(v[kEqMode]));
+        for (int b = 0; b < 3; ++b) {
+            p.bandSolo[b] = v[kLowSolo + 2 * b] > 0.5f;
+            p.bandMute[b] = v[kLowMute + 2 * b] > 0.5f;
+        }
+        static const int kBits[3] = {0, 16, 24};
+        p.dither = kBits[std::clamp(static_cast<int>(std::lround(v[kDither])), 0, 2)];
+        p.bypass = v[kBypass] > 0.5f;
+        p.match = v[kMatch] > 0.5f;
         chain_.setParams(p);
     }
 
-    /** Peak meters fall 20 dB/s; gain-reduction meters recover in about 150 ms. */
+    /** Peak meters fall 20 dB/s and the spectrum 40; gain-reduction meters recover in about 150 ms. */
     void updateMeters(uint32_t frames) {
         const double dt = frames / sampleRate_;
         const float peakFall = static_cast<float>(20.0 * dt);
@@ -201,6 +219,12 @@ private:
         out[kMeterLufsM - kInputParamCount] = m.lufsMomentary.load(std::memory_order_relaxed);
         out[kMeterLufsS - kInputParamCount] = m.lufsShort.load(std::memory_order_relaxed);
         out[kMeterLufsI - kInputParamCount] = m.lufsIntegrated.load(std::memory_order_relaxed);
+        out[kMeterMatch - kInputParamCount] = m.matchDb.load(std::memory_order_relaxed);
+        out[kMeterCorr - kInputParamCount] = m.correlation.load(std::memory_order_relaxed);
+        for (int b = 0; b < kSpectrumBands; ++b) {
+            float& held = out[kSpectrum - kInputParamCount + b];
+            held = std::max(m.spectrum[b].exchange(-100.0f, std::memory_order_relaxed), std::max(held - 2.0f * peakFall, -100.0f));
+        }
     }
 
     static float toDb(float lin) { return lin > 1e-5f ? 20.0f * std::log10(lin) : -100.0f; }

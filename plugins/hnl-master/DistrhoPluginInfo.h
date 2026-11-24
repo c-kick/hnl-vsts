@@ -14,7 +14,7 @@
 
 // The version: reported to the host, shown behind the title, and read by package.sh.
 #define HNL_VERSION_MAJOR 0
-#define HNL_VERSION_MINOR 6
+#define HNL_VERSION_MINOR 7
 #define HNL_VERSION_PATCH 0
 
 #define DISTRHO_PLUGIN_HAS_UI       1
@@ -33,7 +33,7 @@
 // Window size with every stage open. The UI resizes itself when stages
 // are folded (see layout() in MasterUI.cpp).
 #define UI_BASE_WIDTH  1248
-#define UI_BASE_HEIGHT 568
+#define UI_BASE_HEIGHT 592
 
 #define DISTRHO_UI_DEFAULT_WIDTH  UI_BASE_WIDTH
 #define DISTRHO_UI_DEFAULT_HEIGHT UI_BASE_HEIGHT

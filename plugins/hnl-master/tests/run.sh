@@ -5,7 +5,7 @@
 #   dsp_test     measurements of the audio engine
 #   plugin_test  the plugin driven through DPF's host-side wrapper
 #   abuse_test   the same, by a host that does everything a host may do (common/tests/HostAbuse.hpp)
-#   ui_presets_test, ui_fold_test  the UI class, driven by clicks
+#   ui_presets_test, ui_fold_test, ui_link_test  the UI class, driven by clicks
 set -e
 cd "$(dirname "$0")/.."
 ROOT=../..
@@ -33,6 +33,9 @@ g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -DPRESET_FROM_RI
 # Folding stages through the UI class itself.
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_fold_test" tests/ui_fold_test.cpp MasterUI.cpp
 "$OUT/ui_fold_test"
+# Linking the compressor's bands and the limiter's mode, the same way.
+g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_link_test" tests/ui_link_test.cpp MasterUI.cpp
+"$OUT/ui_link_test"
 # The choice of look, shared by all plugins (common/tests/ui_skin_test.cpp).
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_skin_test" $ROOT/common/tests/ui_skin_test.cpp MasterUI.cpp
 "$OUT/ui_skin_test"

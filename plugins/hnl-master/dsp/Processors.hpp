@@ -6,6 +6,7 @@
 #pragma once
 
 #include "../../../common/dsp/Filters.hpp"
+#include "Monitor.hpp"
 
 namespace hnl {
 
@@ -138,6 +139,11 @@ private:
 /** Minimum over a sliding window (monotonic queue). */
 class SlidingMin {
 public:
+    /** Room for windows up to `w`, so that setWindow() never allocates after it. */
+    void reserve(int w) {
+        val_.reserve(w + 1);
+        idx_.reserve(w + 1);
+    }
     void setWindow(int w) {
         win_ = w;
         val_.assign(w + 1, 0.0);
@@ -156,6 +162,8 @@ public:
         ++n_;
         return val_[head_];
     }
+    /** The minimum of what is in the window now; `empty` when nothing was pushed yet. */
+    double current(double empty) const { return count_ > 0 ? val_[head_] : empty; }
 
 private:
     int win_ = 1, head_ = 0, count_ = 0;
@@ -167,6 +175,8 @@ private:
 /** Running mean over a fixed number of samples. */
 class BoxAverage {
 public:
+    /** Room for lengths up to `n`, so that setLength() never allocates after it. */
+    void reserve(int n) { buf_.reserve(std::max(n, 1)); }
     void setLength(int n, double fill) {
         buf_.assign(std::max(n, 1), fill);
         pos_ = 0;
@@ -182,6 +192,7 @@ public:
         }
         return sum_ / buf_.size();
     }
+    double lowest() const { return *std::min_element(buf_.begin(), buf_.end()); }
 
 private:
     std::vector<double> buf_;
@@ -190,48 +201,118 @@ private:
 };
 
 /**
- * Look-ahead brickwall limiter with inter-sample (true) peak detection.
- * The gain is the windowed minimum of the required gain, smoothed by two box
- * filters whose total span stays inside the look-ahead, so the gain has always
- * fully arrived when the peak leaves the delay line.
+ * Limiter with inter-sample (true) peak detection, in one of two modes.
+ *
+ * Brickwall: look-ahead. The gain is the windowed minimum of the required gain, smoothed by
+ * two box filters whose total span is the attack time, so the gain has always fully arrived
+ * when the peak leaves the delay line. Nothing passes the ceiling.
+ *
+ * Soft: no look-ahead. The gain goes down to the required gain at the speed of the attack
+ * time and is applied to the sample it was measured on, so what is faster than the attack
+ * passes the ceiling, by 12 dB at most (kSoftOver): beyond that it is cut off, so that no
+ * setting lets a peak through at any height.
+ *
+ * The sound is delayed by the longest attack of the brickwall mode (kMaxLookMs) whatever the
+ * mode and the attack are: the latency never changes. The gain waits the rest of that time
+ * in a delay of its own.
  */
 class Limiter {
 public:
+    static constexpr double kMaxLookMs = 5.0;
+    static constexpr double kSoftOver = 3.9810717055349722; // 12 dB
+
     void prepare(double fs) {
         fs_ = fs;
-        look_ = std::max(8, static_cast<int>(std::lround(0.003 * fs)));
-        const int l1 = look_ / 2;
-        min_.setWindow(look_ + 2);
-        box1_.setLength(l1, 1.0);
-        box2_.setLength(look_ - l1, 1.0);
+        lookMax_ = std::max(8, static_cast<int>(std::lround(0.001 * kMaxLookMs * fs)));
+        min_.reserve(lookMax_ + 2);
+        box1_.reserve(lookMax_);
+        box2_.reserve(lookMax_);
+        gain_.assign(lookMax_, 1.0);
         for (int c = 0; c < 2; ++c) { delay_[c].setLength(latency()); tp_[c].reset(); }
-        env_ = 1.0;
+        glideCoef_ = onePoleCoef(0.5, fs);
+        setAttack(attackMs_);
+        out_ = 1.0;
+        configure(1.0);
+        glide_ = 0.0;
     }
-    int latency() const { return look_ + TruePeak::latency(); }
+    int latency() const { return lookMax_ + TruePeak::latency(); }
     void setCeiling(double db) { ceil_ = dbToLin(db); }
     void setRelease(double ms) { rel_ = onePoleCoef(ms, fs_); }
+    /** Brickwall: the time the gain takes to arrive, at most kMaxLookMs. Soft: the attack time. */
+    void setAttack(double ms) {
+        attackMs_ = ms;
+        atk_ = onePoleCoef(ms, fs_);
+        lookT_ = std::clamp(static_cast<int>(std::lround(0.001 * std::min(ms, kMaxLookMs) * fs_)), 8, lookMax_);
+    }
+    void setSoft(bool soft) { softT_ = soft; }
     void reset() { prepare(fs_); }
 
     /** Processes one stereo sample in place. Returns the applied gain (linear). */
     inline double process(double& l, double& r, bool enabled) {
+        if (soft_ != softT_ || (!soft_ && look_ != lookT_)) {
+            // Brickwall starts from the lowest gain on its way through, so that no peak still in the
+            // delay line is let go; soft from the gain of this moment.
+            configure(softT_ ? out_ : pending());
+        }
         const double pk = std::max(tp_[0].process(l), tp_[1].process(r));
         const double g = pk > ceil_ ? ceil_ / pk : 1.0;
+        // The gain that is needed, let go at the release time: the same in both modes.
         env_ = std::min(g, 1.0 - (1.0 - env_) * rel_);
-        const double s = box2_.process(box1_.process(min_.push(env_)));
+        double s;
+        if (soft_) s = follow_ = env_ < follow_ ? env_ + atk_ * (follow_ - env_) : env_;
+        else s = box2_.process(box1_.process(min_.push(env_)));
+        if (wait_ > 0) {
+            std::swap(s, gain_[gainPos_]);
+            if (++gainPos_ == wait_) gainPos_ = 0;
+        }
+        if (glide_ > 0.0) { // after a change of mode or attack: from the old gain to the new one, not in a step
+            s = std::min(1.0, s + glide_);
+            glide_ = glide_ > 1e-9 ? glide_ * glideCoef_ : 0.0;
+        }
+        out_ = s;
         l = delay_[0].process(l);
         r = delay_[1].process(r);
         if (!enabled) return 1.0;
-        l = std::clamp(l * s, -ceil_, ceil_);
-        r = std::clamp(r * s, -ceil_, ceil_);
+        l *= s;
+        r *= s;
+        const double top = soft_ ? kSoftOver * ceil_ : ceil_;
+        l = std::clamp(l, -top, top);
+        r = std::clamp(r, -top, top);
         return s;
     }
 
 private:
-    double fs_ = 48000.0, ceil_ = 1.0, rel_ = 0.0, env_ = 1.0;
-    int look_ = 144;
+    /** Takes the mode and attack that were set, every stage of the gain's way holding `fill`. */
+    void configure(double fill) {
+        soft_ = softT_;
+        look_ = lookT_;
+        const int l1 = look_ / 2;
+        min_.setWindow(look_ + 2);
+        box1_.setLength(l1, fill);
+        box2_.setLength(look_ - l1, fill);
+        std::fill(gain_.begin(), gain_.end(), fill);
+        gainPos_ = 0;
+        wait_ = soft_ ? lookMax_ : lookMax_ - look_;
+        env_ = follow_ = fill;
+        glide_ = std::max(0.0, out_ - fill);
+    }
+    /** The lowest gain anywhere on its way to the sound. */
+    double pending() const {
+        double m = std::min(out_, env_);
+        for (int i = 0; i < wait_; ++i) m = std::min(m, gain_[i]);
+        if (!soft_) m = std::min({m, min_.current(1.0), box1_.lowest(), box2_.lowest()});
+        return m;
+    }
+
+    double fs_ = 48000.0, ceil_ = 1.0, rel_ = 0.0, atk_ = 0.0, attackMs_ = 3.0, env_ = 1.0, follow_ = 1.0;
+    double out_ = 1.0, glide_ = 0.0, glideCoef_ = 0.0;
+    bool soft_ = false, softT_ = false;
+    int lookMax_ = 240, look_ = 144, lookT_ = 144; // samples: the delay of the sound, and the attack in use and asked for
+    int wait_ = 96, gainPos_ = 0;                 // the gain's own delay
     TruePeak tp_[2];
     SlidingMin min_;
     BoxAverage box1_, box2_;
+    std::vector<double> gain_;
     Delay delay_[2];
 };
 
@@ -241,27 +322,12 @@ private:
 class LoudnessMeter {
 public:
     void prepare(double fs) {
-        // K-weighting, re-derived for the sample rate (as in libebur128).
-        {
-            const double f0 = 1681.974450955533, G = 3.999843853973347, Q = 0.7071752369554196;
-            const double K = std::tan(kPi * f0 / fs), Vh = std::pow(10.0, G / 20.0);
-            const double Vb = std::pow(Vh, 0.4996667741545416), a0 = 1.0 + K / Q + K * K;
-            const BiquadCoeffs c{(Vh + Vb * K / Q + K * K) / a0, 2.0 * (K * K - Vh) / a0,
-                                 (Vh - Vb * K / Q + K * K) / a0, 2.0 * (K * K - 1.0) / a0,
-                                 (1.0 - K / Q + K * K) / a0};
-            shelf_[0].set(c); shelf_[1].set(c);
-        }
-        {
-            const double f0 = 38.13547087602444, Q = 0.5003270373238773;
-            const double K = std::tan(kPi * f0 / fs), a0 = 1.0 + K / Q + K * K;
-            const BiquadCoeffs c{1.0, -2.0, 1.0, 2.0 * (K * K - 1.0) / a0, (1.0 - K / Q + K * K) / a0};
-            hp_[0].set(c); hp_[1].set(c);
-        }
+        for (auto& k : k_) k.prepare(fs);
         blockLen_ = std::max(1, static_cast<int>(std::lround(0.1 * fs)));
         reset();
     }
     void reset() {
-        for (int c = 0; c < 2; ++c) { shelf_[c].reset(); hp_[c].reset(); }
+        for (auto& k : k_) k.reset();
         std::fill(std::begin(blocks_), std::end(blocks_), 0.0);
         blockPos_ = blockCount_ = fill_ = 0;
         acc_ = 0.0;
@@ -273,8 +339,7 @@ public:
         integrated = kSilence;
     }
     inline void process(double l, double r) {
-        const double kl = hp_[0].process(shelf_[0].process(l));
-        const double kr = hp_[1].process(shelf_[1].process(r));
+        const double kl = k_[0].process(l), kr = k_[1].process(r);
         acc_ += kl * kl + kr * kr;
         if (++fill_ == blockLen_) endBlock();
     }
@@ -317,7 +382,7 @@ private:
         integrated = cnt > 0.0 ? toLufs(sum / cnt) : kSilence;
     }
 
-    Biquad shelf_[2], hp_[2];
+    KWeight k_[2];
     double blocks_[kBlocks] = {};
     unsigned hist_[kBins] = {};
     int blockLen_ = 4800, blockPos_ = 0, blockCount_ = 0, fill_ = 0;

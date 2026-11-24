@@ -15,19 +15,76 @@ Signal flow, left to right:
 | Stage | Controls |
 | --- | --- |
 | Input | Gain, level meters |
-| Multiband compressor | Three bands with adjustable crossovers; threshold, ratio, attack, release and gain per band |
-| Equaliser | Low shelf, peak (with Q) and high shelf; before or after the compressor |
+| Multiband compressor | Three bands with adjustable crossovers; threshold, ratio, attack, release and gain per band; the bands can be linked, soloed and muted; a spectrum of what goes in |
+| Equaliser | Low cut, low shelf, peak (with Q) and high shelf; before or after the compressor; on left and right, or on the mid or the side part alone |
 | Exciter | Tape, Tube or Retro character; frequency, drive, colour (odd to even harmonics) and mix; 4x oversampled |
-| Stereo width | 0 to 200%, widening only above a set frequency; the mono sum never changes |
+| Stereo width | 0 to 200%, widening only above a set frequency; the mono sum never changes; a correlation meter |
 | Reverb | Decay, damping and amount; lows below 200 Hz stay dry |
-| Limiter | Gain, ceiling and release; look-ahead with true-peak detection |
-| Output | Level meters, momentary / short-term / integrated loudness (LUFS), true-peak maximum |
+| Limiter | Gain, ceiling, attack and release; brickwall (look-ahead) or soft, with true-peak detection |
+| Output | Level meters, momentary / short-term / integrated loudness (LUFS), true-peak maximum; bypass with matched loudness; dither to 16 or 24 bit |
 
 The equaliser can stand before the compressor instead of after it: the box under its title chooses. After the
 compressor it shapes the tone of the result; before it, the compressor works on the equalised sound. Thin lines
 between the stages show the way the sound goes.
 
 ![The equaliser before the compressor](docs/eq-first.png)
+
+## Linked bands, and a soft limiter
+
+![The bands linked, the limiter soft](docs/link.png)
+
+**LINK BANDS**, at the top left of the compressor, makes the three bands move together: turn a threshold, ratio,
+attack, release or gain, and the same control of the other two bands goes along by as much. The differences
+between the bands stay as they are. A band that reaches the end of its range waits there and has its difference
+back when the knob is turned back. A double click returns all three to their default. The link is kept with the
+song, not in presets, and changes nothing in the sound by itself.
+
+The limiter works in one of two ways, chosen in the box under its title:
+
+- **Brickwall**, as it always was: it looks ahead and turns down before a peak arrives, so nothing passes the
+  ceiling. Attack sets how far ahead it starts, from 0.5 to 5 ms; the 3 ms it starts at is what earlier versions
+  had fixed. Shorter keeps more punch, longer is smoother.
+- **Soft**: no look-ahead. It turns down at the speed of Attack (0.5 to 50 ms), so the peaks that are faster
+  pass the ceiling. That sounds more open and less held. The output can then go over the ceiling, by 12 dB at
+  most, and what comes after the plugin may clip; the true-peak figure turns red when it does.
+
+## Hearing what the chain does
+
+![The mid band soloed, loudness matched, dither to 16 bit](docs/compare.png)
+
+**BYPASS**, in the output module, gives the sound as it came in. It is as late as the processed sound, so
+switching does not skip, and every stage goes dim while it is on.
+
+**MATCH** turns the processed sound to the loudness of the unprocessed one. Louder always sounds better, so
+without it a bypass tells you little: with it, switching Bypass on and off compares the sound and not the level.
+MATCH GAIN shows by how much it turns, which is how much louder the chain makes the mix. The meters show what
+leaves the plugin, so they read lower while Match is on. **Switch Match off before you export.**
+
+![Bypass: the unprocessed sound, every stage dim](docs/bypass.png)
+
+**S** and **M** beside the name of each band of the compressor solo and mute it, to set a crossover or a
+threshold by ear. More than one band can be soloed; a muted band is silent, soloed or not. They too are for
+listening only.
+
+The **spectrum** at the top of the compressor shows what goes into it, from 20 Hz at the left to 20 kHz at the
+right, over 72 dB. The two lines are the crossovers. A band that is not heard is dark.
+
+The **correlation** bar in the stereo width module shows how alike left and right are at the output. To the
+right they agree; to the left, in red, they work against each other and parts of the sound will be weaker or
+gone in mono.
+
+Bypass, Match, solo, mute and dither are parameters like the others, kept with the song, but a preset leaves
+them as they are.
+
+## Low cut, mid and side, dither
+
+- **LOW CUT** in the equaliser takes away what lies below its frequency, 12 dB per octave, 15 to 150 Hz. All the
+  way down it is off. Rumble is hardly heard, but the compressor and the limiter work on it all the same.
+- **STEREO / MID / SIDE** under the equaliser's title chooses what it works on: left and right alike, only the
+  middle of the image, or only its width. The low cut always works on everything.
+- **DITHER**, in the output module, rounds the result to 16 or 24 bits with dither (triangular, two steps from
+  peak to peak, no noise shaping). Set it to the word length you export to, and leave it off for 32 bit float or
+  when something else comes after the plugin. The unprocessed sound of Bypass is never dithered.
 
 Twelve presets are in the menu at the top right. A `*` after the preset name means a control was changed since it
 was chosen.
@@ -66,7 +123,8 @@ The compressor and the stereo width folded:
 - Double-click or Ctrl-click a knob to return it to its default.
 - Reset meters clears the integrated loudness and the true-peak maximum.
 
-The plugin reports its latency to the host (about 4 ms: 184 samples at 44.1 kHz, 196 at 48 kHz, 340 at 96 kHz).
+The plugin reports its latency to the host (about 6 ms: 273 samples at 44.1 kHz, 292 at 48 kHz, 532 at 96 kHz). It is
+the same in both modes of the limiter and at every attack.
 
 ## Installing
 
@@ -77,6 +135,27 @@ The zip holds the plugin as VST3
 two. Windows 64-bit; the VST3 is tested in Reason.
 
 ## Changelog
+
+### 0.7.0 (2026-11-24)
+
+- New: the limiter can be soft instead of a brickwall (parameter "Limiter Soft"): it then reacts at the speed
+  of Attack, and the fastest peaks pass the ceiling. Brickwall stays the default.
+- New: an Attack knob on the limiter (parameter "Limiter Attack"). As a brickwall it is the look-ahead, 0.5 to
+  5 ms; soft it is the attack time, up to 50 ms. At its default of 3 ms the brickwall sounds as it did.
+- New: LINK BANDS in the compressor makes the controls of the three bands move together. Kept with the song.
+- The latency is 2 ms longer (about 6 ms), to hold the longest look-ahead; it does not change with the mode or
+  the attack.
+- New: BYPASS and MATCH in the output module (parameters "Bypass" and "Match Loudness"): the unprocessed sound,
+  and the processed sound at the same loudness, to compare the two fairly.
+- New: solo and mute for each band of the compressor.
+- New: a spectrum of what goes into the compressor, with the crossovers in it.
+- New: a low cut in the equaliser (parameter "EQ Low Cut"), and the equaliser on the mid or the side part alone
+  (parameter "EQ Works On").
+- New: a correlation meter in the stereo width module.
+- New: dither to 16 or 24 bit (parameter "Dither").
+- A preset leaves bypass, match, solo, mute and dither as they are.
+- The window is 24 pixels higher, 1248 x 592 with everything open, and the compressor's knobs stand lower to
+  make room for the spectrum. The limiter is 22 pixels higher, for the box that chooses its mode.
 
 ### 0.6.0 (2026-11-22)
 

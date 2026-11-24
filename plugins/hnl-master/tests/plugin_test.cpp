@@ -55,7 +55,7 @@ int main() {
     PluginExporter plugin(nullptr, nullptr, nullptr, nullptr);
 
     check(plugin.getParameterCount() == kParamCount, "parameter count", plugin.getParameterCount());
-    check(plugin.getLatency() == 196, "reported latency at 48 kHz (samples)", plugin.getLatency());
+    check(plugin.getLatency() == 292, "reported latency at 48 kHz (samples)", plugin.getLatency());
     bool rangesOk = true;
     for (uint32_t i = 0; i < kParamCount; ++i) {
         const ParameterRanges& r = plugin.getParameterRanges(i);
@@ -72,9 +72,9 @@ int main() {
             presetsOk = presetsOk && v.id < kInputParamCount && v.value >= kParams[v.id].min && v.value <= kParams[v.id].max;
         }
     check(presetsOk, "preset values are within range", presets::kCount);
-    check(plugin.getStateCount() == 2 && plugin.getStateKey(0) == "preset" && plugin.getStateKey(1) == "folded",
-          "preset name and folded stages are saved as state", plugin.getStateCount());
-    check(kLimRelease == 27 && kRevMix == 43 && kEqFirst == 44 && kMeterInL == 45, "parameter indices of earlier versions unchanged", kLimRelease);
+    check(plugin.getStateCount() == 3 && plugin.getStateKey(0) == "preset" && plugin.getStateKey(1) == "folded" && plugin.getStateKey(2) == "link",
+          "preset name, folded stages and the band link are saved as state", plugin.getStateCount());
+    check(kLimRelease == 27 && kRevMix == 43 && kEqFirst == 44 && kLimAttack == 46 && kMatch == 57 && kMeterInL == 58, "parameter indices of earlier versions unchanged", kLimRelease);
 
     plugin.setParameterValue(kLimGain, 12.0f);
     plugin.setParameterValue(kLimCeiling, -1.0f);
@@ -162,7 +162,7 @@ int main() {
 
     plugin.deactivate();
     plugin.setSampleRate(96000.0, true);
-    check(plugin.getLatency() == 340, "latency follows sample rate", plugin.getLatency());
+    check(plugin.getLatency() == 532, "latency follows sample rate", plugin.getLatency());
 
     { // The commonest sample rate of all.
         plugin.deactivate();

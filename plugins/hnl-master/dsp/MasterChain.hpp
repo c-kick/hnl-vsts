@@ -3,7 +3,7 @@
 
 // The complete mastering chain:
 //   input gain -> 3-band compressor -> equaliser -> exciter -> widener
-//   -> reverb -> true-peak limiter -> meters
+//   -> reverb -> true-peak limiter (brickwall or soft) -> loudness match -> bypass -> dither -> meters
 // The equaliser can stand before the compressor instead (Params::eqFirst).
 #pragma once
 
@@ -39,6 +39,11 @@ struct Params {
     double eqLowFreq = 80.0, eqLowGain = 0.0;                   // Hz, dB (low shelf)
     double eqMidFreq = 1000.0, eqMidGain = 0.0, eqMidQ = 1.0;   // peak
     double eqHighFreq = 10000.0, eqHighGain = 0.0;              // high shelf
+    double eqLowCut = 0.0;  // Hz, 12 dB per octave; 0 = off
+    int eqMode = 0;         // what it works on: 0 left and right, 1 the mid (mono) part only, 2 the side part only
+
+    // For listening, not for the result: only the soloed bands of the compressor, or all but the muted ones.
+    bool bandSolo[3] = {false, false, false}, bandMute[3] = {false, false, false};
 
     bool exciterOn = true;
     int exciterMode = Exciter::kTube;
@@ -60,6 +65,12 @@ struct Params {
     double limiterGain = 0.0;     // dB
     double limiterCeiling = -1.0; // dBTP
     double limiterRelease = 150.0; // ms
+    bool limiterSoft = false;      // soft instead of brickwall: peaks faster than the attack pass the ceiling
+    double limiterAttack = 3.0;    // ms; brickwall uses at most Limiter::kMaxLookMs of it
+
+    int dither = 0;      // 0 off, or the word length the result is rounded to with dither: 16 or 24 bits
+    bool bypass = false; // the unprocessed sound, as late as the processed one
+    bool match = false;  // the processed sound brought to the loudness of the unprocessed one, to compare the two fairly
 };
 
 /** Written by the audio thread, read (and peak-reset) by the UI thread. */
@@ -69,6 +80,11 @@ struct Meters {
     std::atomic<float> compGr[3] = {};                  // dB (<= 0), deepest since taken
     std::atomic<float> limGr{0.0f};                     // dB (<= 0), deepest since taken
     std::atomic<float> lufsMomentary{-100.0f}, lufsShort{-100.0f}, lufsIntegrated{-100.0f};
+    std::atomic<float> matchDb{0.0f};                   // dB the processed sound is turned by, 0 when not matched
+    std::atomic<float> correlation{0.0f};               // of left and right at the output, -1..1
+    std::atomic<float> spectrum[Spectrum::kBands];      // dB, of what goes into the compressor; highest since taken
+
+    Meters() { for (auto& s : spectrum) s.store(-100.0f); }
 
     static void raise(std::atomic<float>& a, float v) {
         if (v > a.load(std::memory_order_relaxed)) a.store(v, std::memory_order_relaxed);
@@ -86,6 +102,11 @@ public:
         loud_.prepare(fs_);
         eq_.prepare(fs_);
         reverb_.prepare(fs_);
+        spec_.prepare(fs_);
+        match_.prepare(fs_);
+        corr_.prepare(fs_);
+        for (auto& d : dry_) d.setLength(latency());
+        bypassStep_ = 1.0 / (0.01 * fs_);
         smooth_ = onePoleCoef(20.0, fs_);
         orderStep_ = 1.0 / (0.005 * fs_);
         applyParams(true);
@@ -101,6 +122,16 @@ public:
         reverb_.reset();
         limiter_.reset();
         loud_.reset();
+        for (auto& f : lowCut_) f.reset();
+        for (auto& d : dry_) d.reset();
+        spec_.reset();
+        match_.reset();
+        corr_.reset();
+        dither_[0].reset(0x9e3779b9u);
+        dither_[1].reset(0x7f4a7c15u);
+        matchGain_ = 1.0;
+        bypass_ = p_.bypass ? 1.0 : 0.0;
+        eqMode_ = p_.eqMode;
         eqFirst_ = p_.eqFirst;
         orderGain_ = 1.0;
         inGain_ = inGainT_;
@@ -136,7 +167,12 @@ public:
             for (auto& b : comp_) b.reset();
         }
         if (excOn && !excWasOn_) exciter_.resetWet();
+        const bool lowCutOn = eqOn && p_.eqLowCut > 0.0;
         if (eqOn && !eqWasOn_) eq_.reset();
+        if (lowCutOn && !lowCutWasOn_) for (auto& f : lowCut_) f.reset();
+        lowCutWasOn_ = lowCutOn;
+        const int ditherBits = p_.dither;
+        double corrSum = 0.0;
         if (wideOn && !wideWasOn_) widener_.reset();
         if (revOn && !revWasOn_) reverb_.reset();
         compWasOn_ = compOn; excWasOn_ = excOn;
@@ -149,6 +185,7 @@ public:
             width_ = widthT_ + smooth_ * (width_ - widthT_);
             revMix_ = revMixT_ + smooth_ * (revMix_ - revMixT_);
 
+            const double dl = dry_[0].process(left[i]), dr = dry_[1].process(right[i]);
             double l = left[i] * inGain_, r = right[i] * inGain_;
             inPk[0] = std::max(inPk[0], std::fabs(l));
             inPk[1] = std::max(inPk[1], std::fabs(r));
@@ -156,25 +193,26 @@ public:
             // The equaliser changes place in a 5 ms dip: down, the two stages around and their filters
             // cleared, up again. Changing place at full level would let out what the filters held from
             // the other order, as a click. With one of the two off there is nothing to hear, and no dip.
-            if (eqFirst_ != p_.eqFirst) {
-                if (compOn && eqOn && orderGain_ > 0.0) {
+            // What the equaliser works on (left and right, mid or side) changes in the same dip.
+            const bool newPlace = eqFirst_ != p_.eqFirst, newMode = eqMode_ != p_.eqMode;
+            if (newPlace || newMode) {
+                const bool placeHeard = newPlace && compOn && eqOn, heard = placeHeard || (newMode && eqOn);
+                if (heard && orderGain_ > 0.0) {
                     orderGain_ = std::max(0.0, orderGain_ - orderStep_);
                 } else {
                     eqFirst_ = p_.eqFirst;
-                    if (compOn && eqOn) {
-                        for (auto& x : xo_) x.reset();
-                        eq_.reset();
-                    }
+                    eqMode_ = p_.eqMode;
+                    if (placeHeard) for (auto& x : xo_) x.reset();
+                    if (heard) eq_.reset();
                 }
             } else if (orderGain_ < 1.0) {
                 orderGain_ = std::min(1.0, orderGain_ + orderStep_);
             }
 
-            if (eqOn && eqFirst_) {
-                eq_.tick();
-                l = eq_.process(0, l);
-                r = eq_.process(1, r);
-            }
+            if (eqOn && eqFirst_) equalise(l, r, lowCutOn);
+
+            if (spec_.process(0.5 * (l + r)))
+                for (int b = 0; b < Spectrum::kBands; ++b) Meters::raise(meters.spectrum[b], static_cast<float>(spec_.db[b]));
 
             if (compOn) {
                 double bl[3], br[3];
@@ -191,11 +229,7 @@ public:
                 }
             }
 
-            if (eqOn && !eqFirst_) {
-                eq_.tick();
-                l = eq_.process(0, l);
-                r = eq_.process(1, r);
-            }
+            if (eqOn && !eqFirst_) equalise(l, r, lowCutOn);
             if (orderGain_ < 1.0) {
                 const double g = 0.5 - 0.5 * std::cos(3.14159265358979 * orderGain_);
                 l *= g;
@@ -217,6 +251,24 @@ public:
             if (limOn) { l *= limGain_; r *= limGain_; }
             limMin = std::min(limMin, limiter_.process(l, r, limOn));
 
+            // The loudness of both is followed whether it is used or not, so that the match is there at once.
+            const double matched = match_.process(dl, dr, l, r), matchT = p_.match ? matched : 1.0;
+            matchGain_ = matchT + smooth_ * (matchGain_ - matchT);
+            l *= matchGain_;
+            r *= matchGain_;
+            if (bypass_ != (p_.bypass ? 1.0 : 0.0)) bypass_ = p_.bypass ? std::min(1.0, bypass_ + bypassStep_) : std::max(0.0, bypass_ - bypassStep_);
+            if (bypass_ > 0.0) { // over in 10 ms, without a click
+                const double w = 0.5 - 0.5 * std::cos(3.14159265358979 * bypass_);
+                l += w * (dl - l);
+                r += w * (dr - r);
+            }
+            if (ditherBits != 0 && bypass_ < 1.0) { // the unprocessed sound is left as it came
+                l = dither_[0].process(l, ditherBits);
+                r = dither_[1].process(r, ditherBits);
+            }
+            corr_.process(l, r);
+            corrSum += corr_.value;
+
             outPk[0] = std::max(outPk[0], std::fabs(l));
             outPk[1] = std::max(outPk[1], std::fabs(r));
             tpk = std::max(tpk, std::max(outTp_[0].process(l), outTp_[1].process(r)));
@@ -233,12 +285,33 @@ public:
         Meters::raise(meters.truePeakMax, static_cast<float>(tpk));
         for (int b = 0; b < 3; ++b) Meters::lower(meters.compGr[b], static_cast<float>(grMin[b]));
         Meters::lower(meters.limGr, static_cast<float>(linToDb(limMin)));
+        meters.matchDb.store(p_.match ? static_cast<float>(linToDb(matchGain_)) : 0.0f, std::memory_order_relaxed);
+        if (frames > 0) meters.correlation.store(static_cast<float>(corrSum / frames), std::memory_order_relaxed);
         meters.lufsMomentary.store(static_cast<float>(loud_.momentary), std::memory_order_relaxed);
         meters.lufsShort.store(static_cast<float>(loud_.shortTerm), std::memory_order_relaxed);
         meters.lufsIntegrated.store(static_cast<float>(loud_.integrated), std::memory_order_relaxed);
     }
 
 private:
+    /** The equaliser, with its low cut before it, on left and right or on the mid or side part alone. */
+    inline void equalise(double& l, double& r, bool lowCutOn) {
+        if (lowCutOn) {
+            l = lowCut_[0].process(l);
+            r = lowCut_[1].process(r);
+        }
+        eq_.tick();
+        if (eqMode_ == 0) {
+            l = eq_.process(0, l);
+            r = eq_.process(1, r);
+            return;
+        }
+        double mid = 0.5 * (l + r), side = 0.5 * (l - r);
+        if (eqMode_ == 1) mid = eq_.process(0, mid);
+        else side = eq_.process(0, side);
+        l = mid + side;
+        r = mid - side;
+    }
+
     void applyParams(bool force) {
         inGainT_ = dbToLin(p_.inputGain);
         limGainT_ = dbToLin(p_.limiterGain);
@@ -255,6 +328,15 @@ private:
             comp_[b].ratio = std::max(1.0, p_.band[b].ratio);
             comp_[b].setTimes(p_.band[b].attack, p_.band[b].release, fs_);
             makeupT_[b] = dbToLin(p_.band[b].makeup);
+        }
+        // Solo and mute go with the gain of a band, and so fade as it does. A muted band is silent, soloed or not.
+        const bool anySolo = p_.bandSolo[0] || p_.bandSolo[1] || p_.bandSolo[2];
+        for (int b = 0; b < 3; ++b)
+            if (p_.bandMute[b] || (anySolo && !p_.bandSolo[b])) makeupT_[b] = 0.0;
+        if (force || p_.eqLowCut != lowCutFreq_) {
+            lowCutFreq_ = p_.eqLowCut;
+            const auto h = designHighpass(fs_, std::max(lowCutFreq_, 10.0), 0.7071067811865476);
+            for (auto& f : lowCut_) f.set(h);
         }
         if (force || p_.exciterFreq != excFreq_) {
             excFreq_ = p_.exciterFreq;
@@ -275,6 +357,8 @@ private:
         reverb_.setDamping(p_.reverbDamping);
         limiter_.setCeiling(p_.limiterCeiling);
         limiter_.setRelease(p_.limiterRelease);
+        limiter_.setAttack(p_.limiterAttack);
+        limiter_.setSoft(p_.limiterSoft);
     }
 
     Params p_;
@@ -282,6 +366,9 @@ private:
     double f1_ = 0.0, f2_ = 0.0, excFreq_ = 0.0, wideFreq_ = 0.0;
     double width_ = 1.0, widthT_ = 1.0, revMix_ = 0.0, revMixT_ = 0.0;
     bool eqFirst_ = false;                     // the order in use; follows p_.eqFirst through a dip
+    int eqMode_ = 0;                           // what the equaliser works on, in use; follows p_.eqMode through the same dip
+    double lowCutFreq_ = -1.0, matchGain_ = 1.0, bypass_ = 0.0, bypassStep_ = 0.0; // bypass_: 0 processed .. 1 unprocessed
+    bool lowCutWasOn_ = false;
     double orderGain_ = 1.0, orderStep_ = 0.0; // that dip, 1 = none
     bool compWasOn_ = false, excWasOn_ = false, eqWasOn_ = false, wideWasOn_ = false, revWasOn_ = false;
     double inGain_ = 1.0, inGainT_ = 1.0, limGain_ = 1.0, limGainT_ = 1.0, mix_ = 0.0, mixT_ = 0.0;
@@ -296,6 +383,12 @@ private:
     Limiter limiter_;
     TruePeak outTp_[2];
     LoudnessMeter loud_;
+    Biquad lowCut_[2];
+    Delay dry_[2]; // the unprocessed sound, as late as the processed one
+    Spectrum spec_;
+    LoudnessMatch match_;
+    Correlation corr_;
+    Dither dither_[2];
     std::atomic<bool> resetLoudness_{false};
 };
 
