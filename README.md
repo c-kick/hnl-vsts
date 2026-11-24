@@ -13,7 +13,7 @@ yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
     <th align="left"><a href="plugins/hnl-master">HNL Master</a></th>
   </tr>
   <tr>
-    <td valign="top">Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Master-win64.zip"><b>Download</b></a> · <!-- version:hnl-master -->v0.6.0<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Master-win64.zip"><b>Download</b></a> · <!-- version:hnl-master -->v0.7.0<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-channel-spacer"><img src="plugins/hnl-channel-spacer/docs/preview.png" alt="HNL Channel Spacer" width="360"></a></td>
