@@ -18,12 +18,15 @@
 #define START_NAMESPACE_DISTRHO namespace DISTRHO {
 #define END_NAMESPACE_DISTRHO }
 #define DGL_NAMESPACE DGL
+#define HNL_UI_PREVIEW 1 // for a UI that reaches for the system itself (files dropped on its window): not here
 #define NANOVG_DEJAVU_SANS_TTF "sans"
 #define DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(C) C(const C&) = delete;
 
 typedef unsigned int uint;
 
 namespace DGL {
+enum MouseCursor { kMouseCursorArrow, kMouseCursorCaret, kMouseCursorCrosshair, kMouseCursorHand, kMouseCursorNotAllowed, kMouseCursorLeftRight, kMouseCursorUpDown,
+                   kMouseCursorUpLeftDownRight, kMouseCursorUpRightDownLeft, kMouseCursorAllScroll };
 struct Color {
     float r, g, b, a;
     Color(float r_, float g_, float b_, float a_ = 1.0f) : r(r_), g(g_), b(b_), a(a_) {}
@@ -43,7 +46,21 @@ struct MotionEvent { uint mod = 0, time = 0; Pos pos; };
 struct ScrollEvent { uint mod = 0, time = 0; Pos pos, delta; };
 struct KeyboardEvent { uint mod = 0, time = 0; bool press = true; uint key = 0, keycode = 0; };
 struct CharacterInputEvent { uint mod = 0, time = 0, keycode = 0, character = 0; char string[8] = {0}; };
-struct Window { bool focused = false; void focus() { focused = true; } };
+/** The system's file dialog: here it only remembers what was asked. A test answers through uiFileBrowserSelected(). */
+struct FileBrowserOptions {
+    bool saving = false;
+    const char* defaultName = nullptr;
+    const char* startDir = nullptr;
+    const char* title = nullptr;
+};
+struct Window {
+    bool focused = false;
+    void focus() { focused = true; }
+    int cursor = 0; // the shape the UI last gave the mouse
+    bool setCursor(DGL::MouseCursor shape) { cursor = shape; return true; }
+    std::string clipboard; // what the UI put on it
+    bool setClipboard(const char*, const void* data, size_t size) { clipboard.assign(static_cast<const char*>(data), size); return true; }
+};
 enum { kModifierShift = 1, kModifierControl = 2 };
 
 class UI {
@@ -64,6 +81,19 @@ public:
     virtual bool onKeyboard(const KeyboardEvent&) { return false; }
     virtual bool onCharacterInput(const CharacterInputEvent&) { return false; }
     virtual void uiIdle() {}
+    virtual void uiFileBrowserSelected(const char*) {}
+
+    // The last file dialog the UI asked for.
+    bool browserSaving = false;
+    std::string browserTitle, browserName;
+    int browsersOpened = 0;
+    bool openFileBrowser(const FileBrowserOptions& options = FileBrowserOptions()) {
+        browserSaving = options.saving;
+        browserTitle = options.title ? options.title : "";
+        browserName = options.defaultName ? options.defaultName : "";
+        ++browsersOpened;
+        return true;
+    }
 
     std::string svg;
     // What the UI sent to the host, for the tests.
@@ -79,6 +109,10 @@ public:
     uint getWidth() const { return w_; }
     uint getHeight() const { return h_; }
     void setSize(uint w, uint h) { w_ = w; h_ = h; }
+    // What the UI asked of a window that can be dragged larger and smaller, for the tests.
+    uint leastWidth = 0, leastHeight = 0;
+    bool keepsShape = false;
+    void setGeometryConstraints(uint w, uint h, bool keepAspectRatio = false, bool = false, bool = true) { leastWidth = w; leastHeight = h; keepsShape = keepAspectRatio; }
     void editParameter(uint32_t, bool) {}
     void setParameterValue(uint32_t id, float value) { sentParameters.emplace_back(id, value); }
     void setState(const char* key, const char* value) { sentState = std::string(key) + "=" + value; }

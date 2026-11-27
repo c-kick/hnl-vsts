@@ -25,6 +25,11 @@ plugins that have not been started.
   workstation organ. The Dance 90s voice would gain most from proper single-note references. The emulator used
   for the Stage 80s voice also holds that machine's electric pianos, harpsichord, clavi and vibraphone.
 
+- **HNL Analyzer:** HNL Master's own figures beside the measurement (the level before the chain, the gain
+  reduction of each band and of the limiter over time, before and after compared at equal loudness), which
+  needs the two plugins to find each other in a song; an MP3 reader, should code of others ever be let in;
+  more than two channels; a goniometer; a reference's spectrum as a difference curve; reading a marker or a
+  loop from the host to capture only that stretch.
 - **HNL Sampler:** what its first version leaves out: streaming long sounds from disk, recording and
   resampling, drawing and editing the sound itself, a phrase sequencer with MIDI out, envelopes with more
   stages, envelopes and filters per zone, every preset of a SoundFont, finding moved sounds again, a button
@@ -63,7 +68,8 @@ and of the vinyl half of the lo-fi unit. Cassette wobble is in the tape plugins.
 
 - **Stereo tool:** mid/side balance on its own. Mono below a frequency and a correlation meter are in HNL
   Widener.
-- **Loudness and spectrum meter** as a plugin of its own.
+
+Built: HNL Analyzer, which took the place of the loudness and spectrum meter.
 
 ## Instruments
 

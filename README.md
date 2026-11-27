@@ -16,6 +16,13 @@ yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
     <td valign="top">Mastering chain: multiband compressor, equaliser, exciter (tape, tube, retro), stereo widener, reverb, true-peak limiter, loudness meters, presets<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Master-win64.zip"><b>Download</b></a> · <!-- version:hnl-master -->v0.7.0<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
+    <td rowspan="2" width="380"><a href="plugins/hnl-analyzer"><img src="plugins/hnl-analyzer/docs/preview.png" alt="HNL Analyzer" width="360"></a></td>
+    <th align="left"><a href="plugins/hnl-analyzer">HNL Analyzer</a></th>
+  </tr>
+  <tr>
+    <td valign="top">Mastering analysis after the chain: loudness (LUFS), true peak, PLR, loudness range, RMS statistics and histogram, spectrum and stereo figures of a whole track, captured while the host plays it; an advisor for loudness targets, and comparison with a reference: a sound file, a saved analysis or the capture before. Does not change the sound<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Analyzer-win64.zip"><b>Download</b></a> · <!-- version:hnl-analyzer -->v0.1.0<!-- /version --> · alpha · Windows 64-bit, VST3 and CLAP</td>
+  </tr>
+  <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-channel-spacer"><img src="plugins/hnl-channel-spacer/docs/preview.png" alt="HNL Channel Spacer" width="360"></a></td>
     <th align="left"><a href="plugins/hnl-channel-spacer">HNL Channel Spacer</a></th>
   </tr>
@@ -113,7 +120,7 @@ Every plugin says what stage it is in, next to its version:
 
 - **beta**: it passes its offline tests and has been tried in Reason, but it is young; expect rough edges.
 - **alpha**: it passes its offline tests and is otherwise largely untested. Do not build a song on one. At the
-  moment no plugin is an alpha.
+  moment HNL Analyzer is the only alpha; it does not change the sound that passes through it.
 
 The plugins are free software under the GNU General Public License, version 3 or later: see [Licence](#licence).
 
@@ -138,7 +145,8 @@ under [Looks](#looks).
 
 - `plugins/<name>/`: one folder per plugin. Audio engine in `dsp/` (header-only C++17, no dependencies), the DPF
   plugin and its NanoVG UI next to it, and offline tests in `tests/`.
-- `common/dsp/`: building blocks shared by the plugins (filters, oversampling, true-peak detection, a small reverb),
+- `common/dsp/`: building blocks shared by the plugins (filters, oversampling, true-peak detection, the loudness
+  filters, a small reverb),
   and `Safety.hpp`: the guards every plugin puts between itself and the host (see "What a plugin must survive").
 - `common/ui/`: UI parts shared by the plugins (preset bar, help tips, meters, and the looks: see "Looks");
   `common/Presets.hpp`: how factory presets are defined; `common/UserPresets.hpp`: the presets a user saves (see
@@ -237,6 +245,12 @@ writes the settings file. A plugin only supplies its Classic colours. `common/te
 each plugin's own UI class and checks, among other things, that a new user gets Classic, that a choice reaches the
 settings file and nothing else (no parameter, no plugin state), and that every look draws.
 
+**The size of a window.** Every plugin's window can be made larger and smaller: the cog's list holds the sizes
+(75 to 200 %) under the looks, and where the host allows it the window can be dragged by its edge. The window keeps its shape, is drawn anew at the size it has, and opens next
+time at the size it was left at, which is kept per plugin in the same `settings.txt`. `common/ui/WindowSize.hpp`
+does this for a UI that draws in a fixed design space; its first lines say what a UI has to do to use it.
+`common/tests/ui_size_test.cpp` runs against each plugin's own UI class, from its `tests/run.sh`.
+
 ## What a plugin must survive
 
 A host can hand a plugin anything, and a plugin that goes wrong takes the whole song with it. Every plugin here
@@ -281,7 +295,7 @@ Each plugin has its own version (`HNL_VERSION_MAJOR`, `_MINOR` and `_PATCH` in i
 tagged `<name>/v<version>`. The plugin reports it to the host and shows it behind its title, so a screenshot or a
 question about a plugin tells which build it is about.
 
-A plugin is a beta unless its `DistrhoPluginInfo.h` says otherwise with `HNL_STAGE` (`"alpha"`; none does at the moment).
+A plugin is a beta unless its `DistrhoPluginInfo.h` says otherwise with `HNL_STAGE` (`"alpha"`; HNL Analyzer does at the moment).
 The stage stands next to the version in the table above and in the notes of the Downloads release.
 
 A change that a user of the plugin can notice gets a new version: a bug fix raises the patch number, a new

@@ -461,6 +461,26 @@ template <class C> void lamp(C& c, const Skin& k, const Box& f) {
     c.fill();
 }
 
+// ------------------------------------------------------- the size of a window
+
+/** A window is kept between these sizes, as a percentage of the size it was designed at. */
+constexpr int kSizeLeast = 75, kSizeMost = 300;
+inline int cleanSize(int percent) { return percent < kSizeLeast ? kSizeLeast : (percent > kSizeMost ? kSizeMost : percent); }
+
+/** The size the window of `plugin` (a short name, as "sampler") was left at; 100 when none was kept or it cannot be read. */
+inline int storedSize(const char* plugin) {
+    const std::string text = settings::get((std::string("size.") + plugin).c_str());
+    if (text.empty() || text.size() > 3) return 100;
+    int percent = 0;
+    for (char c : text) {
+        if (c < '0' || c > '9') return 100;
+        percent = percent * 10 + (c - '0');
+    }
+    return percent < kSizeLeast || percent > kSizeMost ? 100 : percent;
+}
+/** Keeps that size for the next time the window is opened. Every plugin has its own. */
+inline bool storeSize(const char* plugin, int percent) { return settings::set((std::string("size.") + plugin).c_str(), std::to_string(cleanSize(percent))); }
+
 // ------------------------------------------------------- the choice of look
 
 /**
@@ -473,7 +493,9 @@ template <class C> void lamp(C& c, const Skin& k, const Box& f) {
 class SkinMenu {
 public:
     static constexpr float kWidth = 168, kRow = 22, kHead = 26;
-    enum { kNotMine, kHandled, kChanged };
+    enum { kNotMine, kHandled, kChanged, kSized };
+    static constexpr int kSizeCount = 5;
+    static constexpr int kSizes[kSizeCount] = {75, 100, 125, 150, 200};
 
     SkinMenu() { load(); }
 
@@ -481,7 +503,23 @@ public:
     bool isOpen() const { return open_; }
     void setButton(float cx, float cy) { bx_ = cx; by_ = cy; }
     Box buttonBox() const { return {bx_ - 12, by_ - 12, 24, 24}; }
-    Box menuBox() const { return {bx_ + 12 - kWidth, by_ + 16, kWidth, kHead + kSkinCount * kRow + 6}; }
+    Box menuBox() const { return {bx_ + 12 - kWidth, by_ + 16, kWidth, kHead + kSkinCount * kRow + 6 + (sizes_ ? kHead + kRow + 4 : 0)}; }
+    /**
+     * A plugin whose window can be made larger and smaller offers the sizes under the looks: `percent` is
+     * the size the window has now. Without this call the list holds the looks alone.
+     */
+    void offerSizes(int percent) { sizes_ = true; size_ = percent; }
+    /** The size last chosen from the list, or told with offerSizes(): a percentage of the design size. */
+    int size() const { return size_; }
+    Box sizeBox(int i) const {
+        const Box m = menuBox();
+        const float w = (m.w - 16 - (kSizeCount - 1) * 3) / kSizeCount;
+        return {m.x + 8 + i * (w + 3), m.y + kHead + kSkinCount * kRow + kHead, w, kRow - 4};
+    }
+    static const char* helpWithSizes() {
+        return "Look and size: opens the list of looks for the plugin windows, and under them the sizes of this window. The look holds for every HNL plugin and every song; the size is kept for this plugin. "
+               "The window can also be dragged by its edge where the host allows that. Neither changes anything about the sound.";
+    }
     Box rowBox(int row) const {
         const Box m = menuBox();
         return {m.x, m.y + kHead + row * kRow, m.w, kRow};
@@ -504,6 +542,12 @@ public:
             open_ = false;
             return kHandled;
         }
+        for (int i = 0; sizes_ && i < kSizeCount; ++i)
+            if (sizeBox(i).contains(x, y)) {
+                if (kSizes[i] == size_) return kHandled;
+                size_ = kSizes[i];
+                return kSized;
+            }
         int next = skin_;
         if (prevBox().contains(x, y)) next = (skin_ + kSkinCount - 1) % kSkinCount;
         else if (nextBox().contains(x, y)) next = (skin_ + 1) % kSkinCount;
@@ -592,6 +636,20 @@ public:
             }
             label(c, skinLabel(i), r.x + 26, my, 11, rgb(i == skin_ ? t.accent : t.text), C::ALIGN_LEFT | C::ALIGN_MIDDLE);
         }
+        if (!sizes_) return;
+        label(c, "SIZE", m.x + 12, sizeBox(0).y - 11, 9, rgb(t.dim), C::ALIGN_LEFT | C::ALIGN_MIDDLE);
+        bool listed = false;
+        for (int i = 0; i < kSizeCount; ++i) {
+            const Box b = sizeBox(i);
+            const bool on = kSizes[i] == size_;
+            listed = listed || on;
+            c.beginPath();
+            c.roundedRect(b.x, b.y, b.w, b.h, 3);
+            c.fillColor(rgb(on ? t.accent : t.track));
+            c.fill();
+            label(c, std::to_string(kSizes[i]).c_str(), b.x + b.w * 0.5f, b.y + b.h * 0.5f, 10, rgb(on ? t.bg : t.text), C::ALIGN_CENTER | C::ALIGN_MIDDLE);
+        }
+        if (!listed) label(c, (std::to_string(size_) + " %").c_str(), m.x + m.w - 12, sizeBox(0).y - 11, 9, rgb(t.accent), C::ALIGN_RIGHT | C::ALIGN_MIDDLE); // dragged to a size between
     }
 
 private:
@@ -609,8 +667,8 @@ private:
     }
 
     float bx_ = 0, by_ = 0;
-    int skin_ = kSkinClassic, hover_ = -1, ticks_ = 0;
-    bool open_ = false;
+    int skin_ = kSkinClassic, hover_ = -1, ticks_ = 0, size_ = 100;
+    bool open_ = false, sizes_ = false;
 };
 
 } // namespace ui
