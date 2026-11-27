@@ -353,6 +353,30 @@ public:
         return added;
     }
 
+    /**
+     * Another sound for a zone that is there: its keys, velocities, root, tuning and level stay, its start, end
+     * and loop go back to the whole sound (a loop in the new file is taken over). False, and nothing changes,
+     * when there is no such zone or the path cannot be saved.
+     */
+    bool replaceSound(int part, int zone, const std::string& path) {
+        bool done = false;
+        edit([&](Instrument& doc) {
+            Part& p = doc.parts[std::clamp(part, 0, kParts - 1)];
+            if (zone < 0 || zone >= static_cast<int>(p.zones.size())) return;
+            const int sample = doc.useSample(path);
+            if (sample == 0) return;
+            Zone& z = p.zones[static_cast<size_t>(zone)];
+            z.sample = sample;
+            const std::vector<Info>& info = zoneInfo();
+            for (int id : {kZStart, kZEnd, kZLoop, kZLoopStart, kZLoopEnd, kZCrossfade}) z.v[id] = info[static_cast<size_t>(id)].def;
+            z.take = Zone::kTakeLoop;
+            z.crossfadeSeconds = 0.0;
+            doc.dropUnusedSamples();
+            done = true;
+        });
+        return done;
+    }
+
     /** Reads an SFZ file or a preset of a SoundFont into a part. False with a reason when it cannot. */
     bool import(int part, const std::string& path, int sf2Preset, std::string& error) {
         ImportedInstrument in;

@@ -213,6 +213,7 @@ enum ZoneParam : int {
     kZLoKey, kZHiKey, kZLoVel, kZHiVel, kZRoot, kZTune, kZKeyTrack, kZGain, kZPan,
     kZStart, kZEnd, kZLoop, kZLoopStart, kZLoopEnd, kZCrossfade, kZLoopRelease, kZReverse, kZOneShot,
     kZTrigger, kZGroup, kZOffBy, kZSeqLength, kZSeqPosition,
+    kZFadeLoKey, kZFadeHiKey, kZFadeLoVel, kZFadeHiVel,
     kZoneParamCount
 };
 /** Positions (start, end, loop) are in frames of the sound; an end of 0 means its last frame. */
@@ -243,8 +244,27 @@ inline const std::vector<Info>& zoneInfo() {
         {"Off by", "off_by", "", 0, 64, 0, kInteger, nullptr},
         {"Round robin of", "seq_length", "", 1, 16, 1, kInteger, nullptr},
         {"Round robin turn", "seq_position", "", 1, 16, 1, kInteger, nullptr},
+        // Over how many keys, or velocities, from that end of its range the zone comes in: 0 is at once.
+        {"Fade low keys", "fade_lokey", "", 0, 127, 0, kInteger, nullptr},
+        {"Fade high keys", "fade_hikey", "", 0, 127, 0, kInteger, nullptr},
+        {"Fade low velocity", "fade_lovel", "", 0, 126, 0, kInteger, nullptr},
+        {"Fade high velocity", "fade_hivel", "", 0, 126, 0, kInteger, nullptr},
     };
     return table;
+}
+
+/**
+ * How loud a zone is on a key at a velocity, by its fades: 1 where it has none. A fade of n rises over
+ * the n keys (or velocities) at that end of the range, in n + 1 steps, so that a zone that fades out over
+ * the same keys as its neighbour fades in gives the two together the same power on every key.
+ */
+inline float zoneFade(const double* z, int key, int velocity) {
+    const auto side = [](double from, double fade) { // `from`: how far inside the range, 0 at its end
+        if (fade < 0.5 || from >= fade) return 1.0;
+        return std::sin(1.5707963267948966 * (from + 1.0) / (fade + 1.0));
+    };
+    return static_cast<float>(side(key - z[kZLoKey], z[kZFadeLoKey]) * side(z[kZHiKey] - key, z[kZFadeHiKey]) *
+                              side(velocity - z[kZLoVel], z[kZFadeLoVel]) * side(z[kZHiVel] - velocity, z[kZFadeHiVel]));
 }
 
 // ---------------------------------------------------------- shared settings

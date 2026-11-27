@@ -5,9 +5,9 @@ filter, envelopes, LFOs and modulation matrix. Eight stereo outputs.
 
 ![HNL Sampler](docs/preview.png)
 
-| Zones | The sound | Modulation | Mixer | Files |
-| --- | --- | --- | --- | --- |
-| ![Zone map](docs/map.png) | ![Sample page](docs/sample.png) | ![Modulation page](docs/mod.png) | ![Mixer page](docs/mix.png) | ![File browser](docs/files.png) |
+| Zones, with the files beside them | All zones in one picture | The sound | A loop cut into slices | Modulation | Mixer |
+| --- | --- | --- | --- | --- | --- |
+| ![Zones](docs/map.png) | ![Zone map](docs/picture.png) | ![Sample page](docs/sample.png) | ![Slices](docs/slices.png) | ![Modulation page](docs/mod.png) | ![Mixer page](docs/mix.png) |
 
 *Rendered from the plugin's drawing code; not yet screenshots from a host.*
 
@@ -20,14 +20,15 @@ See [What comes with it](#what-comes-with-it).
 
 An **instrument** has eight **parts**. A part has **zones**: each zone is one sound, the keys and velocities it
 answers to, and how it plays (root key, tuning, start and end, loop). A note starts a voice for every zone of a
-part that covers it, so zones that overlap sound together. Everything else belongs to the part: its settings
-shape all its zones alike.
+part that covers it, so zones that overlap sound together. A zone can come in gradually over the keys or the
+velocities at an end of its range, so that two zones that overlap there cross over into each other. Everything
+else belongs to the part: its settings shape all its zones alike.
 
 The host sees only nine parameters: Volume and eight **macros**. The instrument itself is kept in the song as
 state. To automate something inside the instrument, give a macro a target in the modulation matrix.
 
 Sounds are not stored in the song or in a saved instrument: they are named by their place on disk and read
-again when the song opens. A sound that is no longer there is shown in red on the MAP page; the rest of the
+again when the song opens. A sound that is no longer there is shown in red on the ZONES page; the rest of the
 instrument plays on. The sounds of the instruments that come with the plugin are inside the plugin itself, so a
 song that uses them opens on any computer.
 
@@ -50,7 +51,7 @@ pipe organ of the Versilian Community Sample Library, sampled by Simon Dalzell.
 16 bit, and take 3.9 MB together.
 
 Which sounds and how they are balanced was decided from measurements. The levels of the drums against each
-other in particular may want adjusting to taste (Gain of each zone, on the MAP page).
+other in particular may want adjusting to taste (Gain of each zone, on the ZONES page).
 
 ## Pages
 
@@ -58,15 +59,23 @@ The row of numbers chooses the part; the pages work on that part.
 
 | Page | What is on it |
 | --- | --- |
-| MAP | The zones of the part, keys across and velocities up. Drag a zone to move it, an edge to change its range. Below it the chosen zone's settings: ranges, root key, tune, key track, gain, pan, group and choked by (one zone cutting off another, as a closed hi-hat does the open one), round robin, and whether it sounds on the key going down or coming up. A new sampler opens here, empty and silent, with a button that leads to the files. |
-| SAMPLE | The chosen zone's sound, with markers to drag for start, end and loop, a ruler in seconds, and every place shown in samples and as time. Loop forward, back and forth or backward, with a crossfade; reverse; one shot. Tools: find a loop without a bump, detect the pitch, normalise, and cut a drum loop into a zone per hit. |
+| ZONES | The zones of the part, in three views. KEYS and VELOCITY give every zone a row with the name of its sound and a bar for the keys or the velocities it covers: drag the middle of a bar to move it, an end to change its range, and an end of the line above it to set a fade. MAP shows all zones in one picture, keys across and velocities up; where zones lie on top of each other, each click chooses the next one. Below it the chosen zone's settings: ranges and fades, root key, tune, key track, gain, pan, group and choked by (one zone cutting off another, as a closed hi-hat does the open one), round robin, and whether it sounds on the key going down or coming up. |
+| SAMPLE | The chosen zone's sound, with markers to drag for start, end and loop, a ruler in seconds, and every place shown in samples and as time. The arrows and the list above the settings choose which zone is shown. Other zones that play from the same sound, such as the slices of a drum loop, are marked in the wave with their keys; a click in one chooses it. Loop forward, back and forth or backward, with a crossfade; reverse; one shot. Tools: find a loop without a bump, detect the pitch, normalise, and cut a drum loop into a zone per hit. |
 | SYNTH | Oscillator (sine, triangle, sawtooth, square, pulse) and noise, playing along with the sample or alone; a modulation oscillator for FM, AM and ring modulation of sample and oscillator; unison of up to eight and chords of up to four notes inside one voice; saturation and a filter for every note on its own; three envelopes. |
 | MOD | Three LFOs, a row of sixteen steps, the eight macros (click a name to type another), and the matrix: twelve rows of source, via, target and amount. |
 | MIX | For each part: level, pan, sends, MIDI channel, output pair, mute, MPE. The delay, reverb and chorus all parts send to. The tuning. |
-| FILES | Folders and files. A click plays a sound; a double click uses it. The buttons beside the list follow the kind of file chosen. The page opens in the folder it was last in. |
+
+Beside ZONES and SAMPLE stand the **files**: folders and files on disk. A click plays a sound; a double click adds
+it as a zone. The buttons under the list follow the kind of file chosen: a sound can be added on all keys or on the
+next key, or take the place of the chosen zone's sound, which keeps its keys and settings. The list opens in the
+folder it was last in.
 
 Drag a knob or a number up and down; hold Shift for fine steps; double-click (or Ctrl-click) for the default.
 The **?** in the corner switches on help tips for every part of the window.
+
+The window can be made larger and smaller: the cog in the corner lists the sizes (75 to 200 %) under the looks, and
+where the host allows it the window can be dragged by its edge, down to three quarters of its design size. It keeps its shape, everything in it is drawn anew at the size it has, and it opens next time
+at the size it was left at. That size is kept for this plugin, not in the song.
 
 ## Files it reads
 
@@ -111,8 +120,8 @@ The list this plugin was started from is longer than a first version can hold. N
 - **Envelopes with more stages**, and envelopes and filters for each zone on its own.
 - **More than the first preset** of a SoundFont, and finding moved sounds again.
 - **Dropping files** on the window: DPF, the framework under these plugins, passes no dropped files on. Sounds come
-  in through the FILES page.
-- **Favourite folders and a search** in the FILES page.
+  in through the list of files.
+- **Favourite folders and a search** in the list of files.
 - **Tempo detection** is in the code (`dsp/Analysis.hpp`, with a test) but has no button yet.
 
 ## Code
@@ -141,6 +150,32 @@ everything a host may do (`common/tests/HostAbuse.hpp`), and the UI class clicke
 stand-in (`ui_test`).
 
 ## Changelog
+
+### 0.4.0 (2026-11-27)
+
+After a first round of testing in Ableton Live and Cubase.
+
+- New: the window can be made larger and smaller: the cog lists the sizes (75 to 200 %), and where the host allows it
+  the window can be dragged by its edge. Everything is drawn anew at the size it has. The size is kept for this plugin.
+- New: the MAP page is now ZONES, with three views. KEYS and VELOCITY give every zone a row with its sound's name
+  and a bar, with wide ends to take hold of. MAP is the picture of all zones that was there before.
+- New: fades. A zone can come in over the keys or the velocities at an end of its range (the line above its bar, or
+  the four fade settings of the zone), so that zones cross over into each other. Instruments saved before have none.
+- New: the files stand beside ZONES and SAMPLE; the FILES page is gone. Replace sound gives the chosen zone another
+  sound and leaves its keys and settings.
+- New: SAMPLE has arrows and a list to choose which zone it shows, and marks the other zones that play from the same
+  sound: the slices of a loop are all in sight, and a click in one chooses it.
+- New: in the MAP view a corner of a zone changes keys and velocities together, and the mouse shows what a press
+  would take hold of, there and on the bars.
+- Changed: no text is smaller than 9 pixels at 100 %, and what is written on a zone or on the scales of the MAP view
+  stands on a dark ground. For the room that takes, the window is 1252 pixels wide (it was 1000), and SYNTH, MOD and
+  MIX use the whole width.
+- Fixed: zones that lay under another zone in the map could not be chosen with the mouse (in Jazz Kit, seven of the
+  37 sounds). Each click on such a place now chooses the next zone there, and every zone has its row in the list.
+- Fixed: SAMPLE showed a newly added or newly chosen sound through the zoom of the one before it, so that of a long
+  sound only the beginning was in sight. Another sound is now always shown whole.
+- Fixed: after Slice at hits, SAMPLE showed the first zone of the part, which was another sound when the sliced zone
+  was not the first. It shows the first slice.
 
 ### 0.3.0 (2026-11-24)
 

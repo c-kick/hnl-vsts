@@ -167,6 +167,52 @@ static void documentAsText() {
     check(tables, "settings: counts, ranges, defaults, knob scale, unique symbols", "%.0f per part", kPartParamCount);
 }
 
+/** Zones that cross over into each other: a fade over keys or velocities at an end of a zone's range. */
+static void fades() {
+    // Two zones that share four keys, one fading out over them and the other in: together the same power on every key.
+    Zone low, high;
+    low.v[kZLoKey] = 48; low.v[kZHiKey] = 60; low.v[kZFadeHiKey] = 4;
+    high.v[kZLoKey] = 57; high.v[kZHiKey] = 72; high.v[kZFadeLoKey] = 4;
+    double worst = 0;
+    for (int key = 48; key <= 72; ++key) {
+        const double a = key <= 60 ? zoneFade(low.v, key, 100) : 0.0, b = key >= 57 ? zoneFade(high.v, key, 100) : 0.0;
+        worst = std::max(worst, std::fabs(a * a + b * b - 1.0));
+    }
+    check(worst < 1e-6 && zoneFade(low.v, 56, 100) == 1.0f && zoneFade(low.v, 60, 100) < zoneFade(low.v, 59, 100), "fades: a zone fading out and its neighbour fading in keep the power (worst)", "%.2g", worst);
+    Zone plain;
+    check(zoneFade(plain.v, 0, 1) == 1.0f && zoneFade(plain.v, 127, 127) == 1.0f, "fades: a zone without fades is at full level everywhere", "%.3f", zoneFade(plain.v, 0, 1));
+
+    // In the engine: a key inside the fade is softer by what the fade says, a key outside it is not touched.
+    Rig r;
+    Zone& z = r.zone(0, sine(261.6256, 3.0), 48, 60, 60);
+    z.v[kZFadeHiKey] = 4;
+    z.v[kZKeyTrack] = 0; // the same pitch on every key, so that only the level differs
+    double got[2];
+    const int keys[2] = {50, 59};
+    for (int i = 0; i < 2; ++i) {
+        r.clear();
+        r.engine->controller(0, 120, 0);
+        r.engine->noteOn(0, keys[i], 127);
+        r.run(0.5);
+        got[i] = rms(r.out[0], 4800, 22000);
+    }
+    const double want = std::sin(1.5707963267948966 * 2.0 / 5.0);
+    check(std::fabs(20 * std::log10(got[1] / got[0] / want)) < 0.1, "fades: a key one from the end of a fade of four plays that much softer", "%.2f dB", 20 * std::log10(got[1] / got[0]));
+    z.v[kZFadeHiKey] = 0;
+    z.v[kZFadeLoVel] = 20;
+    r.doc->parts[0].v[kPVelocity] = 0; // touch itself changes nothing here
+    const int vels[2] = {127, 10};
+    for (int i = 0; i < 2; ++i) {
+        r.clear();
+        r.engine->controller(0, 120, 0);
+        r.engine->noteOn(0, 50, vels[i]);
+        r.run(0.5);
+        got[i] = rms(r.out[0], 4800, 22000);
+    }
+    const double soft = std::sin(1.5707963267948966 * 10.0 / 21.0);
+    check(std::fabs(20 * std::log10(got[1] / got[0] / soft)) < 0.1, "fades: and so does a soft note inside a fade over velocities", "%.2f dB", 20 * std::log10(got[1] / got[0]));
+}
+
 static void pitchAndLevel() {
     for (double fs : {44100.0, 48000.0, 96000.0}) {
         Rig r(fs);
@@ -1158,6 +1204,7 @@ static void hardened() {
 int main() {
     documentAsText();
     pitchAndLevel();
+    fades();
     interpolation();
     loops();
     reverseAndStart();

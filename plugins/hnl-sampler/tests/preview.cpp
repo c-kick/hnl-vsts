@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 
-// Writes the plugin UI as an SVG file: preview <out.svg> <folder with sounds> [busy|map|sample|slices|mod|mix|files|help|menu|look]; busy is the SYNTH page
+// Writes the plugin UI as an SVG file: preview <out.svg> <folder with sounds> [busy|map|velocity|picture|sample|slices|mod|mix|help|menu|look]; busy is the SYNTH page,
+// map, velocity and picture the three views of ZONES
 // The look is the one in the settings file of HNL_SETTINGS_DIR (preview.sh writes one per look).
 // The instrument shown is made here: a looped tone over the keyboard in part 1 and a sliced drum pattern in part 2.
 #include <chrono>
@@ -88,15 +89,19 @@ int main(int argc, char** argv) {
         doc.parts[1].v[kPChannel] = 10;
         doc.parts[1].v[kPOscLevel] = 0;
     });
-    sampler.addZone(0, (dir / "Plucked A3.wav").u8string(), 0, 71, 57);
-    sampler.addZone(0, (dir / "Plucked A3.wav").u8string(), 72, 127, 57);
+    sampler.addZone(0, (dir / "Plucked A3.wav").u8string(), 0, 77, 57);
+    sampler.addZone(0, (dir / "Plucked A3.wav").u8string(), 66, 127, 57);
     sampler.addZone(1, (dir / "Drum pattern.wav").u8string(), 36, 60, 48);
     for (int i = 0; i < 400 && sampler.loading() > 0; ++i) std::this_thread::sleep_for(std::chrono::milliseconds(10));
     sampler.edit([](Instrument& doc) {
-        doc.parts[0].zones[0].v[kZHiVel] = 90;
+        // The two halves of the keyboard cross over into each other, and so do the soft and the hard layer of the lower half.
+        doc.parts[0].zones[0].v[kZFadeHiKey] = 12;
+        doc.parts[0].zones[1].v[kZFadeLoKey] = 12;
+        doc.parts[0].zones[0].v[kZHiVel] = 100;
+        doc.parts[0].zones[0].v[kZFadeHiVel] = 20;
         Zone hard = doc.parts[0].zones[0];
         hard.id = doc.nextId++;
-        hard.v[kZLoVel] = 91; hard.v[kZHiVel] = 127; hard.v[kZGain] = 3;
+        hard.v[kZLoVel] = 81; hard.v[kZHiVel] = 127; hard.v[kZFadeLoVel] = 20; hard.v[kZFadeHiVel] = 0; hard.v[kZGain] = 3;
         doc.parts[0].zones.push_back(hard);
     });
     }
@@ -108,25 +113,27 @@ int main(int argc, char** argv) {
         ui->parameterChanged(kMeterVoices, 6.0f);
         ui->parameterChanged(kMacro1, 40.0f);
     }
-    const auto page = [ui](int p) { click(ui, 988.0 - (6 - p) * 76.0 + 36.0, 66.0); };
+    const auto page = [ui](int p) { click(ui, UI_BASE_WIDTH - 12.0 - (5 - p) * 76.0 + 36.0, 66.0); };
+    const auto view = [ui](int v) { click(ui, 264.0 + v * 84.0 + 40.0, 96.0); };
     if (mode == "busy" || mode == "help" || mode == "menu" || mode == "look") page(2);
-    if (mode == "map" || mode == "emptymap") page(0);
+    if (mode == "map" || mode == "velocity" || mode == "picture" || mode == "emptymap") page(0);
+    if (mode == "map") click(ui, 100, 86 + 50 + 18 + 9); // a sound chosen in the files: what can be done with it
+    if (mode == "velocity") view(1);
+    if (mode == "picture") view(2);
     if (mode == "emptysample") page(1);
-    if (mode == "emptyfiles") page(5);
-    if (mode == "sample") { page(0); click(ui, 300, 300); page(1); }
+    if (mode == "sample") { page(0); click(ui, 264 + 100, 86 + 24 + 18 + 11); page(1); }
     if (mode == "mod") page(3);
     if (mode == "mix") page(4);
-    if (mode == "files") { page(5); click(ui, 200, 86 + 32 + 10); }
-    if (mode == "slices") { click(ui, 12 + 56 + 26, 66); page(1); click(ui, 12 + 632 + 90 + 40, 86 + 422 + 10); page(0); }
+    if (mode == "slices") { click(ui, 12 + 56 + 26, 66); page(1); click(ui, 264 + 632 + 112 + 50, 86 + 350 + 56 + 11); }
     if (mode == "help") {
         click(ui, UI_BASE_WIDTH - 52, 24);
         DISTRHO::MotionEvent move; // the filter panel
-        move.pos.x = 300;
+        move.pos.x = 380;
         move.pos.y = 230;
         ui->onMotion(move);
     }
     if (mode == "look") click(ui, UI_BASE_WIDTH - 24, 24); // the cog
-    if (mode == "menu") click(ui, 160, 86 + 98 + 46 + 9, false); // the list of filters
+    if (mode == "menu") click(ui, 200, 86 + 98 + 46 + 9, false); // the list of filters
     ui->onNanoDisplay();
     std::ofstream out(argv[1]);
     out << "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" << ui->getWidth() << "\" height=\"" << ui->getHeight()

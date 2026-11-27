@@ -744,7 +744,8 @@ private:
         const float touch = 1.0f - sens + sens * vel * vel;
         const float chanGain = ch.volume * ch.volume * ch.expression * ch.expression;
         const float level = std::clamp(1.0f + mod[kDstLevel], 0.0f, 2.0f);
-        const float gain = src[kSrcEnv1] * touch * chanGain * level * static_cast<float>(dbToLin(v.z[kZGain]));
+        const float fade = v.zoneIndex >= 0 ? zoneFade(v.z, v.pitchKey, v.velocity) : 1.0f; // where zones cross over
+        const float gain = src[kSrcEnv1] * touch * chanGain * level * fade * static_cast<float>(dbToLin(v.z[kZGain]));
         float pl, pr;
         panGains(static_cast<float>(0.01 * v.z[kZPan]) + mod[kDstPan], pl, pr);
         const float size = 1.0f / std::sqrt(static_cast<float>(std::max(1, unison)));

@@ -2,7 +2,8 @@
 // Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 
 // HNL Sampler: user interface (NanoVG). All coordinates are in a fixed
-// UI_BASE_WIDTH x UI_BASE_HEIGHT design space, scaled by the host's UI scale.
+// UI_BASE_WIDTH x UI_BASE_HEIGHT design space, drawn as large as the window is:
+// the host's UI scale times the size the user chose (the cog's list, or its edge).
 //
 // The UI keeps no instrument of its own: it shows the document of the plugin's
 // sampler (dsp/Sampler.hpp), which it reaches through the plugin instance, and
@@ -22,6 +23,7 @@
 #include "../../common/UserPresets.hpp"
 #include "../../common/ui/Skin.hpp"
 #include "../../common/ui/Widgets.hpp"
+#include "../../common/ui/WindowSize.hpp"
 #include "dsp/Analysis.hpp"
 #include "dsp/Sampler.hpp"
 #include "Help.hpp"
@@ -49,17 +51,26 @@ const uint32_t kIvory = 0xd9d5cb, kEbony = 0x26252e, kKeyPrint = 0x55524a; // th
 
 const float kPi = 3.14159265f;
 const float kPresetX = 272, kHeaderY = 12;
-const float kHelpX = UI_BASE_WIDTH - 52, kSkinX = UI_BASE_WIDTH - 24; // help, and right of it the choice of look
-const float kVolumeX = 742, kMeterX = 772, kVoicesX = 924;            // the output, between the instrument's name and the help button
-const Box kOutputWindow = {765, 15, 165, 25};                         // the solid looks show level and voices in a display
-const Box kPageArea = {12, 86, 976, 480}, kKeys = {12, 584, 976, 46}, kRange = {12, 572, 976, 8};
+const float kHelpX = UI_BASE_WIDTH - 52, kSkinX = UI_BASE_WIDTH - 24;                              // help, and right of it the choice of look and size
+const float kVolumeX = UI_BASE_WIDTH - 258, kMeterX = UI_BASE_WIDTH - 228, kVoicesX = UI_BASE_WIDTH - 76; // the output, between the instrument's name and the help button
+const Box kOutputWindow = {UI_BASE_WIDTH - 235, 15, 165, 25};                                      // the solid looks show level and voices in a display
+const Box kPageArea = {12, 86, UI_BASE_WIDTH - 24, 480}, kKeys = {12, 584, UI_BASE_WIDTH - 24, 46}, kRange = {12, 572, UI_BASE_WIDTH - 24, 8};
+// ZONES and SAMPLE work on sounds: the files stand beside them, and the page itself has the rest.
+const Box kDock = {12, 86, 244, 480}, kWork = {264, 86, 976, 480};
+const float kStretch = kPageArea.w / 976.0f; // the other pages were laid out 976 wide and take the whole width
 const float kKeyW = kKeys.w / 128.0f;
 const float kBlackLength = 0.62f; // of a white key
+const float kSmall = 9.0f;        // no text in the window is smaller than this
 
-enum Page { kPageMap, kPageSample, kPageSynth, kPageMod, kPageMix, kPageFiles, kPageCount };
-const char* const kPageNames[kPageCount] = {"MAP", "SAMPLE", "SYNTH", "MOD", "MIX", "FILES"};
+enum Page { kPageMap, kPageSample, kPageSynth, kPageMod, kPageMix, kPageCount };
+const char* const kPageNames[kPageCount] = {"ZONES", "SAMPLE", "SYNTH", "MOD", "MIX"};
 Box partTab(int p) { return {12.0f + p * 56.0f, 54, 52, 24}; }
-Box pageTab(int p) { return {988.0f - (kPageCount - p) * 76.0f, 54, 72, 24}; }
+Box pageTab(int p) { return {UI_BASE_WIDTH - 12.0f - (kPageCount - p) * 76.0f, 54, 72, 24}; }
+enum View { kViewKeys, kViewVelocity, kViewMap, kViewCount }; // of the zones
+const char* const kViewNames[kViewCount] = {"KEYS", "VELOCITY", "MAP"};
+Box viewTab(int v) { return {kWork.x + v * 84.0f, kWork.y, 80, 20}; }
+// What of a zone the mouse holds: nothing of these moves it as a whole.
+enum Grab { kGrabNone = -1, kGrabMove = 0, kGrabLow = 1, kGrabHigh = 2, kGrabTop = 4, kGrabBottom = 8, kGrabFadeLow = 16, kGrabFadeHigh = 32 };
 
 enum Scope { kHost, kOfPart, kOfZone, kShared };
 enum Style { kKnob, kChoiceBox, kToggleBox, kNumber };
@@ -173,8 +184,7 @@ public:
     SamplerUI() : UI(UI_BASE_WIDTH, UI_BASE_HEIGHT, false) {
         for (uint32_t i = 0; i < kParamCount; ++i) values_[i] = kParams[i].def;
         loadSharedResources();
-        const double s = getScaleFactor();
-        if (s != 1.0) setSize(static_cast<uint>(std::lround(UI_BASE_WIDTH * s)), static_cast<uint>(std::lround(UI_BASE_HEIGHT * s)));
+        size_.open(skin_); // at the size it was left at
 #if DISTRHO_PLUGIN_WANT_DIRECT_ACCESS
         sampler_ = Sampler::of(getPluginInstancePointer());
 #endif
@@ -195,6 +205,7 @@ public:
         if (last.empty() && !library_.dir.empty() && !Library::read(library_.dir / "last-folder.txt", last)) last.clear();
         if (!last.empty() && last.size() < 2000 && fs::is_directory(fs::u8path(last), ec)) folder_ = last;
         lastFolder() = folder_;
+        readFolder();
         help_.setButton(kHelpX, kHeaderY + 12);
         skin_.setButton(kSkinX, kHeaderY + 12);
         layout();
@@ -214,6 +225,7 @@ protected:
     /** The plugin's document may have changed without the UI: a sound was read, a song was opened. */
     void uiIdle() override {
         sampler_->idle();
+        if (size_.follow(skin_)) repaint(); // dragged by its edge
         const bool look = skin_.poll(); // another HNL window chose a look
         const uint64_t now = sampler_->revision();
         const int zone = sampler_->engine.meters.zone.load(std::memory_order_relaxed);
@@ -231,7 +243,7 @@ protected:
     // ------------------------------------------------------------ drawing
 
     void onNanoDisplay() override {
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         scale(s, s);
         fontFace(NANOVG_DEJAVU_SANS_TTF);
         const hnl::ui::Skin k = skin();
@@ -242,7 +254,7 @@ protected:
         std::string name = doc_->name;
         if (!note_.empty()) name = note_;
         else if (sampler_->loading() > 0) name += "  (reading " + std::to_string(sampler_->loading()) + ")";
-        label("INSTRUMENT", kPresetX - 8, kHeaderY + 12, 7.5f, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label("INSTRUMENT", kPresetX - 8, kHeaderY + 12, kSmall, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
         presetBar_.drawBar(*this, theme, name.c_str());
         help_.drawButton(*this, theme);
         skin_.drawButton(*this, theme);
@@ -290,8 +302,9 @@ protected:
         case kPageSynth: drawEnvelopes(); break;
         case kPageMod: drawSteps(); break;
         case kPageMix: drawStrips(); break;
-        default: drawFiles(); break;
+        default: break;
         }
+        if (dockShown()) drawFiles();
         for (size_t i = 0; i < ctls_.size(); ++i) drawControl(ctls_[i], static_cast<int>(i) == drag_);
         for (const Button& b : buttons_) drawButton(b);
         drawNameEdit();
@@ -307,13 +320,16 @@ protected:
 
     bool onMouse(const MouseEvent& ev) override {
         if (ev.button != 1) return false;
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
         if (!ev.press) return release();
 
         note_.clear();
         if (editKind_ != kEditNone) endNameEdit(true); // a click anywhere keeps what was typed
-        if (!presetBar_.isBusy() && skin_.mouseDown(x, y) != hnl::ui::SkinMenu::kNotMine) { // the cog, or its list while it is open
+        if (const int cog = presetBar_.isBusy() ? hnl::ui::SkinMenu::kNotMine : skin_.mouseDown(x, y)) { // the cog, or its list while it is open
+            if (cog == hnl::ui::SkinMenu::kSized) { // a size from the list: the window follows at once
+                size_.choose(skin_.size());
+            }
             help_.hide();
             menu_.items.clear();
             repaint();
@@ -343,9 +359,9 @@ protected:
             return true;
         }
         for (int p = 0; p < kParts; ++p)
-            if (partTab(p).contains(x, y)) { part_ = p; zone_ = 0; view0_ = view1_ = 0; layout(); repaint(); return true; }
+            if (partTab(p).contains(x, y)) { part_ = p; zone_ = 0; listScroll_ = 0; view0_ = view1_ = 0; layout(); repaint(); return true; }
         for (int p = 0; p < kPageCount; ++p)
-            if (pageTab(p).contains(x, y)) { page_ = p; if (p == kPageFiles) readFolder(); layout(); repaint(); return true; }
+            if (pageTab(p).contains(x, y)) { page_ = p; layout(); repaint(); return true; }
         const bool twice = ev.time - lastClickTime_ < 350 && std::fabs(x - lastX_) < 4 && std::fabs(y - lastY_) < 4;
         lastClickTime_ = ev.time;
         lastX_ = x;
@@ -392,15 +408,20 @@ protected:
             repaint();
             return true;
         }
-        if (page_ == kPageMap && mapBox().contains(x, y)) return mapDown(x, y);
+        if (page_ == kPageMap) {
+            for (int v = 0; v < kViewCount; ++v)
+                if (viewTab(v).contains(x, y)) { view_ = v; showChosen(); layout(); repaint(); return true; }
+            if (editBox().contains(x, y)) return view_ == kViewMap ? mapDown(x, y) : barDown(x, y);
+        }
+        if (page_ == kPageSample && chooserBox().contains(x, y)) { openZoneList(); return true; }
         if (page_ == kPageSample && waveBox().contains(x, y)) return waveDown(x);
         if (page_ == kPageMod && stepsBox().contains(x, y)) { area_ = kAreaSteps; stepDrag(x, y); return true; }
-        if (page_ == kPageFiles && listBox().contains(x, y)) return fileDown(y, twice);
+        if (dockShown() && listBox().contains(x, y)) return fileDown(y, twice);
         return false;
     }
 
     bool onMotion(const MotionEvent& ev) override {
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
         if (presetBar_.isOpen()) {
             if (presetBar_.motion(x, y, static_cast<int>(presetNames().size()))) repaint();
@@ -419,11 +440,12 @@ protected:
             if (kKeys.contains(x, y) && keyAt(x, y) != mouseKey_) play(keyAt(x, y), y);
             return true;
         }
-        if (area_ == kAreaMap) { mapDrag(x, y); return true; }
+        if (area_ == kAreaMap) { if (view_ == kViewMap) mapDrag(x, y); else barDrag(x); return true; }
         if (area_ == kAreaWave) { waveDrag(x); return true; }
         if (area_ == kAreaSteps) { stepDrag(x, y); return true; }
         if (drag_ < 0) {
-            if (help_.motion(x, y)) repaint();
+            const bool hover = hoverZones(x, y); // what a press here would take hold of
+            if (help_.motion(x, y) || hover) repaint();
             return false;
         }
         const Ctl& c = ctls_[static_cast<size_t>(drag_)];
@@ -448,17 +470,23 @@ protected:
 
     bool onScroll(const ScrollEvent& ev) override {
         if (presetBar_.isBusy() || skin_.isOpen() || drag_ >= 0 || !menu_.items.empty()) return false;
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
         const float dy = static_cast<float>(ev.delta.getY());
-        if (page_ == kPageFiles && listBox().contains(x, y)) {
+        if (dockShown() && listBox().contains(x, y)) {
             scroll_ = std::clamp(scroll_ - static_cast<int>(dy > 0 ? 3 : -3), 0, std::max(0, static_cast<int>(entries_.size()) - 5));
+            repaint();
+            return true;
+        }
+        if (page_ == kPageMap && view_ != kViewMap && editBox().contains(x, y)) {
+            listScroll_ = std::clamp(listScroll_ - static_cast<int>(dy > 0 ? 3 : -3), 0, std::max(0, static_cast<int>(part().zones.size()) - barRows()));
             repaint();
             return true;
         }
         if (page_ == kPageSample && waveBox().contains(x, y)) { // closer to or further from the place under the mouse
             const AudioData* d = zoneData();
             if (d == nullptr) return false;
+            syncView();
             const double frames = static_cast<double>(d->frames()), at = view0_ + (x - waveBox().x) / waveBox().w * (view1_ - view0_);
             const double span = std::clamp((view1_ - view0_) * (dy > 0 ? 0.7 : 1.0 / 0.7), 64.0, frames);
             view0_ = std::clamp(at - (x - waveBox().x) / waveBox().w * span, 0.0, frames - span);
@@ -524,6 +552,7 @@ private:
         revision_ = sampler_->revision();
         const int count = static_cast<int>(doc_->parts[part_].zones.size());
         if (zone_ >= count) zone_ = std::max(0, count - 1);
+        listScroll_ = std::clamp(listScroll_, 0, std::max(0, count - barRows()));
     }
     const Part& part() const { return doc_->parts[part_]; }
     const Zone* zone() const { return zone_ < static_cast<int>(part().zones.size()) ? &part().zones[static_cast<size_t>(zone_)] : nullptr; }
@@ -581,7 +610,12 @@ private:
 
     bool release() {
         if (mouseKey_ >= 0) { play(-1, 0); return true; }
-        if (area_ != kAreaNone) { area_ = kAreaNone; repaint(); return true; }
+        if (area_ != kAreaNone) {
+            if (area_ == kAreaMap && view_ == kViewMap && !moved_) nextUnder(pressX_, pressY_);
+            area_ = kAreaNone;
+            repaint();
+            return true;
+        }
         if (drag_ < 0) return false;
         if (ctls_[static_cast<size_t>(drag_)].scope == kHost) editParameter(static_cast<uint32_t>(ctls_[static_cast<size_t>(drag_)].id), false);
         drag_ = -1;
@@ -604,11 +638,19 @@ private:
 
     // -------------------------------------------------------------- layout
 
+    /** SYNTH, MOD and MIX are laid out 976 wide and stretched over the whole page: where a place of that layout ends up. */
+    float X(float x) const { return page_ >= kPageSynth ? kPageArea.x + (x - kPageArea.x) * kStretch : x; }
+    float W(float w) const { return page_ >= kPageSynth ? w * kStretch : w; }
+    Box S(const Box& b) const { return {X(b.x), b.y, W(b.w), b.h}; }
+    /** The files stand beside the two pages that work on sounds. */
+    bool dockShown() const { return page_ == kPageMap || page_ == kPageSample; }
+
+    void titled(const Box& b, const char* title, bool glass = false) { panels_.push_back({S(b), title, glass}); }
     /** A panel with a row of controls in it; returns the x where the next panel can start. */
     float panel(const char* title, const char* helpText, float x, float y, float h, int scope, std::initializer_list<std::pair<int, int>> items, float pitch = 46) {
         const float w = pitch * static_cast<float>(items.size()) + 14;
-        panels_.push_back({{x, y, w, h}, title});
-        help_.add({x, y, w, h}, title, helpText);
+        titled({x, y, w, h}, title);
+        help_.add(panels_.back().box, title, helpText);
         float cx = x + 7 + pitch * 0.5f;
         for (const std::pair<int, int>& it : items) {
             add(scope, it.first, it.second, it.second == kKnob ? cx : cx - pitch * 0.5f + 3, it.second == kKnob ? y + h - 40 : y + h - 46, pitch - (it.second == kKnob ? 0 : 6));
@@ -622,13 +664,14 @@ private:
         static const char* const kShort[][2] = {{"Bend range", "Bend"}, {"Transpose", "Transp"}, {"Loop start", "Loop st"}, {"Loop length", "Loop len"}, {"Filter env", "Env"},
                                                 {"Filter velocity", "Velocity"}, {"Pulse width", "Width"}, {"Low velocity", "Low vel"}, {"High velocity", "High vel"},
                                                 {"Round robin of", "RR count"}, {"Round robin turn", "RR turn"}, {"Off by", "Choked by"}, {"Loop in release", "In release"}, {"Step length", "Length"},
-                                                {"Step smooth", "Smooth"}, {"Sample level", "Sample"}};
+                                                {"Step smooth", "Smooth"}, {"Sample level", "Sample"}, {"Fade low keys", "Key fade lo"}, {"Fade high keys", "Key fade hi"},
+                                                {"Fade low velocity", "Vel fade lo"}, {"Fade high velocity", "Vel fade hi"}};
         for (const auto& pair : kShort)
             if (text == nullptr && (scope == kOfPart || scope == kOfZone) && name == pair[0]) name = pair[1];
         // Inside a panel the panel's title says which envelope or LFO it is.
         for (const char* lead : {"Env 1 ", "Env 2 ", "Env 3 ", "LFO 1 ", "LFO 2 ", "LFO 3 ", "Osc ", "Mod ", "Delay ", "Reverb ", "Chorus ", "Noise "})
             if (text == nullptr && name.compare(0, std::strlen(lead), lead) == 0 && name.size() > std::strlen(lead)) name = name.substr(std::strlen(lead));
-        ctls_.push_back({scope, id, style, x, y, w, upper(name), ofPart});
+        ctls_.push_back({scope, id, style, X(x), y, W(w), upper(name), ofPart});
     }
 
     void layout() {
@@ -637,13 +680,13 @@ private:
         buttons_.clear();
         help_.clear();
         help_.add(help_.buttonBox(), "HELP", help::kHelp);
-        help_.add(skin_.buttonBox(), "LOOK", hnl::ui::SkinMenu::help());
+        help_.add(skin_.buttonBox(), "LOOK AND SIZE", hnl::ui::SkinMenu::helpWithSizes());
         help_.add(presetBar_.nameBox(), "INSTRUMENT", help::kInstrument);
         help_.add({12, 54, 448, 24}, "PARTS", help::kParts);
-        help_.add({532, 54, 456, 24}, "PAGES", help::kPages);
+        help_.add({pageTab(0).x, 54, kPageCount * 76.0f - 4, 24}, "PAGES", help::kPages);
         help_.add({kKeys.x, kRange.y, kKeys.w, kKeys.h + 12}, "KEYBOARD", help::kKeyboard);
         help_.add({kMeterX - 10, 8, 150, 36}, "OUTPUT", help::kOutput);
-        add(kHost, kVolume, kKnob, kVolumeX, 27, 36);
+        ctls_.push_back({kHost, kVolume, kKnob, kVolumeX, 27, 36, "VOLUME", -1});
         help_.add({kVolumeX - 70, 8, 90, 40}, "VOLUME", help::kVolume);
         const float x0 = kPageArea.x, y0 = kPageArea.y;
         const int K = kKnob, C = kChoiceBox, T = kToggleBox, N = kNumber;
@@ -673,18 +716,18 @@ private:
                           {{lfoParam(l, kLfoWave), C}, {lfoParam(l, kLfoRate), K}, {lfoParam(l, kLfoSync), C}, {lfoParam(l, kLfoFade), K}, {lfoParam(l, kLfoPhase), K}, {lfoParam(l, kLfoRetrig), C}}, 51.0f);
             }
             const float sy = y0 + kRowH + 6, my = matrixY();
-            x = panel("STEPS", help::kSteps, x0, sy, 112, kOfPart, {}, 52) + 3 * 52; // its three controls a little higher than a row's, in the middle of the taller panel
-            panels_.back().box.w += 3 * 52;
+            x = x0 + 14 + 3 * 52 + 6; // the three controls of the steps a little higher than a row's, in the middle of the taller panel
+            titled({x0, sy, 14 + 3 * 52, 112}, "STEPS");
             help_.add(panels_.back().box, "STEPS", help::kSteps);
             add(kOfPart, kPSeqSteps, K, x0 + 7 + 26, sy + 62, 52);
             add(kOfPart, kPSeqSync, C, x0 + 7 + 52 + 3, sy + 56, 46);
             add(kOfPart, kPSeqSmooth, K, x0 + 7 + 130, sy + 62, 52);
-            panels_.push_back({{x, sy, 392, 112}, "", true});
+            titled({x, sy, 392, 112}, "", true);
             help_.add(stepsBox(), "STEPS", help::kSteps);
-            panels_.push_back({{x + 398, sy, 976 - (x + 398 - x0), 112}, "MACROS"});
+            titled({x + 398, sy, 976 - (x + 398 - x0), 112}, "MACROS");
             help_.add(panels_.back().box, "MACROS", help::kMacros);
             for (int m = 0; m < kMacros; ++m) add(kHost, kMacro1 + m, kKnob, macroX(m), sy + 62, 44, -1, doc_->macroNames[m].empty() ? nullptr : doc_->macroNames[m].c_str());
-            panels_.push_back({{x0, my, 976, y0 + 480 - my}, "MATRIX"});
+            titled({x0, my, 976, y0 + 480 - my}, "MATRIX");
             help_.add(panels_.back().box, "MATRIX", help::kMatrix);
             for (int s = 0; s < kSlots; ++s) {
                 const float rx = x0 + 60 + (s / 6) * 480.0f, ry = my + 32 + (s % 6) * 37.0f;
@@ -696,7 +739,7 @@ private:
         } else if (page_ == kPageMix) {
             for (int p = 0; p < kParts; ++p) {
                 const float x = x0 + p * 92.0f;
-                panels_.push_back({{x, y0, 88, 480}, "PART " + std::to_string(p + 1)});
+                titled({x, y0, 88, 480}, ("PART " + std::to_string(p + 1)).c_str());
                 add(kOfPart, kPLevel, K, x + 28, y0 + 60, 44, p);
                 add(kOfPart, kPPan, K, x + 28, y0 + 124, 44, p);
                 add(kOfPart, kPDelaySend, K, x + 28, y0 + 188, 44, p, "DELAY");
@@ -707,9 +750,9 @@ private:
                 add(kOfPart, kPMute, T, x + 6, y0 + 430, 76, p);
                 add(kOfPart, kPMpe, T, x + 6, y0 + 454, 76, p);
             }
-            help_.add({x0, y0, 732, 480}, "PARTS", help::kMix);
+            help_.add(S({x0, y0, 732, 480}), "PARTS", help::kMix);
             const float fx = x0 + 740;
-            panels_.push_back({{fx, y0, 236, 190}, "DELAY"});
+            titled({fx, y0, 236, 190}, "DELAY");
             help_.add(panels_.back().box, "DELAY", help::kFx);
             add(kShared, kGDelayTime, K, fx + 40, y0 + 62, 60);
             add(kShared, kGDelaySync, C, fx + 80, y0 + 54, 70);
@@ -719,20 +762,24 @@ private:
             add(kShared, kGDelayLevel, K, fx + 196, y0 + 140, 60);
             panel("REVERB", help::kFx, fx, y0 + 196, 100, kShared, {{kGReverbDecay, K}, {kGReverbDamp, K}, {kGReverbLevel, K}}, 74);
             panel("CHORUS", help::kFx, fx, y0 + 302, 100, kShared, {{kGChorusRate, K}, {kGChorusDepth, K}, {kGChorusLevel, K}}, 74);
-            panels_.push_back({{fx, y0 + 408, 236, 72}, "TUNING"});
+            titled({fx, y0 + 408, 236, 72}, "TUNING");
             help_.add(panels_.back().box, "TUNING", help::kTuning);
-            buttons_.push_back({{fx + 170, y0 + 438, 56, 22}, "EQUAL", [this] {
+            buttons_.push_back({S({fx + 170, y0 + 438, 56, 22}), "EQUAL", [this] {
                 sampler_->edit([](Instrument& doc) { for (double& t : doc.tuning) t = 0.0; doc.tuningName.clear(); });
             }});
         } else if (page_ == kPageMap) {
-            const float py = y0 + mapBox().h + 6;
-            panels_.push_back({{x0, py, 976, 480 - mapBox().h - 6}, "ZONE"});
-            help_.add(mapBox(), "ZONES", help::kMap);
-            help_.add(panels_.back().box, "ZONE", help::kZone);
-            static const int kIds[14] = {kZLoKey, kZHiKey, kZLoVel, kZHiVel, kZRoot, kZTune, kZKeyTrack, kZGain, kZPan, kZGroup, kZOffBy, kZSeqLength, kZSeqPosition, kZTrigger};
-            for (int i = 0; i < 14; ++i) add(kOfZone, kIds[i], kIds[i] == kZTrigger ? C : N, x0 + 10 + i * 59.0f, py + 38, 54);
+            const Box e = editBox(), zp = zonePanel();
+            const float px = zp.x, py = zp.y;
+            panels_.push_back({zp, "ZONE"});
+            help_.add({viewTab(0).x, viewTab(0).y, viewTab(kViewCount - 1).x + viewTab(0).w - viewTab(0).x, viewTab(0).h}, "VIEW", help::kViews);
+            help_.add(e, "ZONES", view_ == kViewMap ? help::kMap : help::kBars);
+            help_.add(zp, "ZONE", help::kZone);
+            static const int kUpper[13] = {kZLoKey, kZHiKey, kZFadeLoKey, kZFadeHiKey, kZLoVel, kZHiVel, kZFadeLoVel, kZFadeHiVel, kZRoot, kZTune, kZKeyTrack, kZGain, kZPan};
+            for (int i = 0; i < 13; ++i) add(kOfZone, kUpper[i], N, px + 10 + i * 74.0f, py + 40, 68);
+            static const int kLower[5] = {kZGroup, kZOffBy, kZSeqLength, kZSeqPosition, kZTrigger};
+            for (int i = 0; i < 5; ++i) add(kOfZone, kLower[i], kLower[i] == kZTrigger ? C : N, px + 10 + i * 74.0f, py + 82, 68);
             const bool any = zone() != nullptr;
-            buttons_.push_back({{x0 + 10 + 14 * 59.0f, py + 36, 62, 22}, "COPY", [this] {
+            buttons_.push_back({{px + 10 + 5 * 74.0f + 8, py + 80, 68, 22}, "COPY", [this] {
                 const int p = part_, z = zone_;
                 sampler_->edit([=](Instrument& doc) {
                     std::vector<Zone>& zones = doc.parts[p].zones;
@@ -743,66 +790,75 @@ private:
                 });
                 refresh();
                 zone_ = std::max(0, static_cast<int>(part().zones.size()) - 1);
+                showChosen();
             }, any});
-            buttons_.push_back({{x0 + 10 + 14 * 59.0f + 66, py + 36, 62, 22}, "DELETE", [this] {
+            buttons_.push_back({{px + 10 + 5 * 74.0f + 8 + 74, py + 80, 68, 22}, "DELETE", [this] {
                 const int p = part_, z = zone_;
                 sampler_->edit([=](Instrument& doc) {
                     if (z < static_cast<int>(doc.parts[p].zones.size())) doc.parts[p].zones.erase(doc.parts[p].zones.begin() + z);
                     doc.dropUnusedSamples();
                 });
             }, any});
-            if (!any) addSoundButton(mapBox());
         } else if (page_ == kPageSample) {
-            panels_.push_back({{x0, y0 + 372, 976, 108}, "SOUND"});
+            const Box sp = soundPanel();
+            const float px = sp.x, py = sp.y;
+            panels_.push_back({sp, "SOUND"});
             help_.add(waveBox(), "SOUND", help::kWave);
-            help_.add({x0, y0 + 372, 600, 108}, "START, END AND LOOP", help::kLoop);
-            help_.add({x0 + 600, y0 + 372, 376, 108}, "TOOLS", help::kTools);
+            help_.add({px, py + 22, 624, sp.h - 22}, "START, END AND LOOP", help::kLoop);
+            help_.add({px + 624, py + 22, sp.w - 624, sp.h - 22}, "TOOLS", help::kTools);
+            help_.add({px, py, sp.w, 22}, "WHICH ZONE", help::kChooser);
             static const int kIds[9] = {kZStart, kZEnd, kZLoop, kZLoopStart, kZLoopEnd, kZCrossfade, kZLoopRelease, kZReverse, kZOneShot};
-            for (int i = 0; i < 9; ++i) add(kOfZone, kIds[i], kIds[i] == kZLoop ? C : (i >= 6 ? T : N), x0 + 10 + i * 68.0f, y0 + 408, 62);
-            const float bx = x0 + 632;
+            for (int i = 0; i < 9; ++i) add(kOfZone, kIds[i], kIds[i] == kZLoop ? C : (i >= 6 ? T : N), px + 10 + i * 68.0f, py + 44, 62);
+            const int count = static_cast<int>(part().zones.size());
+            buttons_.push_back({{px + 62, py + 2, 20, 18}, "<", [this, count] { zone_ = (zone_ + count - 1) % std::max(1, count); }, count > 1});
+            buttons_.push_back({{px + 84, py + 2, 20, 18}, ">", [this, count] { zone_ = (zone_ + 1) % std::max(1, count); }, count > 1});
+            const float bx = px + 632;
             const bool any = zoneData() != nullptr; // the tools need a sound that has been read
-            buttons_.push_back({{bx, y0 + 396, 84, 22}, "FIND LOOP", [this] { findLoopHere(); }, any});
-            buttons_.push_back({{bx + 90, y0 + 396, 84, 22}, "DETECT PITCH", [this] { detectPitchHere(); }, any});
-            buttons_.push_back({{bx, y0 + 422, 84, 22}, "NORMALISE", [this] { normaliseHere(); }, any});
-            buttons_.push_back({{bx + 90, y0 + 422, 84, 22}, "SLICE AT HITS", [this] { sliceHere(); }, any});
-            buttons_.push_back({{bx + 180, y0 + 396, 84, 22}, "SHOW ALL", [this] { view0_ = view1_ = 0; }, any});
-            if (zone() == nullptr) addSoundButton(waveBox());
-        } else {
-            panels_.push_back({listBox(), ""});
-            panels_.push_back({{x0 + 640, y0, 336, 480}, "CHOSEN"});
-            help_.add(listBox(), "FILES", help::kFiles);
-            help_.add(panels_.back().box, "CHOSEN FILE", help::kFileActions);
-            const float bx = x0 + 652;
-            const int kind = chosenKind();
-            if (kind == kFileSound) {
-                buttons_.push_back({{bx, y0 + 150, 150, 24}, "ADD AS ZONE", [this] { useFile(false); }, true, true});
-                buttons_.push_back({{bx + 158, y0 + 150, 150, 24}, "ADD ON NEXT KEY", [this] { useFile(true); }});
-                buttons_.push_back({{bx, y0 + 180, 150, 24}, "STOP PREVIEW", [this] { sampler_->preview(""); }});
-            } else if (kind != kFileNone) {
-                const std::string text = kind == kFileImport ? "IMPORT INTO PART " + std::to_string(part_ + 1) : (kind == kFileTuning ? "USE THIS TUNING" : "LOAD INSTRUMENT");
-                buttons_.push_back({{bx, y0 + 150, 150, 24}, text, [this] { useFile(false); }, true, true});
-            }
-            buttons_.push_back({{x0 + 6, y0 + 6, 40, 20}, "UP", [this] {
-                const fs::path up = fs::u8path(folder_).parent_path();
-                folder_ = up.empty() || up.u8string() == folder_ ? "" : up.u8string(); // above a drive: the list of drives
-                readFolder();
-            }});
-            buttons_.push_back({{x0 + 50, y0 + 6, 46, 20}, "HOME", [this] { folder_ = home_; readFolder(); }});
+            buttons_.push_back({{bx, py + 30, 106, 22}, "FIND LOOP", [this] { findLoopHere(); }, any});
+            buttons_.push_back({{bx + 112, py + 30, 106, 22}, "DETECT PITCH", [this] { detectPitchHere(); }, any});
+            buttons_.push_back({{bx + 224, py + 30, 106, 22}, "SHOW ALL", [this] { view0_ = view1_ = 0; }, any});
+            buttons_.push_back({{bx, py + 56, 106, 22}, "NORMALISE", [this] { normaliseHere(); }, any});
+            buttons_.push_back({{bx + 112, py + 56, 106, 22}, "SLICE AT HITS", [this] { sliceHere(); }, any});
+        }
+        if (!dockShown()) return;
+        // The files, and under the list what can be done with the chosen one.
+        const Box d = kDock;
+        panels_.push_back({d, ""});
+        help_.add({d.x, d.y, d.w, listBox().y + listBox().h - d.y}, "FILES", help::kFiles);
+        help_.add({d.x, listBox().y + listBox().h, d.w, d.y + d.h - listBox().y - listBox().h}, "CHOSEN FILE", help::kFileActions);
+        buttons_.push_back({{d.x + 6, d.y + 6, 44, 20}, "UP", [this] {
+            const fs::path up = fs::u8path(folder_).parent_path();
+            folder_ = up.empty() || up.u8string() == folder_ ? "" : up.u8string(); // above a drive: the list of drives
+            readFolder();
+        }});
+        buttons_.push_back({{d.x + 54, d.y + 6, 52, 20}, "HOME", [this] { folder_ = home_; readFolder(); }});
 #ifdef _WIN32
-            buttons_.push_back({{x0 + 100, y0 + 6, 52, 20}, "DRIVES", [this] { folder_.clear(); readFolder(); }});
+        buttons_.push_back({{d.x + 110, d.y + 6, 60, 20}, "DRIVES", [this] { folder_.clear(); readFolder(); }});
 #else
-            buttons_.push_back({{x0 + 100, y0 + 6, 52, 20}, "ROOT", [this] { folder_ = "/"; readFolder(); }});
+        buttons_.push_back({{d.x + 110, d.y + 6, 60, 20}, "ROOT", [this] { folder_ = "/"; readFolder(); }});
 #endif
+        const float ax = d.x + 6, ay = d.y + 372, aw = (d.w - 18) * 0.5f;
+        const int kind = chosenKind();
+        if (kind == kFileSound) {
+            buttons_.push_back({{ax, ay, aw, 24}, "ADD AS ZONE", [this] { useFile(kUseAdd); }, true, true});
+            buttons_.push_back({{ax + aw + 6, ay, aw, 24}, "ON NEXT KEY", [this] { useFile(kUseNextKey); }});
+            buttons_.push_back({{ax, ay + 28, aw, 24}, "REPLACE SOUND", [this] { useFile(kUseReplace); }, zone() != nullptr});
+            buttons_.push_back({{ax + aw + 6, ay + 28, aw, 24}, "STOP", [this] { sampler_->preview(""); }});
+        } else if (kind != kFileNone) {
+            const std::string text = kind == kFileImport ? "IMPORT INTO PART " + std::to_string(part_ + 1) : (kind == kFileTuning ? "USE THIS TUNING" : "LOAD INSTRUMENT");
+            buttons_.push_back({{ax, ay, d.w - 12, 24}, text, [this] { useFile(kUseAdd); }, true, true});
         }
     }
 
-    /** In the middle of an empty map or wave view: the way to the files. */
-    void addSoundButton(const Box& in) {
-        buttons_.push_back({{in.x + in.w * 0.5f - 70, in.y + in.h * 0.5f + 12, 140, 26}, "ADD A SOUND", [this] { page_ = kPageFiles; readFolder(); }, true, true});
-    }
     float matrixY() const { return kPageArea.y + kRowH + 6 + 112 + 6; }
-    float macroX(int m) const { return kPageArea.x + 176 + 398 + 30 + m * 46.5f; }
+    float macroX(int m) const { return kPageArea.x + 176 + 398 + 30 + m * 46.5f; } // in the 976 wide layout
     static constexpr float kRowH = 92; // a panel with one row of knobs
+    // ZONES: the views' tabs, the editor under them, and the chosen zone's settings. SAMPLE: the wave and the sound's settings.
+    Box editBox() const { return {kWork.x, kWork.y + 24, kWork.w, 326}; }
+    Box zonePanel() const { return {kWork.x, kWork.y + 356, kWork.w, 124}; }
+    Box waveBox() const { return {kWork.x, kWork.y, kWork.w, 344}; }
+    Box soundPanel() const { return {kWork.x, kWork.y + 350, kWork.w, 130}; }
+    Box chooserBox() const { return {kWork.x + 108, kWork.y + 350, 600, 22}; }
 
     // ------------------------------------------------------------- drawing
 
@@ -929,20 +985,20 @@ private:
                 line(c.x + std::cos(angle) * (r - 10), c.y + std::sin(angle) * (r - 10), c.x + std::cos(angle) * (r - 5.5f), c.y + std::sin(angle) * (r - 5.5f), k.pointer, 1.6f);
             }
             if (c.scope == kHost && c.id == kVolume) { // in the header: name and value beside the knob
-                label("VOLUME", c.x - 20, c.y - 6, 7.5f, dim, ALIGN_RIGHT | ALIGN_MIDDLE);
-                label(text.c_str(), c.x - 20, c.y + 6, 8, dragging ? moving : bright, ALIGN_RIGHT | ALIGN_MIDDLE);
+                label("VOLUME", c.x - 20, c.y - 6, kSmall, dim, ALIGN_RIGHT | ALIGN_MIDDLE);
+                label(text.c_str(), c.x - 20, c.y + 6, 9.5f, dragging ? moving : bright, ALIGN_RIGHT | ALIGN_MIDDLE);
                 return;
             }
-            if (!(editKind_ == kEditMacro && c.scope == kHost && c.id == static_cast<int>(kMacro1) + editIndex_)) fitted(c.label, c.x, c.y - 21, 7.5f, c.w + 4, dim, ALIGN_CENTER | ALIGN_MIDDLE);
-            label(text.c_str(), c.x, c.y + 23, 8, dragging ? moving : bright, ALIGN_CENTER | ALIGN_MIDDLE);
+            if (!(editKind_ == kEditMacro && c.scope == kHost && c.id == static_cast<int>(kMacro1) + editIndex_)) fitted(c.label, c.x, c.y - 21, kSmall, c.w + 4, dim, ALIGN_CENTER | ALIGN_MIDDLE);
+            label(text.c_str(), c.x, c.y + 23, 9.5f, dragging ? moving : bright, ALIGN_CENTER | ALIGN_MIDDLE);
             return;
         }
-        if (!c.label.empty() && c.style != kToggleBox) fitted(c.label, c.x + 1, c.y - 7, 7.5f, c.w + 6, dim);
+        if (!c.label.empty() && c.style != kToggleBox) fitted(c.label, c.x + 1, c.y - 7, kSmall, c.w + 6, dim);
         const Box b = c.face();
         const bool lit = c.style == kToggleBox && v >= 0.5 && on;
         if (c.style == kToggleBox && !c.label.empty()) text = c.label; // lit when on
         const float room = c.style == kChoiceBox ? b.w - 13 : b.w; // a list has its arrow at the right
-        const float tx = b.x + room * 0.5f + (c.style == kChoiceBox ? 1 : 0), size = c.style == kChoiceBox && b.w < 60 ? 8.5f : 9;
+        const float tx = b.x + room * 0.5f + (c.style == kChoiceBox ? 1 : 0), size = 9.5f;
         if (k.solid) { // a key with a light, a key that opens a list, or a figure in a small display
             if (c.style == kToggleBox) {
                 hnl::ui::keys(*this, k, b, 1, lit ? 0 : -1, [&text](int) { return text.c_str(); }, k.accent, k.text);
@@ -976,8 +1032,8 @@ private:
         }
         char text[24];
         std::snprintf(text, sizeof(text), "%.0f of 64", values_[kMeterVoices]);
-        label("VOICES", kVoicesX, 21, 7.5f, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
-        label(text, kVoicesX, 33, 8, rgb(values_[kMeterVoices] > 0 ? k.accent : k.text), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label("VOICES", kVoicesX, 21, kSmall, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label(text, kVoicesX, 33, 9.5f, rgb(values_[kMeterVoices] > 0 ? k.accent : k.text), ALIGN_RIGHT | ALIGN_MIDDLE);
     }
 
     void drawKeyboard() {
@@ -996,7 +1052,7 @@ private:
             const float left = kKeys.x + key * kKeyW - (key > 0 && isBlack(key - 1) ? 0.5f * kKeyW : 0.0f);
             const float right = kKeys.x + (key + 1) * kKeyW + (key < 127 && isBlack(key + 1) ? 0.5f * kKeyW : 0.0f);
             fillBox({left + 0.5f, kKeys.y, right - left - 1, kKeys.h}, lit(key) ? kWarm : kIvory, 1.5f);
-            if (key % 12 == 0) label(keyName(key).c_str(), 0.5f * (left + right), kKeys.y + kKeys.h - 6, 6.5f, rgb(kKeyPrint), ALIGN_CENTER | ALIGN_MIDDLE);
+            if (key % 12 == 0) label(keyName(key).c_str(), left + 1.5f, kKeys.y + kKeys.h - 6, kSmall, rgb(kKeyPrint), ALIGN_LEFT | ALIGN_MIDDLE);
         }
         for (int key = 0; key < 128; ++key) {
             if (!isBlack(key)) continue;
@@ -1014,92 +1070,327 @@ private:
         return std::clamp(key, 0, 127);
     }
 
-    // ----------------------------------------------------------------- map
+    // --------------------------------------------------------------- zones
 
-    Box mapBox() const { return {kPageArea.x, kPageArea.y, kPageArea.w, 398}; }
-    Box zoneBox(const Zone& z) const {
-        const Box m = mapBox();
+    static constexpr float kNameW = 200, kRulerH = 18, kBarRow = 22; // KEYS and VELOCITY: a row for every zone, its name and its bar
+    Box barsBox() const {
+        const Box e = editBox();
+        return {e.x + kNameW, e.y + kRulerH, e.w - kNameW - 10, e.h - kRulerH};
+    }
+    int barRows() const { return static_cast<int>(barsBox().h / kBarRow); }
+    float barUnit() const { return barsBox().w / (view_ == kViewKeys ? 128.0f : 127.0f); }
+    /** Where a zone's bar begins and ends, and where its fades end inside it. */
+    struct Span { float a, b, fa, fb; };
+    Span span(const Zone& z) const {
+        const Box r = barsBox();
+        const float u = barUnit();
+        const bool keys = view_ == kViewKeys;
+        Span s;
+        s.a = r.x + u * static_cast<float>(keys ? z.v[kZLoKey] : z.v[kZLoVel] - 1);
+        s.b = r.x + u * static_cast<float>(keys ? z.v[kZHiKey] + 1 : z.v[kZHiVel]);
+        s.fa = std::min(s.b, s.a + u * static_cast<float>(z.v[keys ? kZFadeLoKey : kZFadeLoVel]));
+        s.fb = std::max(s.a, s.b - u * static_cast<float>(z.v[keys ? kZFadeHiKey : kZFadeHiVel]));
+        return s;
+    }
+    /** The list shows the chosen zone. */
+    void showChosen() {
+        const int rows = barRows(), count = static_cast<int>(part().zones.size());
+        if (zone_ < listScroll_) listScroll_ = zone_;
+        if (zone_ >= listScroll_ + rows) listScroll_ = zone_ - rows + 1;
+        listScroll_ = std::clamp(listScroll_, 0, std::max(0, count - rows));
+    }
+    uint32_t zoneColour(const Zone& z, const hnl::ui::Skin& k) const {
+        const Sample* s = doc_->findSample(z.sample);
+        return s != nullptr && s->missing ? k.red : (z.v[kZTrigger] >= 0.5 ? kWarm : k.accent);
+    }
+    /** A zone in a few words: its sound without the ending of the file's name, and its keys. */
+    std::string zoneLabel(const Zone& z) const {
+        const Sample* s = doc_->findSample(z.sample);
+        std::string name = s != nullptr ? fileName(s->path) : "No sound";
+        const size_t dot = name.rfind('.');
+        if (dot != std::string::npos && dot > 0) name.resize(dot);
+        const int lo = static_cast<int>(z.v[kZLoKey]), hi = static_cast<int>(z.v[kZHiKey]);
+        return name + "  " + keyName(lo) + (hi != lo ? "-" + keyName(hi) : "");
+    }
+
+    Box zoneBox(const Zone& z) const { // in the MAP view
+        const Box m = editBox();
+        const float kw = m.w / 128.0f;
         const float top = m.y + m.h * (1.0f - static_cast<float>(z.v[kZHiVel]) / 127.0f), bottom = m.y + m.h * (1.0f - static_cast<float>(z.v[kZLoVel] - 1) / 127.0f);
-        return {m.x + static_cast<float>(z.v[kZLoKey]) * kKeyW, top, static_cast<float>(z.v[kZHiKey] - z.v[kZLoKey] + 1) * kKeyW, bottom - top};
+        return {m.x + static_cast<float>(z.v[kZLoKey]) * kw, top, static_cast<float>(z.v[kZHiKey] - z.v[kZLoKey] + 1) * kw, bottom - top};
+    }
+    /** The zones under a place of the MAP view, in the order they are drawn: the last lies on top. */
+    std::vector<int> zonesUnder(float x, float y) const {
+        std::vector<int> under;
+        const std::vector<Zone>& zones = part().zones;
+        for (size_t i = 0; i < zones.size(); ++i)
+            if (zoneBox(zones[i]).contains(x, y)) under.push_back(static_cast<int>(i));
+        return under;
+    }
+    /** Which part of a zone of the MAP view the mouse holds: an edge, a corner, or the middle to move it. */
+    static int pictureGrab(const Box& b, float x, float y) {
+        const float ex = std::min(7.0f, b.w * 0.3f), ey = std::min(7.0f, b.h * 0.3f);
+        return (x < b.x + ex ? kGrabLow : (x > b.x + b.w - ex ? kGrabHigh : 0)) | (y < b.y + ey ? kGrabTop : (y > b.y + b.h - ey ? kGrabBottom : 0));
+    }
+    /** In KEYS and VELOCITY: the zone of the row under the mouse (-1 for none), and what of its bar the mouse holds. */
+    int barHit(float x, float y, int& index) const {
+        const Box e = editBox(), r = barsBox();
+        index = -1;
+        if (!e.contains(x, y) || y < r.y) return kGrabNone;
+        const int row = static_cast<int>((y - r.y) / kBarRow), i = listScroll_ + row;
+        if (row >= barRows() || i < 0 || i >= static_cast<int>(part().zones.size())) return kGrabNone;
+        index = i;
+        if (x < r.x - 6) return kGrabNone; // on its name
+        const Span s = span(part().zones[static_cast<size_t>(i)]);
+        if (y < r.y + row * kBarRow + 9) { // the line above the bar: its fades
+            const float da = std::fabs(x - s.fa), db = std::fabs(x - s.fb);
+            if (da <= 7 || db <= 7) return da < db || (da == db && x < s.fa) ? kGrabFadeLow : kGrabFadeHigh;
+        }
+        const float in = std::min(7.0f, (s.b - s.a) * 0.3f); // a little of the bar itself, and the room just beside it
+        if (x >= s.a - 6 && x <= s.a + in) return kGrabLow;
+        if (x >= s.b - in && x <= s.b + 6) return kGrabHigh;
+        return x > s.a && x < s.b ? kGrabMove : kGrabNone;
+    }
+
+    /** The mouse shows what a press would take hold of. True when that changed and the page is to be drawn again. */
+    bool hoverZones(float x, float y) {
+        int index = -1, grab = kGrabNone;
+        if (page_ == kPageMap && editBox().contains(x, y) && !part().zones.empty()) {
+            if (view_ == kViewMap) {
+                const std::vector<int> under = zonesUnder(x, y);
+                if (!under.empty()) {
+                    index = std::find(under.begin(), under.end(), zone_) != under.end() ? zone_ : under.back();
+                    grab = pictureGrab(zoneBox(part().zones[static_cast<size_t>(index)]), x, y);
+                }
+            } else grab = barHit(x, y, index);
+        }
+        int shape = DGL_NAMESPACE::kMouseCursorArrow;
+        if (index >= 0 && grab != kGrabNone) {
+            const bool across = (grab & (kGrabLow | kGrabHigh | kGrabFadeLow | kGrabFadeHigh)) != 0, up = (grab & (kGrabTop | kGrabBottom)) != 0;
+            if (across && up) shape = ((grab & kGrabLow) != 0) == ((grab & kGrabTop) != 0) ? DGL_NAMESPACE::kMouseCursorUpLeftDownRight : DGL_NAMESPACE::kMouseCursorUpRightDownLeft;
+            else shape = across ? DGL_NAMESPACE::kMouseCursorLeftRight : (up ? DGL_NAMESPACE::kMouseCursorUpDown : DGL_NAMESPACE::kMouseCursorHand);
+        }
+        if (shape != cursor_) {
+            cursor_ = shape;
+            getWindow().setCursor(static_cast<DGL_NAMESPACE::MouseCursor>(shape));
+        }
+        const bool changed = index != hoverZone_ || grab != hoverGrab_;
+        hoverZone_ = index;
+        hoverGrab_ = grab;
+        return changed;
     }
 
     void drawMap() {
         const hnl::ui::Skin k = skin();
-        const Box m = mapBox();
-        window(m, 4);
+        for (int v = 0; v < kViewCount; ++v) { // the three views
+            const Box b = viewTab(v);
+            if (k.solid) {
+                hnl::ui::keys(*this, k, b, 1, v == view_ ? 0 : -1, [v](int) { return kViewNames[v]; }, k.accent, k.text);
+                continue;
+            }
+            fillBox(b, v == view_ ? k.accent : k.track, 4);
+            label(kViewNames[v], b.x + b.w * 0.5f, b.y + b.h * 0.5f, kSmall, rgb(v == view_ ? k.bg : k.text), ALIGN_CENTER | ALIGN_MIDDLE);
+        }
+        const std::vector<Zone>& zones = part().zones;
+        const std::string count = std::to_string(zones.size()) + (zones.size() == 1 ? " zone" : " zones");
+        label(count.c_str(), kWork.x + kWork.w - 4, viewTab(0).y + 10, kSmall, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        const Box e = editBox();
+        window(e, 4);
+        if (zones.empty()) {
+            label("No sounds in this part yet.", e.x + e.w * 0.5f, e.y + e.h * 0.5f - 10, 11, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
+            label("Double-click a sound in the list at the left to add it.", e.x + e.w * 0.5f, e.y + e.h * 0.5f + 10, 10, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
+        } else if (view_ == kViewMap) drawPicture(e);
+        else drawBars(e);
+        const Zone* z = zone();
+        const Sample* s = z != nullptr ? doc_->findSample(z->sample) : nullptr;
+        if (s != nullptr) // on the plate, beside the panel's title
+            fitted(s->missing ? missingText(*s) + ": " + s->path : s->path, zonePanel().x + 56, zonePanel().y + 11, kSmall, 900, rgb(s->missing ? hnl::ui::printed(k, k.red) : k.plateText));
+    }
+
+    /** KEYS and VELOCITY: under a ruler, a row for every zone with its name and its bar. */
+    void drawBars(const Box& e) {
+        const hnl::ui::Skin k = skin();
+        const Box r = barsBox();
+        const float u = barUnit();
+        const bool keys = view_ == kViewKeys;
+        if (keys) { // a small keyboard, the octaves named above it
+            for (int key = 0; key < 128; ++key) {
+                fillBox({r.x + key * u + 0.5f, e.y + 11, u - 1, 6}, isBlack(key) ? k.track : kIvory, 0, isBlack(key) ? 1.0f : 0.85f);
+                if (key % 12 != 0) continue;
+                gridLine(r.x + key * u, e.y + kRulerH, r.x + key * u, e.y + e.h);
+                label(keyName(key).c_str(), r.x + key * u + 1, e.y + 5.5f, kSmall, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
+            }
+        } else {
+            for (int vel : {1, 16, 32, 48, 64, 80, 96, 112, 127}) {
+                const float x = r.x + (vel - 0.5f) * u;
+                gridLine(x, e.y + kRulerH - 5, x, e.y + e.h);
+                label(std::to_string(vel).c_str(), vel == 127 ? r.x + r.w : x + 3, e.y + 6, kSmall, rgb(k.dim), (vel == 127 ? ALIGN_RIGHT : ALIGN_LEFT) | ALIGN_MIDDLE);
+            }
+        }
+        label(keys ? "KEYS" : "VELOCITY", e.x + 10, e.y + 9, kSmall, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
+        label("ROOT", e.x + kNameW - 8, e.y + 9, kSmall, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        const std::vector<Zone>& zones = part().zones;
+        const int rows = barRows(), count = static_cast<int>(zones.size());
+        for (int row = 0; row < rows && listScroll_ + row < count; ++row) {
+            const int i = listScroll_ + row;
+            const Zone& z = zones[static_cast<size_t>(i)];
+            const float y = r.y + row * kBarRow;
+            const bool chosen = i == zone_, hover = i == hoverZone_;
+            if (chosen) fillBox({e.x + 3, y + 1, e.w - 16, kBarRow - 2}, k.button, 3);
+            const Sample* s = doc_->findSample(z.sample);
+            const uint32_t colour = zoneColour(z, k);
+            const std::string name = s != nullptr ? fileName(s->path) : "No sound";
+            fitted(name, e.x + 10, y + 11, 9.5f, kNameW - 50, rgb(s != nullptr && s->missing ? k.red : k.text, chosen ? 1.0f : 0.78f));
+            label(keyName(static_cast<int>(z.v[kZRoot])).c_str(), e.x + kNameW - 8, y + 11, kSmall, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
+            const Span sp = span(z);
+            float fa = sp.fa, fb = sp.fb;
+            if (fa > fb) fa = fb = 0.5f * (fa + fb); // the two fades meet
+            const float top = y + 10, bottom = y + 20, end = std::max(sp.b, sp.a + 3);
+            beginPath(); // the bar, sloping where the zone fades
+            moveTo(sp.a, bottom);
+            lineTo(fa, top);
+            lineTo(std::max(fb, std::min(fa + 3, end)), top);
+            lineTo(end, bottom);
+            closePath();
+            fillColor(rgb(colour, chosen ? 0.95f : 0.5f));
+            UI::fill();
+            if (keys && chosen) fillBox({r.x + static_cast<float>(z.v[kZRoot]) * u + 0.5f, bottom, u - 1, 2}, k.text, 0); // the root key
+            line(fa, y + 5, std::max(fb, fa), y + 5, chosen ? k.text : k.dim, 1.2f, chosen ? 1.0f : 0.55f); // the fades: a line with a handle at each end
+            if (chosen || hover) {
+                const float lo = hover && hoverGrab_ == kGrabFadeLow ? 4.5f : 3.0f, hi = hover && hoverGrab_ == kGrabFadeHigh ? 4.5f : 3.0f;
+                fillBox({fa - lo, y + 5 - lo, 2 * lo, 2 * lo}, k.text, 1);
+                fillBox({fb - hi, y + 5 - hi, 2 * hi, 2 * hi}, k.text, 1);
+            }
+            if (hover && hoverGrab_ == kGrabLow) fillBox({sp.a - 1, top - 1, 3, bottom - top + 2}, k.text, 1);
+            if (hover && hoverGrab_ == kGrabHigh) fillBox({end - 2, top - 1, 3, bottom - top + 2}, k.text, 1);
+        }
+        if (count > rows) fillBox({e.x + e.w - 6, r.y + r.h * listScroll_ / count, 3, r.h * rows / count}, k.dim, 1); // how far down the list is
+    }
+
+    /** MAP: all zones in one picture, keys across and velocities up. */
+    void drawPicture(const Box& m) {
+        const hnl::ui::Skin k = skin();
+        const float kw = m.w / 128.0f;
         for (int key = 0; key < 128; ++key) {
-            if (isBlack(key)) fillBox({m.x + key * kKeyW, m.y, kKeyW, m.h}, 0x000000, 0, 0.25f); // the shade of a black key's column
-            if (key % 12 == 0) gridLine(m.x + key * kKeyW, m.y, m.x + key * kKeyW, m.y + m.h);
+            if (isBlack(key)) fillBox({m.x + key * kw, m.y, kw, m.h}, 0x000000, 0, 0.25f); // the shade of a black key's column
+            if (key % 12 == 0) gridLine(m.x + key * kw, m.y, m.x + key * kw, m.y + m.h);
         }
         const std::vector<Zone>& zones = part().zones;
         for (size_t i = 0; i < zones.size(); ++i) {
             const Box b = zoneBox(zones[i]);
             const bool chosen = static_cast<int>(i) == zone_;
             const Sample* s = doc_->findSample(zones[i].sample);
-            const uint32_t colour = s != nullptr && s->missing ? k.red : (zones[i].v[kZTrigger] >= 0.5 ? kWarm : k.accent);
+            const uint32_t colour = zoneColour(zones[i], k);
             fillBox({b.x + 0.5f, b.y + 0.5f, b.w - 1, b.h - 1}, colour, 2, chosen ? 0.55f : 0.22f);
             edge({b.x + 0.5f, b.y + 0.5f, b.w - 1, b.h - 1}, chosen ? k.text : colour, 2, chosen ? 1.5f : 0.8f);
-            if (b.w > 40 && s != nullptr) { // its sound, its keys and, when not all, its velocities
+            if (b.w > 40 && b.h > 18 && s != nullptr) { // its sound, its keys and, when not all, its velocities: on a dark strip, so that it reads on any zone
                 std::string text = fileName(s->path) + "   " + keyName(static_cast<int>(zones[i].v[kZLoKey])) + " to " + keyName(static_cast<int>(zones[i].v[kZHiKey]));
                 if (zones[i].v[kZLoVel] > 1 || zones[i].v[kZHiVel] < 127) text += "   velocity " + std::to_string(static_cast<int>(zones[i].v[kZLoVel])) + " to " + std::to_string(static_cast<int>(zones[i].v[kZHiVel]));
-                fitted(text, b.x + 5, b.y + 10, 8, b.w - 8, rgb(k.text));
+                const float room = std::min(b.w - 6, 0.58f * kSmall * static_cast<float>(text.size()) + 10);
+                fillBox({b.x + 3, b.y + 3, room, 15}, k.well, 2, 0.78f);
+                fitted(text, b.x + 8, b.y + 10.5f, kSmall, room - 8, rgb(k.text));
             }
             // The root key: a mark at the bottom of the zone.
-            if (chosen) fillBox({m.x + static_cast<float>(zones[i].v[kZRoot]) * kKeyW + 1, b.y + b.h - 4, kKeyW - 2, 3}, k.text, 0);
+            if (chosen) fillBox({m.x + static_cast<float>(zones[i].v[kZRoot]) * kw + 1, b.y + b.h - 4, kw - 2, 3}, k.text, 0);
         }
-        // The scales: octaves along the bottom, velocity up the right side.
-        for (int key = 0; key < 128; key += 12) label(keyName(key).c_str(), m.x + key * kKeyW + 3, m.y + m.h - 7, 6.5f, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
+        // The scales, each on a dark ground: octaves along the bottom, velocity up the right side.
+        fillBox({m.x, m.y + m.h - 15, m.w, 15}, k.well, 0, 0.78f);
+        for (int key = 0; key < 128; key += 12) label(keyName(key).c_str(), m.x + key * kw + 3, m.y + m.h - 7.5f, kSmall, rgb(k.text, 0.8f), ALIGN_LEFT | ALIGN_MIDDLE);
         static const int kVels[3] = {127, 64, 1};
         for (int vel : kVels) {
-            const float y = m.y + m.h * (1.0f - (vel - 0.5f) / 127.0f);
-            label(vel == 127 ? "VELOCITY 127" : std::to_string(vel).c_str(), m.x + m.w - 4, std::clamp(y, m.y + 7, m.y + m.h - 7), 6.5f, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
+            const float y = std::clamp(m.y + m.h * (1.0f - (vel - 0.5f) / 127.0f), m.y + 9, m.y + m.h - 24);
+            const std::string text = vel == 127 ? "VELOCITY 127" : std::to_string(vel);
+            const float room = 0.62f * kSmall * static_cast<float>(text.size()) + 8;
+            fillBox({m.x + m.w - room - 2, y - 7.5f, room, 15}, k.well, 2, 0.78f);
+            label(text.c_str(), m.x + m.w - 6, y, kSmall, rgb(k.text, 0.8f), ALIGN_RIGHT | ALIGN_MIDDLE);
         }
-        if (zones.empty()) label("No sounds in this part yet.", m.x + m.w * 0.5f, m.y + m.h * 0.5f - 8, 11, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
-        const Zone* z = zone();
-        const Sample* s = z != nullptr ? doc_->findSample(z->sample) : nullptr;
-        if (s != nullptr) fitted(s->missing ? missingText(*s) + ": " + s->path : s->path, kPageArea.x + 50, m.y + m.h + 17, 9, 900, rgb(s->missing ? hnl::ui::printed(k, k.red) : k.plateText)); // on the plate, under the map
     }
 
     bool mapDown(float x, float y) {
-        const std::vector<Zone>& zones = part().zones;
-        int hit = -1;
-        for (int pass = 0; pass < 2 && hit < 0; ++pass) // the chosen zone first, then the one drawn last (on top)
-            for (int i = static_cast<int>(zones.size()) - 1; i >= 0 && hit < 0; --i)
-                if ((pass == 1 || i == zone_) && zoneBox(zones[static_cast<size_t>(i)]).contains(x, y)) hit = i;
-        if (hit < 0) return true;
-        zone_ = hit;
-        const Box b = zoneBox(zones[static_cast<size_t>(hit)]);
-        // Which part of the zone the mouse holds: an edge, or the middle to move it.
-        grab_ = x < b.x + std::min(5.0f, b.w * 0.3f) ? 1 : (x > b.x + b.w - std::min(5.0f, b.w * 0.3f) ? 2 : (y < b.y + 5 ? 3 : (y > b.y + b.h - 5 ? 4 : 0)));
+        const std::vector<int> under = zonesUnder(x, y);
+        pressX_ = x;
+        pressY_ = y;
+        moved_ = true;
+        if (under.empty()) return true;
+        const bool was = std::find(under.begin(), under.end(), zone_) != under.end();
+        if (!was) zone_ = under.back(); // the one drawn last, on top
+        moved_ = !was; // a click on the chosen zone that does not drag it goes on to the next zone under the mouse
+        grab_ = pictureGrab(zoneBox(part().zones[static_cast<size_t>(zone_)]), x, y);
         area_ = kAreaMap;
-        grabKey_ = static_cast<int>((x - mapBox().x) / kKeyW);
-        view0_ = view1_ = 0;
+        grabUnit_ = static_cast<int>((x - editBox().x) / (editBox().w / 128.0f));
+        layout();
+        repaint();
+        return true;
+    }
+    /** Where zones lie on top of each other, each click takes the next one down, and after the lowest the top one again. */
+    void nextUnder(float x, float y) {
+        const std::vector<int> under = zonesUnder(x, y);
+        const auto at = std::find(under.begin(), under.end(), zone_);
+        if (under.size() < 2 || at == under.end()) return;
+        zone_ = at == under.begin() ? under.back() : *(at - 1);
+        layout();
+    }
+
+    void mapDrag(float x, float y) {
+        const Box m = editBox();
+        const int key = std::clamp(static_cast<int>((x - m.x) / (m.w / 128.0f)), 0, 127), vel = std::clamp(static_cast<int>(std::lround((1.0f - (y - m.y) / m.h) * 127.0f)), 1, 127);
+        if (std::fabs(x - pressX_) + std::fabs(y - pressY_) > 3) moved_ = true;
+        const int grab = grab_, by = key - grabUnit_;
+        if (!moved_ || (grab == kGrabMove && by == 0)) return;
+        editZone([=](Zone& z, Instrument&) {
+            const double lo = z.v[kZLoKey], hi = z.v[kZHiKey];
+            if (grab == kGrabMove) { // moved as a whole, its root with it
+                const double shift = std::clamp(static_cast<double>(by), -lo, 127.0 - hi);
+                z.v[kZLoKey] = lo + shift; z.v[kZHiKey] = hi + shift; z.v[kZRoot] = std::clamp(z.v[kZRoot] + shift, 0.0, 127.0);
+            }
+            if (grab & kGrabLow) z.v[kZLoKey] = std::min(static_cast<double>(key), hi);
+            if (grab & kGrabHigh) z.v[kZHiKey] = std::max(static_cast<double>(key), lo);
+            if (grab & kGrabTop) z.v[kZHiVel] = std::max(static_cast<double>(vel), z.v[kZLoVel]);
+            if (grab & kGrabBottom) z.v[kZLoVel] = std::min(static_cast<double>(vel), z.v[kZHiVel]);
+        });
+        grabUnit_ = key;
+        repaint();
+    }
+
+    bool barDown(float x, float y) {
+        int index = -1;
+        const int grab = barHit(x, y, index);
+        if (index < 0) return true;
+        zone_ = index;
+        grab_ = grab;
+        if (grab != kGrabNone) {
+            area_ = kAreaMap;
+            grabUnit_ = static_cast<int>(std::floor((x - barsBox().x) / barUnit()));
+        }
+        layout();
         repaint();
         return true;
     }
 
-    void mapDrag(float x, float y) {
-        const Box m = mapBox();
-        const int key = std::clamp(static_cast<int>((x - m.x) / kKeyW), 0, 127), vel = std::clamp(static_cast<int>(std::lround((1.0f - (y - m.y) / m.h) * 127.0f)), 1, 127);
-        const int grab = grab_, by = key - grabKey_;
-        if (grab == 0 && by == 0) return;
+    void barDrag(float x) {
+        const bool keys = view_ == kViewKeys;
+        const double at = (x - barsBox().x) / barUnit(), least = keys ? 0.0 : 1.0; // in keys, or velocities, from the left
+        const int grab = grab_, unit = static_cast<int>(std::floor(at)), by = unit - grabUnit_;
+        if (grab == kGrabMove && by == 0) return;
+        const int loId = keys ? kZLoKey : kZLoVel, hiId = keys ? kZHiKey : kZHiVel, fadeLoId = keys ? kZFadeLoKey : kZFadeLoVel, fadeHiId = keys ? kZFadeHiKey : kZFadeHiVel;
         editZone([=](Zone& z, Instrument&) {
-            double lo = z.v[kZLoKey], hi = z.v[kZHiKey];
-            if (grab == 0) { // moved as a whole, its root with it
-                const double shift = std::clamp(static_cast<double>(by), -lo, 127.0 - hi);
-                z.v[kZLoKey] = lo + shift; z.v[kZHiKey] = hi + shift; z.v[kZRoot] = std::clamp(z.v[kZRoot] + shift, 0.0, 127.0);
-            } else if (grab == 1) z.v[kZLoKey] = std::min(static_cast<double>(key), hi);
-            else if (grab == 2) z.v[kZHiKey] = std::max(static_cast<double>(key), lo);
-            else if (grab == 3) z.v[kZHiVel] = std::max(static_cast<double>(vel), z.v[kZLoVel]);
-            else z.v[kZLoVel] = std::min(static_cast<double>(vel), z.v[kZHiVel]);
+            const double lo = z.v[loId], hi = z.v[hiId];
+            if (grab == kGrabMove) { // as a whole; over the keys its root goes with it
+                const double shift = std::clamp(static_cast<double>(by), least - lo, 127.0 - hi);
+                z.v[loId] = lo + shift;
+                z.v[hiId] = hi + shift;
+                if (keys) z.v[kZRoot] = std::clamp(z.v[kZRoot] + shift, 0.0, 127.0);
+            } else if (grab == kGrabLow) z.v[loId] = std::clamp(keys ? std::floor(at) : std::floor(at + 0.5) + 1.0, least, hi);
+            else if (grab == kGrabHigh) z.v[hiId] = std::clamp(keys ? std::floor(at) : std::floor(at + 0.5), lo, 127.0);
+            else if (grab == kGrabFadeLow) z.v[fadeLoId] = std::clamp(std::floor(at - (keys ? lo : lo - 1.0) + 0.5), 0.0, hi - lo);
+            else if (grab == kGrabFadeHigh) z.v[fadeHiId] = std::clamp(std::floor((keys ? hi + 1.0 : hi) - at + 0.5), 0.0, hi - lo);
         });
-        grabKey_ = key;
+        grabUnit_ = unit;
         repaint();
     }
 
     // -------------------------------------------------------------- sample
 
-    Box waveBox() const { return {kPageArea.x, kPageArea.y, kPageArea.w, 366}; }
     float waveX(double frame) const { return waveBox().x + static_cast<float>((frame - view0_) / (view1_ - view0_)) * waveBox().w; }
     /** The markers of the chosen zone, as places in its sound: start, end, loop start, loop end. */
     void markers(const Zone& z, double frames, double out[4]) const {
@@ -1108,24 +1399,61 @@ private:
         out[2] = z.v[kZLoopStart];
         out[3] = z.v[kZLoopEnd] > 0 && z.v[kZLoopEnd] < out[1] ? z.v[kZLoopEnd] : out[1];
     }
+    /** Another sound than the one last shown is shown whole; another zone of the same sound keeps the view, so that slices can be gone through. */
+    void syncView() {
+        const Zone* z = zone();
+        const AudioData* d = zoneData();
+        const int sound = z != nullptr ? z->sample : 0;
+        const double frames = d != nullptr ? static_cast<double>(d->frames()) : 0.0;
+        if (sound == viewSound_ && view1_ > view0_ && view1_ <= frames) return;
+        view0_ = 0;
+        view1_ = frames;
+        viewSound_ = sound;
+    }
+    /** The list of this part's zones, to choose which one the page shows. Of a very long list, the stretch around the chosen one. */
+    void openZoneList() {
+        const std::vector<Zone>& zones = part().zones;
+        const int count = static_cast<int>(zones.size()), most = kMenuRows * 9;
+        if (count == 0) return;
+        const int first = std::clamp(zone_ - most / 2, 0, std::max(0, count - most));
+        std::vector<std::string> items;
+        for (int i = first; i < std::min(count, first + most); ++i) items.push_back(zoneLabel(zones[static_cast<size_t>(i)]));
+        openMenu(chooserBox().x, soundPanel().y + 22, items, zone_ - first, [this, first](int row) {
+            zone_ = first + row;
+            showChosen();
+            layout();
+        });
+    }
 
     void drawSample() {
         const hnl::ui::Skin k = skin();
-        const Box w = waveBox();
+        const Box w = waveBox(), sp = soundPanel();
         window(w, 4);
         const Zone* z = zone();
         const AudioData* d = zoneData();
+        if (z != nullptr) { // which zone this is, and what its sound is: a click here opens the list
+            std::string line = std::to_string(zone_ + 1) + " of " + std::to_string(part().zones.size()) + "   " + zoneLabel(*z);
+            if (d != nullptr && d->sampleRate > 0) {
+                char facts[160];
+                std::snprintf(facts, sizeof(facts), "   %s   %.0f Hz   %d bit%s   %s   %.2f s", d->format.c_str(), d->sampleRate, d->bits, d->isFloat ? " float" : "",
+                              d->channels > 1 && d->samples[1].size() == d->samples[0].size() ? "stereo" : "mono", static_cast<double>(d->frames()) / d->sampleRate);
+                line += facts;
+            }
+            const Box c = chooserBox();
+            fitted(line, c.x + 4, sp.y + 11, 9.5f, c.w - 24, rgb(k.plateText));
+            hnl::ui::triangle(*this, c.x + c.w - 14, sp.y + 9, c.x + c.w - 6, sp.y + 9, c.x + c.w - 10, sp.y + 14, rgb(k.plateDim));
+        }
         if (z == nullptr || d == nullptr || d->frames() < 2) {
             const Sample* s = z != nullptr ? doc_->findSample(z->sample) : nullptr;
             const std::string why = z == nullptr ? "No sounds in this part yet."
                                     : s == nullptr || !s->missing ? "Reading the sound..."
                                     : missingText(*s) == "Not found" ? "This zone's sound was not found on disk." : "This zone's sound was not loaded: " + s->error + ".";
-            label(why.c_str(),
-                  w.x + w.w * 0.5f, w.y + w.h * 0.5f - 8, 11, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
+            label(why.c_str(), w.x + w.w * 0.5f, w.y + w.h * 0.5f - 10, 11, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
+            if (z == nullptr) label("Double-click a sound in the list at the left to add it.", w.x + w.w * 0.5f, w.y + w.h * 0.5f + 10, 10, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
             return;
         }
         const double frames = static_cast<double>(d->frames());
-        if (view1_ <= view0_ || view1_ > frames) { view0_ = 0; view1_ = frames; }
+        syncView();
         double mark[4];
         markers(*z, frames, mark);
         if (z->v[kZLoop] >= 0.5 && mark[3] > mark[2])
@@ -1147,6 +1475,27 @@ private:
             fillColor(rgb(k.accent, 0.85f));
             UI::fill();
         }
+        { // what this zone does not play lies in the shade
+            const float xs = std::clamp(waveX(mark[0]), w.x, w.x + w.w), xe = std::clamp(waveX(mark[1]), w.x, w.x + w.w);
+            if (xs > w.x) fillBox({w.x, w.y, xs - w.x, w.h}, k.well, 0, 0.6f);
+            if (xe < w.x + w.w) fillBox({xe, w.y, w.x + w.w - xe, w.h}, k.well, 0, 0.6f);
+        }
+        { // the other zones that play from this sound (the slices of a loop): where each starts, with its key
+            float lastLabel = -1000;
+            const std::vector<Zone>& zones = part().zones;
+            for (size_t i = 0; i < zones.size(); ++i) {
+                if (static_cast<int>(i) == zone_ || zones[i].sample != z->sample) continue;
+                double other[4];
+                markers(zones[i], frames, other);
+                if (other[0] == mark[0] && other[1] == mark[1]) continue; // the same stretch on other keys or velocities: nothing to tell apart here
+                const float x = waveX(other[0]);
+                if (x < w.x - 1 || x > w.x + w.w + 1) continue;
+                line(x, w.y + 26, x, w.y + w.h, k.text, 1.0f, 0.55f);
+                if (x < lastLabel + 26 || x > w.x + w.w - 24) continue;
+                label(keyName(static_cast<int>(zones[i].v[kZLoKey])).c_str(), x + 3, w.y + 34, kSmall, rgb(k.text, 0.75f), ALIGN_LEFT | ALIGN_MIDDLE);
+                lastLabel = x;
+            }
+        }
         { // a ruler of time, under the flags of start and end
             const double seconds = (view1_ - view0_) / d->sampleRate, rough = seconds / 9.0, power = std::pow(10.0, std::floor(std::log10(std::max(rough, 1e-9))));
             const double step = power * (rough / power < 2.0 ? 2.0 : (rough / power < 5.0 ? 5.0 : 10.0));
@@ -1157,7 +1506,7 @@ private:
                 else if (step >= 0.01) std::snprintf(text, sizeof(text), "%.2f s", t);
                 else std::snprintf(text, sizeof(text), "%.1f ms", 1000.0 * t);
                 line(x, w.y + 14, x, w.y + 19, k.dim, 1.0f, 0.7f);
-                if (x < w.x + w.w - 40) label(text, x + 3, w.y + 21, 6.5f, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
+                if (x < w.x + w.w - 44) label(text, x + 3, w.y + 20, kSmall, rgb(k.dim), ALIGN_LEFT | ALIGN_MIDDLE);
             }
         }
         static const char* const kLetters[4] = {"S", "E", "LS", "LE"};
@@ -1167,33 +1516,28 @@ private:
             if (x < w.x - 1 || x > w.x + w.w + 1) continue;
             const uint32_t colour = i < 2 ? k.text : kWarm;
             line(x, w.y, x, w.y + w.h, colour, 1.2f);
-            const float fw = i < 2 ? 12.0f : 17.0f; // the flag: to the right of a start, to the left of an end
-            fillBox({i % 2 == 0 ? x : x - fw, i < 2 ? w.y : w.y + w.h - 12, fw, 12}, colour, 2);
-            label(kLetters[i], (i % 2 == 0 ? x : x - fw) + fw * 0.5f, (i < 2 ? w.y : w.y + w.h - 12) + 6.5f, 8, rgb(inkOn(k)), ALIGN_CENTER | ALIGN_MIDDLE);
+            const float fw = i < 2 ? 13.0f : 19.0f; // the flag: to the right of a start, to the left of an end
+            fillBox({i % 2 == 0 ? x : x - fw, i < 2 ? w.y : w.y + w.h - 13, fw, 13}, colour, 2);
+            label(kLetters[i], (i % 2 == 0 ? x : x - fw) + fw * 0.5f, (i < 2 ? w.y : w.y + w.h - 13) + 7, kSmall, rgb(inkOn(k)), ALIGN_CENTER | ALIGN_MIDDLE);
         }
         if (sampler_->engine.meters.zone.load(std::memory_order_relaxed) == z->id) { // where the newest note of this zone is
             const double s = z->v[kZStart], e = mark[1];
             const float x = waveX(s + sampler_->engine.meters.position.load(std::memory_order_relaxed) * (e - s));
             if (x >= w.x && x <= w.x + w.w) line(x, w.y, x, w.y + w.h, k.green, 1.0f);
         }
-        const Sample* s = doc_->findSample(z->sample);
-        char facts[160];
-        std::snprintf(facts, sizeof(facts), "%s   %.0f Hz   %d bit%s   %s   %.2f s", d->format.c_str(), d->sampleRate, d->bits, d->isFloat ? " float" : "", channels == 2 ? "stereo" : "mono",
-                      frames / d->sampleRate);
-        fitted(s != nullptr ? fileName(s->path) + "   " + facts : facts, kPageArea.x + 56, kPageArea.y + 383, 9, 560, rgb(k.plateText));
         // The places are counted in samples; under each, the same as time.
         const double places[5] = {mark[0], mark[1], mark[2], mark[3], z->v[kZCrossfade]};
         static const int kColumn[5] = {0, 1, 3, 4, 5};
-        for (int i = 0; i < 5; ++i) label(timeText(places[i], d->sampleRate).c_str(), kPageArea.x + 10 + kColumn[i] * 68.0f + 31, kPageArea.y + 435, 7.5f, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
-        label("Places are in samples, with the time under them.", kPageArea.x + 10, kPageArea.y + 462, 8, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
-        if (!toolNote_.empty()) label(toolNote_.c_str(), kPageArea.x + 632, kPageArea.y + 462, 9, rgb(noteOn(k)), ALIGN_LEFT | ALIGN_MIDDLE);
+        for (int i = 0; i < 5; ++i) label(timeText(places[i], d->sampleRate).c_str(), sp.x + 10 + kColumn[i] * 68.0f + 31, sp.y + 72, kSmall, rgb(k.plateDim), ALIGN_CENTER | ALIGN_MIDDLE);
+        label("Places are in samples, with the time under them.", sp.x + 10, sp.y + 112, kSmall, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
+        if (!toolNote_.empty()) label(toolNote_.c_str(), sp.x + 632, sp.y + 96, 9.5f, rgb(noteOn(k)), ALIGN_LEFT | ALIGN_MIDDLE);
     }
 
     bool waveDown(float x) {
         const Zone* z = zone();
         const AudioData* d = zoneData();
         if (z == nullptr || d == nullptr) return true;
-        if (view1_ <= view0_ || view1_ > static_cast<double>(d->frames())) { view0_ = 0; view1_ = static_cast<double>(d->frames()); }
+        syncView();
         double mark[4];
         markers(*z, static_cast<double>(d->frames()), mark);
         grab_ = -1;
@@ -1202,7 +1546,21 @@ private:
             if (i >= 2 && z->v[kZLoop] < 0.5) continue;
             if (std::fabs(waveX(mark[i]) - x) < nearest) { nearest = std::fabs(waveX(mark[i]) - x); grab_ = i; }
         }
-        if (grab_ >= 0) area_ = kAreaWave;
+        if (grab_ >= 0) { area_ = kAreaWave; return true; }
+        // Not on a marker of this zone: a click in another zone of the same sound chooses that one.
+        const double at = view0_ + (x - waveBox().x) / waveBox().w * (view1_ - view0_), frames = static_cast<double>(d->frames());
+        const std::vector<Zone>& zones = part().zones;
+        for (size_t i = 0; i < zones.size(); ++i) {
+            if (static_cast<int>(i) == zone_ || zones[i].sample != z->sample) continue;
+            double other[4];
+            markers(zones[i], frames, other);
+            if (at < other[0] || at >= other[1] || (other[0] == mark[0] && other[1] == mark[1])) continue;
+            zone_ = static_cast<int>(i);
+            showChosen();
+            layout();
+            repaint();
+            break;
+        }
         return true;
     }
 
@@ -1291,11 +1649,13 @@ private:
         if (hits.size() > 64) hits.resize(64);
         const double end = mark[1];
         const int p = part_, index = zone_;
+        int first = 0;
         sampler_->edit([&](Instrument& doc) {
             std::vector<Zone>& zones = doc.parts[p].zones;
             if (index >= static_cast<int>(zones.size())) return;
             const Zone whole = zones[static_cast<size_t>(index)];
             zones.erase(zones.begin() + index);
+            first = static_cast<int>(zones.size()); // the slices come after the zones that were there
             for (size_t i = 0; i < hits.size() && static_cast<int>(zones.size()) < kMaxPartZones; ++i) {
                 Zone s = whole;
                 s.id = doc.nextId++;
@@ -1309,9 +1669,10 @@ private:
             }
         });
         refresh();
-        zone_ = 0;
-        char text[64];
-        std::snprintf(text, sizeof(text), "%zu slices, from C2 up.", hits.size());
+        zone_ = std::min(first, std::max(0, static_cast<int>(part().zones.size()) - 1));
+        showChosen();
+        char text[80];
+        std::snprintf(text, sizeof(text), "%zu slices, from C2 up. Click in one to choose it.", hits.size());
         toolNote_ = text;
         view0_ = view1_ = 0;
     }
@@ -1364,14 +1725,14 @@ private:
         }
         for (int column = 0; column < 2; ++column) {
             static const char* const kHeads[4] = {"SOURCE", "VIA", "TARGET", "AMOUNT"};
-            for (int h = 0; h < 4; ++h) label(kHeads[h], kPageArea.x + 62 + column * 480.0f + h * 116.0f, matrixY() + 22, 7.5f, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
+            for (int h = 0; h < 4; ++h) label(kHeads[h], X(kPageArea.x + 62 + column * 480.0f + h * 116.0f), matrixY() + 22, kSmall, rgb(k.plateDim), ALIGN_LEFT | ALIGN_MIDDLE);
         }
         for (int s = 0; s < kSlots; ++s) {
             char text[8];
             std::snprintf(text, sizeof(text), "%d", s + 1);
-            label(text, kPageArea.x + 44 + (s / 6) * 480.0f, matrixY() + 41 + (s % 6) * 37.0f, 9, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+            label(text, X(kPageArea.x + 44 + (s / 6) * 480.0f), matrixY() + 41 + (s % 6) * 37.0f, 9.5f, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
         }
-        label("Click a macro's name to change it.", kPageArea.x + 976 - 10, kPageArea.y + kRowH + 6 + 11, 7.5f, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+        label("Click a macro's name to change it.", kPageArea.x + kPageArea.w - 10, kPageArea.y + kRowH + 6 + 11, kSmall, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
     }
 
     void stepDrag(float x, float y) {
@@ -1388,22 +1749,24 @@ private:
     void drawStrips() {
         const hnl::ui::Skin k = skin();
         for (int p = 0; p < kParts; ++p) {
-            const float x = kPageArea.x + p * 92.0f;
-            if (p == part_) edge({x, kPageArea.y, 88, 480}, hnl::ui::printed(k, k.accent), 6);
+            const float x = X(kPageArea.x + p * 92.0f), w = W(88);
+            if (p == part_) edge({x, kPageArea.y, w, 480}, hnl::ui::printed(k, k.accent), 6);
             const std::string& name = doc_->parts[p].name;
             char count[24];
             std::snprintf(count, sizeof(count), "%zu zones", doc_->parts[p].zones.size());
-            label(count, x + 78, kPageArea.y + 11, 7.5f, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+            label(count, x + w - 10, kPageArea.y + 11, kSmall, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
             if (editKind_ == kEditPart && editIndex_ == p) continue;
-            fitted(name.empty() ? "name" : name, x + 10, kPageArea.y + 24, 8, 76, rgb(name.empty() ? k.plateDim : k.plateText, name.empty() ? 0.6f : 1.0f));
+            fitted(name.empty() ? "name" : name, x + 10, kPageArea.y + 25, 9.5f, w - 12, rgb(name.empty() ? k.plateDim : k.plateText, name.empty() ? 0.6f : 1.0f));
         }
-        label(doc_->tuningName.empty() ? "Equal temperament" : doc_->tuningName.c_str(), kPageArea.x + 750, kPageArea.y + 449, 10, rgb(k.plateText), ALIGN_LEFT | ALIGN_MIDDLE);
+        label(doc_->tuningName.empty() ? "Equal temperament" : doc_->tuningName.c_str(), X(kPageArea.x + 750), kPageArea.y + 449, 10, rgb(k.plateText), ALIGN_LEFT | ALIGN_MIDDLE);
     }
 
     // --------------------------------------------------------------- files
 
-    Box listBox() const { return {kPageArea.x, kPageArea.y, 634, 480}; }
-    static constexpr int kRows = 22;
+    static constexpr int kRows = 15;
+    static constexpr float kFileRow = 18;
+    Box listBox() const { return {kDock.x, kDock.y + 50, kDock.w, kRows * kFileRow}; }
+    enum Use { kUseAdd, kUseNextKey, kUseReplace };
 
     static constexpr int kMaxSeen = 1000000;      // entries of a folder that are looked at
     static constexpr size_t kMaxEntries = 100000; // and those among them that are shown
@@ -1474,50 +1837,58 @@ private:
         return folder_.empty() ? entries_[static_cast<size_t>(chosen_)].name : (fs::u8path(folder_) / fs::u8path(entries_[static_cast<size_t>(chosen_)].name)).u8string();
     }
 
+    /** Text cut to a width at its beginning: of a folder, the end of its path says most. */
+    void fittedTail(std::string text, float x, float y, float size, float width, const Color& colour) {
+        const size_t most = static_cast<size_t>(std::max(4.0f, width / (0.58f * size)));
+        if (text.size() > most) {
+            size_t cut = text.size() - (most - 2);
+            while (cut < text.size() && (static_cast<unsigned char>(text[cut]) & 0xC0) == 0x80) ++cut; // not in the middle of a character
+            text = ".." + text.substr(cut);
+        }
+        label(text.c_str(), x, y, size, colour, ALIGN_LEFT | ALIGN_MIDDLE);
+    }
+
     void drawFiles() {
         const hnl::ui::Skin k = skin();
-        const Box b = listBox();
-        if (k.solid) hnl::ui::displayPanel(*this, k, {b.x + 3, b.y + 30, b.w - 6, b.h - 33}); // the list in a window, under the keys and the folder's name
-        fitted(folder_.empty() ? "This computer" : folder_, b.x + 160, b.y + 16, 10, b.w - (folderCut_ ? 330 : 170), rgb(k.plateText));
-        if (folderCut_) label("Too many to show them all", b.x + b.w - 10, b.y + 16, 9, rgb(noteOn(k)), ALIGN_RIGHT | ALIGN_MIDDLE);
+        const Box d = kDock, b = listBox();
+        if (k.solid) hnl::ui::displayPanel(*this, k, {b.x + 3, b.y - 2, b.w - 6, b.h + 4}); // the list in a window, under the keys and the folder's name
+        fittedTail(folder_.empty() ? "This computer" : folder_, d.x + 8, d.y + 38, kSmall, d.w - 16, rgb(k.plateText));
         for (int row = 0; row < kRows; ++row) {
             const int i = scroll_ + row;
             if (i >= static_cast<int>(entries_.size())) break;
-            const float y = b.y + 32 + row * 20.0f;
-            if (i == chosen_) fillBox({b.x + 4, y, b.w - 8, 20}, k.button, 3);
+            const float y = b.y + row * kFileRow;
+            if (i == chosen_) fillBox({b.x + 4, y, b.w - 8, kFileRow}, k.button, 3);
             const Entry& e = entries_[static_cast<size_t>(i)];
-            if (e.folder) fillBox({b.x + 12, y + 6, 12, 9}, kWarm, 2);
-            else dot(b.x + 18, y + 10, 3, isAudioFileName(e.name) ? k.accent : k.green);
-            fitted(e.name, b.x + 34, y + 10, 10, b.w - 50, rgb(e.folder ? k.text : (isAudioFileName(e.name) ? k.text : k.green)));
+            if (e.folder) fillBox({b.x + 10, y + 5, 11, 8}, kWarm, 2);
+            else dot(b.x + 15, y + 9, 3, isAudioFileName(e.name) ? k.accent : k.green);
+            fitted(e.name, b.x + 28, y + 9, 9.5f, b.w - 40, rgb(e.folder ? k.text : (isAudioFileName(e.name) ? k.text : k.green)));
         }
-        if (entries_.empty()) label("Nothing here that the sampler can use.", b.x + b.w * 0.5f, b.y + 120, 10, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
+        if (entries_.empty()) label("Nothing here to use.", b.x + b.w * 0.5f, b.y + 60, kSmall, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
         if (static_cast<int>(entries_.size()) > kRows) { // how far down the list is
-            const float h = b.h - 40, part = static_cast<float>(kRows) / entries_.size();
-            fillBox({b.x + b.w - 5, b.y + 34 + h * scroll_ / entries_.size(), 2.5f, h * part}, k.dim, 1);
+            const float part = static_cast<float>(kRows) / entries_.size();
+            fillBox({b.x + b.w - 5, b.y + b.h * scroll_ / entries_.size(), 2.5f, b.h * part}, k.dim, 1);
         }
-        const float x = kPageArea.x + 652, y = kPageArea.y;
-        const int kind = chosenKind();
-        if (chosen_ >= 0 && chosen_ < static_cast<int>(entries_.size())) fitted(entries_[static_cast<size_t>(chosen_)].name, x, y + 34, 11, 312, rgb(k.plateText));
-        fontSize(9);
+        // Under the list: what the chosen file is, the buttons for it (layout), and what was done.
+        fontSize(kSmall);
         textAlign(ALIGN_LEFT | ALIGN_TOP);
-        textLineHeight(1.4f);
+        textLineHeight(1.3f);
         fillColor(rgb(k.plateDim));
         const std::string partText = "part " + std::to_string(part_ + 1);
-        if (kind == kFileNone && chosen_ < 0) textBox(x, y + 30, 312, ("Click a sound to hear it, double-click to add it to " + partText + ". Double-click a folder to open it.").c_str(), nullptr);
-        else textBox(x, y + 50, 312, fileFacts_.c_str(), nullptr);
-        if (kind == kFileSound)
-            textBox(x, y + 214, 312, ("ADD AS ZONE puts it on all keys of " + partText + ", or on the keys its file names.\nADD ON NEXT KEY gives it one key, after the highest zone: for a drum kit.").c_str(), nullptr);
-        float line = y + (kind == kFileSound ? 276 : 226);
+        std::string facts = fileFacts_;
+        if (chosenKind() == kFileNone && chosen_ < 0) facts = "Click a sound to hear it, double-click to add it to " + partText + ". Double-click a folder to open it.";
+        if (folderCut_ && chosen_ < 0) facts = "Too many files here to show them all.";
+        textBox(d.x + 8, b.y + b.h + 8, d.w - 16, facts.c_str(), nullptr);
+        float line = d.y + 372 + (chosenKind() == kFileSound ? 66 : (chosenKind() == kFileNone ? 4 : 38));
         for (const std::string& n : notes_) {
-            if (line > y + 466) break;
-            fitted(n, x, line, 9, 312, rgb(noteOn(k)));
-            line += 14;
+            if (line > d.y + d.h - 8) break;
+            fitted(n, d.x + 8, line, kSmall, d.w - 14, rgb(noteOn(k)));
+            line += 13;
         }
     }
 
     bool fileDown(float y, bool twice) {
-        const int row = static_cast<int>((y - listBox().y - 32) / 20.0f);
-        if (y < listBox().y + 32 || row < 0 || scroll_ + row >= static_cast<int>(entries_.size())) return true;
+        const int row = static_cast<int>((y - listBox().y) / kFileRow);
+        if (row < 0 || row >= kRows || scroll_ + row >= static_cast<int>(entries_.size())) return true;
         chosen_ = scroll_ + row;
         const Entry entry = entries_[static_cast<size_t>(chosen_)];
         const std::string path = chosenPath();
@@ -1543,13 +1914,13 @@ private:
                 if (!hnl::sampler::audiofile::fitsInMemory(info.frames, info.channels)) { fileFacts_ += ".\nCannot be used: " + std::string(hnl::sampler::audiofile::kTooLarge); usable = false; }
             } else { fileFacts_ = "Cannot be read: " + error; usable = false; }
             if (!usable) sampler_->preview("");
-            else if (twice) useFile(false);
+            else if (twice) useFile(kUseAdd);
             else sampler_->preview(path);
         } else {
             const std::string ext = extension(entry.name);
             fileFacts_ = ext == ".sfz" ? "An SFZ instrument. Import puts it into the chosen part." : ext == ".sf2" ? "A SoundFont. Import puts its first preset into the chosen part."
                          : ext == ".scl" ? "A Scala tuning. Load makes it the tuning of this instrument." : "An instrument saved by this sampler. Load replaces the one that is here.";
-            if (twice) useFile(false);
+            if (twice) useFile(kUseAdd);
         }
         layout(); // the buttons follow the kind of file
         repaint();
@@ -1567,8 +1938,8 @@ private:
     // --------------------------------------------------------------- names
 
     Box nameBox(int kind, int index) const {
-        if (kind == kEditMacro) return {macroX(index) - 23, kPageArea.y + kRowH + 6 + 62 - 28, 46, 14};
-        return {kPageArea.x + index * 92.0f + 5, kPageArea.y + 17, 78, 14};
+        if (kind == kEditMacro) return {X(macroX(index)) - 27, kPageArea.y + kRowH + 6 + 62 - 29, 54, 16};
+        return {X(kPageArea.x + index * 92.0f) + 5, kPageArea.y + 17, W(88) - 10, 16};
     }
     /** A click on a macro's name (MOD) or a part's name (MIX) starts typing a new one. */
     bool nameEditDown(float x, float y) {
@@ -1606,16 +1977,22 @@ private:
         const hnl::ui::Skin k = skin();
         fillBox(b, k.solid ? k.popup : k.well, 2); // as the name box of the instruments
         edge(b, k.accent, 2);
-        fitted(editText_ + "|", b.x + 3, b.y + b.h * 0.5f, 8, b.w + 6, rgb(k.text));
+        fitted(editText_ + "|", b.x + 3, b.y + b.h * 0.5f, kSmall, b.w + 6, rgb(k.text));
     }
 
     /** Does what belongs to the chosen file: a sound becomes a zone, an instrument is imported or loaded, a tuning is taken. */
-    void useFile(bool nextKey) {
+    void useFile(int how) {
+        const bool nextKey = how == kUseNextKey;
         if (chosen_ < 0 || chosen_ >= static_cast<int>(entries_.size()) || entries_[static_cast<size_t>(chosen_)].folder) return;
         const std::string path = chosenPath(), ext = extension(path);
         std::string error;
         notes_.clear();
-        if (isAudioFileName(path)) {
+        if (isAudioFileName(path) && how == kUseReplace) { // the chosen zone plays this sound from now on
+            if (zone() == nullptr) notes_.push_back("Choose a zone first.");
+            else if (sampler_->replaceSound(part_, zone_, path)) notes_.push_back("Zone " + std::to_string(zone_ + 1) + " plays this sound now.");
+            else notes_.push_back("Not replaced: its name or folder cannot be saved, or the instrument is full.");
+            view0_ = view1_ = 0;
+        } else if (isAudioFileName(path)) {
             int lo = 0, hi = 127, root = 60;
             if (nextKey) {
                 lo = 36;
@@ -1638,6 +2015,7 @@ private:
                 }
                 refresh();
                 zone_ = std::max(0, static_cast<int>(part().zones.size()) - 1);
+                showChosen();
                 notes_.push_back(nextKey ? "Added on " + keyName(lo) + "." : "Added to part " + std::to_string(part_ + 1) + ".");
             }
         } else if (ext == ".sfz" || ext == ".sf2") {
@@ -1645,7 +2023,7 @@ private:
                 notes_ = sampler_->notes();
                 notes_.insert(notes_.begin(), "Imported into part " + std::to_string(part_ + 1) + ".");
             } else notes_.push_back("Not imported: " + error);
-            zone_ = 0;
+            zone_ = listScroll_ = 0;
         } else if (ext == ".scl") {
             std::string text;
             Tuning tuning;
@@ -1660,7 +2038,7 @@ private:
         } else if (ext == Library::kExt) {
             std::string text;
             notes_.push_back(Library::read(fs::u8path(path), text) && sampler_->setText(text) ? "Instrument loaded." : "Not an instrument this can read.");
-            zone_ = 0;
+            zone_ = listScroll_ = 0;
         }
         refresh();
         layout();
@@ -1741,6 +2119,7 @@ private:
             library_.rescan();
         } else return;
         zone_ = 0;
+        listScroll_ = 0;
         view0_ = view1_ = 0;
         refresh();
         layout();
@@ -1754,13 +2133,18 @@ private:
     float values_[kParamCount];
 
     int page_ = kPageMap, part_ = 0, zone_ = 0;
+    int view_ = kViewKeys, listScroll_ = 0;           // ZONES: which view, and the first row of the list
+    int hoverZone_ = -1, hoverGrab_ = kGrabNone;      // what the mouse rests on there
+    int cursor_ = 0, grabUnit_ = 0, viewSound_ = 0;   // the mouse's shape; the key or velocity a drag is at; the sound the wave view shows
+    float pressX_ = 0, pressY_ = 0;
+    bool moved_ = false;
     int editKind_ = kEditNone, editIndex_ = 0;
     std::string editText_;
     std::vector<Ctl> ctls_;
     std::vector<Titled> panels_;
     std::vector<Button> buttons_;
     Menu menu_;
-    int drag_ = -1, area_ = kAreaNone, grab_ = 0, grabKey_ = 0, mouseKey_ = -1;
+    int drag_ = -1, area_ = kAreaNone, grab_ = 0, mouseKey_ = -1;
     float dragY_ = 0, lastX_ = 0, lastY_ = 0;
     double dragNorm_ = 0, dragValue_ = 0, view0_ = 0, view1_ = 0;
     uint lastClickTime_ = 0;
@@ -1776,6 +2160,7 @@ private:
     hnl::ui::PresetBar presetBar_{kPresetX, kHeaderY};
     hnl::ui::HelpTips help_;
     hnl::ui::SkinMenu skin_;
+    hnl::ui::WindowSize<SamplerUI> size_{*this, "sampler", UI_BASE_WIDTH, UI_BASE_HEIGHT};
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SamplerUI)
 };

@@ -14,7 +14,7 @@
 
 // The version: reported to the host, shown behind the title, and read by package.sh.
 #define HNL_VERSION_MAJOR 0
-#define HNL_VERSION_MINOR 3
+#define HNL_VERSION_MINOR 4
 #define HNL_VERSION_PATCH 0
 
 #define DISTRHO_PLUGIN_HAS_UI             1
@@ -29,13 +29,13 @@
 #define DISTRHO_PLUGIN_WANT_TIMEPOS       1
 #define DISTRHO_PLUGIN_WANT_DIRECT_ACCESS 1 // the UI reads and edits the instrument in the plugin itself
 #define DISTRHO_UI_FILE_BROWSER           0
-#define DISTRHO_UI_USER_RESIZABLE         0
+#define DISTRHO_UI_USER_RESIZABLE         1 // dragged by its edge, or a size from the cog's list; the drawing follows the window
 #define DISTRHO_UI_USE_NANOVG             1
 
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Instrument|Sampler|Stereo"
 #define DISTRHO_PLUGIN_CLAP_FEATURES   "instrument", "sampler", "stereo"
 
-#define UI_BASE_WIDTH  1000
+#define UI_BASE_WIDTH  1252 // 976 for a page, and beside ZONES and SAMPLE the files
 #define UI_BASE_HEIGHT 640
 
 #define DISTRHO_UI_DEFAULT_WIDTH  UI_BASE_WIDTH

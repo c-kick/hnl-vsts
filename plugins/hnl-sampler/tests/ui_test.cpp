@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 
 #include "DistrhoUI.hpp"
+#include "../../../common/ui/Skin.hpp"
 #include "../Params.hpp"
 #include "../dsp/Sampler.hpp"
 
@@ -46,7 +47,16 @@ static void drag(double x0, double y0, double x1, double y1) {
     }
     press(x1, y1, false);
 }
-static void page(int p) { click(988.0 - (6 - p) * 76.0 + 36.0, 66.0); }
+static void page(int p) { click(UI_BASE_WIDTH - 12.0 - (5 - p) * 76.0 + 36.0, 66.0); } // ZONES, SAMPLE, SYNTH, MOD, MIX
+static void view(int v) { click(264.0 + v * 84.0 + 40.0, 96.0); }                          // KEYS, VELOCITY, MAP
+static double wide(double x) { return 12.0 + (x - 12.0) * (UI_BASE_WIDTH - 24.0) / 976.0; } // SYNTH, MOD and MIX: a place of the 976 wide layout
+static double fileRow(int r) { return 86.0 + 50.0 + r * 18.0 + 9.0; }                       // the files beside ZONES and SAMPLE
+static std::string drawn() {
+    ui->svg.clear();
+    ui->onNanoDisplay();
+    return ui->svg;
+}
+static bool shows(const char* text) { return drawn().find(text) != std::string::npos; }
 static void type(const char* text) {
     for (const char* c = text; *c; ++c) {
         DISTRHO::CharacterInputEvent ev;
@@ -92,97 +102,160 @@ int main(int argc, char** argv) {
     DISTRHO::UI::instancePointer() = &token;
     ui = DISTRHO::createUI();
     ui->onNanoDisplay();
-    check(ui->svg.find("SAMPLER") != std::string::npos && ui->svg.find("No sounds in this part yet") != std::string::npos && ui->svg.find("ADD A SOUND") != std::string::npos,
-          "opens on the MAP page of the plugin's own, empty instrument, with the way to add a sound");
-    click(12 + 488, 86 + 199 + 25); // ADD A SOUND
-    ui->svg.clear();
-    ui->onNanoDisplay();
-    check(ui->svg.find("a tone.wav") != std::string::npos && ui->svg.find("ADD AS ZONE") == std::string::npos, "ADD A SOUND leads to the files, where nothing is offered before a file is chosen");
+    check(ui->svg.find("SAMPLER") != std::string::npos && ui->svg.find("No sounds in this part yet") != std::string::npos && ui->svg.find("Double-click a sound in the list") != std::string::npos,
+          "opens on the ZONES page of the plugin's own, empty instrument, and says how to add a sound");
+    check(ui->svg.find("a tone.wav") != std::string::npos && ui->svg.find("b hits.wav") != std::string::npos && ui->svg.find("ADD AS ZONE") == std::string::npos,
+          "the files stand beside it, and nothing is offered before a file is chosen");
     page(2);
 
     // A knob: Osc level, dragged down by half its travel; a double click sets it back to its default.
-    drag(97, 138, 97, 38);
+    const double osc = wide(97);
+    drag(osc, 138, osc, 38);
     check(std::fabs(sampler.document()->parts[0].v[kPOscLevel] - 50.0) < 0.5, "dragging a knob changes the instrument (osc level)", sampler.document()->parts[0].v[kPOscLevel]);
-    twice(97, 138);
+    twice(osc, 138);
     check(sampler.document()->parts[0].v[kPOscLevel] == 0.0, "a double click sets it back to its default", sampler.document()->parts[0].v[kPOscLevel]);
-    drag(97, 138, 97, 38);
+    drag(osc, 138, osc, 38);
 
     // A list: the filter type.
-    click(160, 239);
-    ui->svg.clear();
-    ui->onNanoDisplay();
-    check(ui->svg.find("Low 24") != std::string::npos && ui->svg.find("Morph") != std::string::npos, "a click on a choice opens its list");
-    click(160, 250 + 3 + 2 * 18 + 9);
+    click(200, 239);
+    check(shows("Low 24") && shows("Morph"), "a click on a choice opens its list");
+    click(200, 250 + 3 + 2 * 18 + 9);
     check(sampler.document()->parts[0].v[kPFilterType] == 2.0, "and a click in the list chooses (Low 24)", sampler.document()->parts[0].v[kPFilterType]);
 
     // The host's parameters: the volume knob in the header, and a macro.
-    drag(742, 27, 742, 77);
+    drag(UI_BASE_WIDTH - 258, 27, UI_BASE_WIDTH - 258, 77);
     bool sent = false;
     for (const auto& p : ui->sentParameters) sent = sent || (p.first == kVolume && p.second < -10.0f);
     check(sent, "the volume knob goes to the host as a parameter");
 
     // Another part: the same page shows that part's settings.
     click(12 + 56 + 26, 66);
-    drag(97, 138, 97, 38);
+    drag(osc, 138, osc, 38);
     check(std::fabs(sampler.document()->parts[1].v[kPOscLevel] - 50.0) < 0.5 && std::fabs(sampler.document()->parts[0].v[kPOscLevel] - 50.0) < 0.5, "a part tab makes the pages work on that part");
     click(12 + 26, 66);
 
-    // FILES: the folder with the two sounds; a double click on a sound adds it as a zone.
-    page(5);
-    ui->svg.clear();
-    ui->onNanoDisplay();
-    check(ui->svg.find("a tone.wav") != std::string::npos && ui->svg.find("b hits.wav") != std::string::npos, "FILES lists the sounds of the folder");
-    twice(200, 86 + 32 + 20 + 10); // the second row: the first is the folder of saved instruments
+    // The files: the folder with the two sounds; a double click on a sound adds it as a zone.
+    page(0);
+    twice(100, fileRow(1)); // the second row: the first is the folder of saved instruments
     const bool read = wait(sampler);
     std::shared_ptr<const Instrument> doc = sampler.document();
     check(read && doc->parts[0].zones.size() == 1 && doc->samples.size() == 1 && doc->samples[0].data != nullptr && doc->parts[0].zones[0].v[kZRoot] == 57,
           "a double click on a sound adds a zone, with the root key of its file", doc->parts[0].zones.empty() ? -1 : doc->parts[0].zones[0].v[kZRoot]);
 
-    // MAP: the zone covers all keys; its right edge dragged to the middle, then the whole moved up an octave.
+    // ZONES, the KEYS view: a row with a bar that covers all keys. Its right end dragged to the middle, then the whole
+    // moved up an octave, then the end of its fade line dragged ten keys inward.
+    const auto zone0 = [&] { return sampler.document()->parts[0].zones[0]; };
+    const double barX = 264 + 200, barW = 976 - 210, keyU = barW / 128.0, velU = barW / 127.0, row0 = 86 + 24 + 18; // where the bars are, and the top of the first row
+    check(shows(">KEYS<") && shows(">a tone.wav<") && shows(">1 zone<"), "ZONES opens on the KEYS view: a row for the zone, with the name of its sound");
+    drag(barX + barW - 2, row0 + 15, barX + 60.5 * keyU, row0 + 15);
+    check(zone0().v[kZHiKey] == 60, "dragging the end of a zone's bar changes its range", zone0().v[kZHiKey]);
+    drag(barX + 30.5 * keyU, row0 + 15, barX + 42.5 * keyU, row0 + 15);
+    check(zone0().v[kZLoKey] == 12 && zone0().v[kZHiKey] == 72 && zone0().v[kZRoot] == 69, "dragging its middle moves it, root and all", zone0().v[kZLoKey]);
+    drag(barX + 73 * keyU, row0 + 4, barX + 63 * keyU, row0 + 4);
+    check(zone0().v[kZFadeHiKey] == 10 && zone0().v[kZHiKey] == 72, "dragging the end of the line above the bar sets a fade, and leaves the range", zone0().v[kZFadeHiKey]);
+    // Six pixels beside the bar still takes hold of its end, and the mouse shows that before the press.
+    DISTRHO::MotionEvent over;
+    over.pos.x = barX + 12 * keyU - 5; over.pos.y = row0 + 15;
+    ui->onMotion(over);
+    const bool endShape = ui->window.cursor == DGL::kMouseCursorLeftRight;
+    over.pos.x = barX + 40 * keyU;
+    ui->onMotion(over);
+    check(endShape && ui->window.cursor == DGL::kMouseCursorHand, "over the end of a bar the mouse becomes a left-right arrow, over its middle a hand", ui->window.cursor);
+    drag(barX + 12 * keyU - 5, row0 + 15, barX + 10.5 * keyU, row0 + 15);
+    check(zone0().v[kZLoKey] == 10, "the end of a bar can be taken hold of just beside it", zone0().v[kZLoKey]);
+    drag(barX + 10.5 * keyU, row0 + 15, barX + 12.5 * keyU, row0 + 15);
+
+    // The VELOCITY view: the same row, its bar now the velocities.
+    view(1);
+    drag(barX + barW - 2, row0 + 15, barX + 64 * velU, row0 + 15);
+    check(zone0().v[kZHiVel] == 64 && zone0().v[kZHiKey] == 72, "in the VELOCITY view the end of the bar sets the highest velocity", zone0().v[kZHiVel]);
+    drag(barX, row0 + 4, barX + 8 * velU, row0 + 4);
+    check(zone0().v[kZFadeLoVel] == 8, "and the line above it the fade over velocities", zone0().v[kZFadeLoVel]);
+
+    // The MAP view: all zones in one picture. A corner changes keys and velocities together.
+    view(2);
+    const double mapX = 264, mapY = 86 + 24, mapH = 326, mapKey = 976.0 / 128.0;
+    const auto velY = [&](double vel) { return mapY + mapH * (1.0 - vel / 127.0); };
+    drag(mapX + 73 * mapKey - 2, velY(64) + 2, mapX + 60.5 * mapKey, velY(40));
+    check(zone0().v[kZHiKey] == 60 && zone0().v[kZHiVel] == 40 && zone0().v[kZLoKey] == 12, "in the MAP view a corner of a zone changes its keys and its velocities together", zone0().v[kZHiVel]);
+    drag(mapX + 61 * mapKey - 2, velY(40) + 2, mapX + 72.5 * mapKey, velY(64));
+    // Zones on top of each other: each click on them chooses the next one, so that every zone can be reached.
+    click(264 + 10 + 5 * 74 + 8 + 34, 86 + 356 + 80 + 11); // COPY: a second zone in exactly the same place, and the chosen one
+    page(1);
+    const bool copyChosen = shows(">2 of 2 ");
     page(0);
-    const double keyW = 976.0 / 128.0;
-    drag(12 + 128 * keyW - 2, 250, 12 + 60.5 * keyW, 250);
-    check(sampler.document()->parts[0].zones[0].v[kZHiKey] == 60, "dragging a zone's edge changes its range", sampler.document()->parts[0].zones[0].v[kZHiKey]);
-    drag(12 + 30.5 * keyW, 250, 12 + 42.5 * keyW, 250);
-    doc = sampler.document();
-    check(doc->parts[0].zones[0].v[kZLoKey] == 12 && doc->parts[0].zones[0].v[kZHiKey] == 72 && doc->parts[0].zones[0].v[kZRoot] == 69, "dragging its middle moves it, root and all",
-          doc->parts[0].zones[0].v[kZLoKey]);
-    drag(12 + 40 * keyW, 86 + 2, 12 + 40 * keyW, 86 + 199);
-    check(std::fabs(sampler.document()->parts[0].zones[0].v[kZHiVel] - 64) <= 1, "dragging its top edge sets the highest velocity", sampler.document()->parts[0].zones[0].v[kZHiVel]);
+    click(mapX + 40 * mapKey, velY(30));
+    page(1);
+    const bool otherChosen = shows(">1 of 2 ");
+    page(0);
+    click(mapX + 40 * mapKey, velY(30));
+    page(1);
+    check(copyChosen && otherChosen && shows(">2 of 2 "), "where two zones lie on top of each other, a click chooses the other one, and the next click the first again");
+    page(0);
+    click(264 + 10 + 5 * 74 + 8 + 74 + 34, 86 + 356 + 80 + 11); // DELETE
+    check(sampler.document()->parts[0].zones.size() == 1, "DELETE removes the chosen zone", sampler.document()->parts[0].zones.size());
+    view(0);
 
     // SAMPLE: the end marker dragged to the middle of the sound; a loop found by the tool.
     page(1);
-    drag(12 + 976 - 3, 200, 12 + 488, 200);
-    check(std::fabs(sampler.document()->parts[0].zones[0].v[kZEnd] - 24000) < 100, "dragging the end marker sets the zone's end", sampler.document()->parts[0].zones[0].v[kZEnd]);
-    click(12 + 632 + 42, 86 + 396 + 11);
+    const double waveX = 264, waveW = 976, toolX = 264 + 632, soundY = 86 + 350;
+    drag(waveX + waveW - 3, 200, waveX + waveW / 2, 200);
+    check(std::fabs(zone0().v[kZEnd] - 24000) < 100, "dragging the end marker sets the zone's end", zone0().v[kZEnd]);
+    click(toolX + 53, soundY + 30 + 11);
     doc = sampler.document();
     const double span = doc->parts[0].zones[0].v[kZLoopEnd] - doc->parts[0].zones[0].v[kZLoopStart], period = 48000.0 / 220.0;
     check(doc->parts[0].zones[0].v[kZLoop] == 1 && span > 2000 && std::fabs(span / period - std::round(span / period)) < 0.05, "FIND LOOP sets a loop of whole periods",
           span / period);
 
-    // The second sound on the next key, then cut at its hits.
-    page(5);
-    click(200, 86 + 32 + 40 + 10);
-    click(12 + 652 + 158 + 75, 86 + 150 + 12);
+    // The second sound on the next key, then cut at its hits. The files are beside this page too.
+    click(100, fileRow(2));
+    click(18 + 113 + 6 + 56, 86 + 372 + 12); // ON NEXT KEY
     wait(sampler);
     doc = sampler.document();
     check(doc->parts[0].zones.size() == 2 && doc->parts[0].zones[1].v[kZLoKey] == 73 && doc->parts[0].zones[1].v[kZHiKey] == 73 && doc->parts[0].zones[1].v[kZRoot] == 73,
-          "ADD ON NEXT KEY puts a sound on the key after the highest zone", doc->parts[0].zones.size());
-    page(1);
-    click(12 + 632 + 90 + 42, 86 + 422 + 11);
+          "ON NEXT KEY puts a sound on the key after the highest zone", doc->parts[0].zones.size());
+    click(toolX + 112 + 53, soundY + 56 + 11);
     doc = sampler.document();
     bool sliced = doc->parts[0].zones.size() == 5;
     for (size_t i = 1; sliced && i < 5; ++i)
         sliced = doc->parts[0].zones[i].v[kZLoKey] == 35 + static_cast<int>(i) && doc->parts[0].zones[i].v[kZOneShot] == 1 && std::fabs(doc->parts[0].zones[i].v[kZStart] - (i - 1) * 12000.0) < 300;
     check(sliced, "SLICE AT HITS cuts it into one zone per hit, from C2 up", doc->parts[0].zones.size());
+    // The slices are all on the page: the first is the chosen zone, the others are marked with their keys, and a click in one chooses it.
+    std::string page1 = drawn();
+    check(page1.find(">2 of 5 ") != std::string::npos && page1.find("b hits") != std::string::npos && page1.find(">C#2<") != std::string::npos && page1.find(">D2<") != std::string::npos &&
+          page1.find(">D#2<") != std::string::npos, "after slicing, SAMPLE shows the first slice and marks the others with their keys");
+    click(waveX + waveW * 2.5 / 4.0, 300); // in the third of the four
+    check(shows(">4 of 5 "), "a click in another slice chooses that zone");
+    // Zoomed in on the end of this sound, then on to a zone with another sound: that one is shown whole, not through the old zoom.
+    DISTRHO::ScrollEvent in;
+    in.pos.x = waveX + waveW - 40; in.pos.y = 300;
+    in.delta.y = 1;
+    for (int i = 0; i < 6; ++i) ui->onScroll(in);
+    const bool zoomed = !shows(">0.00 s<");
+    for (int i = 0; i < 3; ++i) click(264 + 62 + 10, soundY + 11); // the arrow to the zone before: three back is the tone
+    page1 = drawn();
+    check(zoomed && page1.find(">1 of 5 ") != std::string::npos && page1.find(">0.00 s<") != std::string::npos && page1.find(">E<") != std::string::npos,
+          "a zone with another sound is shown whole, whatever the view of the last one was");
+    // Another sound for a zone that is there: its keys stay.
+    click(100, fileRow(2));
+    click(18 + 56, 86 + 372 + 28 + 12); // REPLACE SOUND
+    wait(sampler);
+    doc = sampler.document();
+    const Sample* now = doc->findSample(doc->parts[0].zones[0].sample);
+    check(now != nullptr && now->path.find("b hits.wav") != std::string::npos && doc->parts[0].zones[0].v[kZLoKey] == 12 && doc->parts[0].zones[0].v[kZHiKey] == 72 &&
+          doc->parts[0].zones[0].v[kZEnd] == 0 && doc->parts[0].zones.size() == 5 && doc->samples.size() == 1,
+          "REPLACE SOUND gives the chosen zone the chosen file's sound and leaves its keys", doc->samples.size());
+    click(100, fileRow(1));
+    click(18 + 56, 86 + 372 + 28 + 12); // and the tone back again
+    wait(sampler);
 
     // MOD: a step dragged up.
     page(3);
-    drag(12 + 176 + 8 + 12, 86 + 98 + 56, 12 + 176 + 8 + 12, 86 + 98 + 20);
+    drag(wide(12 + 176 + 8 + 12), 86 + 98 + 56, wide(12 + 176 + 8 + 12), 86 + 98 + 20);
     check(sampler.document()->parts[0].v[kPSeqValue] > 50, "dragging in the row of steps sets a step", sampler.document()->parts[0].v[kPSeqValue]);
 
     // A macro's name: a click on it, typing, Enter.
-    click(12 + 176 + 398 + 30, 86 + 98 + 62 - 21);
+    click(wide(12 + 176 + 398 + 30), 86 + 98 + 62 - 21);
     type("Bright");
     key(0x0D);
     check(sampler.document()->macroNames[0] == "Bright", "a click on a macro's name and typing gives it another");
@@ -233,20 +306,58 @@ int main(int argc, char** argv) {
     wait(sampler);
     doc = sampler.document();
 
+    // The size of the window: from the cog's list, by dragging its edge, and kept for the next time it opens.
+    {
+        hnl::ui::SkinMenu place; // the same place as the UI's own, for where to click
+        place.setButton(UI_BASE_WIDTH - 24, 24);
+        place.offerSizes(100);
+        const auto middle = [&](int i, double zoom, bool y) { const hnl::ui::Box b = place.sizeBox(i); return zoom * (y ? b.y + b.h * 0.5 : b.x + b.w * 0.5); };
+        check(ui->getWidth() == 1252 && ui->getHeight() == 640 && ui->leastWidth == 939 && ui->leastHeight == 480 && ui->keepsShape,
+              "the window opens at its design size, can be dragged down to three quarters of it, and keeps its shape", ui->getWidth());
+        click(UI_BASE_WIDTH - 24, 24);
+        ui->svg.clear();
+        ui->onNanoDisplay();
+        check(ui->svg.find(">SIZE<") != std::string::npos && ui->svg.find(">150<") != std::string::npos, "the cog's list offers the sizes under the looks");
+        click(middle(3, 1.0, false), middle(3, 1.0, true)); // 150
+        check(ui->getWidth() == 1878 && ui->getHeight() == 960 && hnl::ui::storedSize("sampler") == 150, "a size from the list makes the window that large at once, and is kept", ui->getWidth());
+        click(1.5 * (UI_BASE_WIDTH - 24), 1.5 * 24); // the cog again, where it is drawn now: the list closes
+        click(1.5 * (UI_BASE_WIDTH - 12.0 - 4 * 76.0 + 36.0), 1.5 * 66.0);
+        ui->svg.clear();
+        ui->onNanoDisplay();
+        check(ui->svg.find("FIND LOOP") != std::string::npos && ui->svg.find(">SIZE<") == std::string::npos, "in the larger window a click lands on what is drawn there (the SAMPLE tab)");
+        ui->setSize(1565, 800); // the host, when the edge of the window is dragged
+        ui->uiIdle();
+        check(hnl::ui::storedSize("sampler") == 150, "while the window is being dragged nothing is written", hnl::ui::storedSize("sampler"));
+        for (int i = 0; i <= 2 * hnl::ui::SkinMenu::kPollEvery; ++i) ui->uiIdle();
+        check(hnl::ui::storedSize("sampler") == 125, "a second after the dragging stops, that size is kept", hnl::ui::storedSize("sampler"));
+        DISTRHO::UI* const again = DISTRHO::createUI();
+        check(again->getWidth() == 1565 && again->getHeight() == 800, "the window opens again at the size it was left at", again->getWidth());
+        delete again;
+        click(1.25 * (UI_BASE_WIDTH - 24), 1.25 * 24);
+        click(middle(1, 1.25, false), middle(1, 1.25, true)); // 100
+        click(UI_BASE_WIDTH - 24, 24);
+        check(ui->getWidth() == 1252 && hnl::ui::storedSize("sampler") == 100, "and 100 in the list brings back the design size", ui->getWidth());
+        hnl::settings::set("size.sampler", "9000");
+        const bool high = hnl::ui::storedSize("sampler") == 100;
+        hnl::settings::set("size.sampler", "12x");
+        check(high && hnl::ui::storedSize("sampler") == 100, "a size in the settings that is no size reads as 100");
+        hnl::settings::set("size.sampler", "100");
+    }
+
     // Every page draws, with help on, without leaving the window.
     click(UI_BASE_WIDTH - 52, 24);
-    bool drawn = true;
-    for (int p = 0; p < 6; ++p) {
+    bool allDrawn = true;
+    for (int p = 0; p < 5; ++p) {
         page(p);
         DISTRHO::MotionEvent move;
         move.pos.x = 300; move.pos.y = 300;
         ui->onMotion(move);
         ui->svg.clear();
         ui->onNanoDisplay();
-        drawn = drawn && ui->svg.size() > 5000;
-        for (const char* bad : {"Mnan", "Lnan", " nan", "\"nan", "-nan", "Minf", "Linf", " inf ", "\"inf", "-inf"}) drawn = drawn && ui->svg.find(bad) == std::string::npos; // a coordinate that is not a number
+        allDrawn = allDrawn && ui->svg.size() > 5000;
+        for (const char* bad : {"Mnan", "Lnan", " nan", "\"nan", "-nan", "Minf", "Linf", " inf ", "\"inf", "-inf"}) allDrawn = allDrawn && ui->svg.find(bad) == std::string::npos; // a coordinate that is not a number
     }
-    check(drawn, "all six pages draw, with a help tip showing");
+    check(allDrawn, "all five pages draw, with a help tip showing");
 
     // A host that sends values that are no values: the UI cleans them as the plugin does.
     page(0);
@@ -273,13 +384,12 @@ int main(int argc, char** argv) {
     const std::string odd = (many / "zy new\nline.wav").string();
     writeWav(odd, tone, 16, error);
     ui = DISTRHO::createUI();
-    page(5);
-    twice(200, 86 + 32 + 10); // the first row: the folder just made
+    twice(100, fileRow(0)); // the first row: the folder just made
     ui->svg.clear();
     ui->onNanoDisplay();
-    const bool first = ui->svg.find("s 0000.wav") != std::string::npos && ui->svg.find("s 0021.wav") != std::string::npos && ui->svg.find("pipe") == std::string::npos;
+    const bool first = ui->svg.find("s 0000.wav") != std::string::npos && ui->svg.find("s 0014.wav") != std::string::npos && ui->svg.find("pipe") == std::string::npos;
     DISTRHO::ScrollEvent down;
-    down.pos.x = 200; down.pos.y = 300;
+    down.pos.x = 100; down.pos.y = 300;
     down.delta.y = -1;
     std::string last;
     for (int round = 0; round < 200; ++round) {
@@ -290,10 +400,10 @@ int main(int argc, char** argv) {
         last = ui->svg;
     }
     check(piped && first && last.find("zz wanted.wav") != std::string::npos && last.find("s 5199.wav") != std::string::npos && last.find("Too many") == std::string::npos,
-          "FILES shows a folder of 5200 sounds whole and in order, without the pipe in it");
+          "the files show a folder of 5200 sounds whole and in order, without the pipe in it");
     // The last but one is a sound with a line end in its name: it cannot be saved, so it is not added, and the page says so.
     const size_t zonesBefore = sampler.document()->parts[0].zones.size();
-    twice(200, 86 + 32 + 10 + 20 * 3); // the list ends five rows from the top
+    twice(100, fileRow(3)); // the list ends five rows from the top
     wait(sampler);
     ui->svg.clear();
     ui->onNanoDisplay();
@@ -302,10 +412,9 @@ int main(int argc, char** argv) {
 
     // The window is closed and opened again: FILES is in the folder it was left in, though no sound was taken from it.
     ui = DISTRHO::createUI();
-    page(5);
     ui->svg.clear();
     ui->onNanoDisplay();
-    check(ui->svg.find("s 0000.wav") != std::string::npos && ui->svg.find("0 many") != std::string::npos, "FILES opens again in the folder it was left in");
+    check(ui->svg.find("s 0000.wav") != std::string::npos && ui->svg.find("0 many") != std::string::npos, "the files open again in the folder they were left in");
     delete ui;
     // And the folder is on disk, for the next run of the host.
     std::string kept;
