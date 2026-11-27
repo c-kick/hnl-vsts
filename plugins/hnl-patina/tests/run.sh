@@ -35,3 +35,6 @@ g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_scen
 # The choice of look, shared by all plugins (common/tests/ui_skin_test.cpp).
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_skin_test" $ROOT/common/tests/ui_skin_test.cpp PatinaUI.cpp
 "$OUT/ui_skin_test"
+# The size of the window, shared by all plugins (common/tests/ui_size_test.cpp).
+g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_size_test" $ROOT/common/tests/ui_size_test.cpp PatinaUI.cpp
+"$OUT/ui_size_test"

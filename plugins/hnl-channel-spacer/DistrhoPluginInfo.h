@@ -15,7 +15,7 @@
 // Inputs 1 and 2 are the signal that makes room; 3 and 4 are the sidechain: the signal it makes room for.
 // The version: reported to the host, shown behind the title, and read by package.sh.
 #define HNL_VERSION_MAJOR 0
-#define HNL_VERSION_MINOR 3
+#define HNL_VERSION_MINOR 4
 #define HNL_VERSION_PATCH 0
 
 #define DISTRHO_PLUGIN_HAS_UI       1
@@ -25,7 +25,7 @@
 #define DISTRHO_PLUGIN_WANT_LATENCY 0
 #define DISTRHO_PLUGIN_WANT_STATE   1
 #define DISTRHO_UI_FILE_BROWSER     0
-#define DISTRHO_UI_USER_RESIZABLE   0
+#define DISTRHO_UI_USER_RESIZABLE   1 // dragged by its edge, or a size from the cog's list; the drawing follows the window
 #define DISTRHO_UI_USE_NANOVG       1
 
 #define DISTRHO_PLUGIN_VST3_CATEGORIES "Fx|Dynamics|EQ|Stereo"

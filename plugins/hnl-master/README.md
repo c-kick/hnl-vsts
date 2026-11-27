@@ -136,6 +136,13 @@ two. Windows 64-bit; the VST3 is tested in Reason.
 
 ## Changelog
 
+### 0.8.0 (2026-11-27)
+
+- New: the window can be made larger and smaller. The cog at the top right lists the sizes (75 to 200 %) under the
+  looks, and where the host allows it the window can be dragged by its edge, down to three quarters of its design
+  size. It keeps its shape, everything in it is drawn anew at the size it has, and it opens next time at the size
+  it was left at. The size is kept for this plugin, not in the song, and changes nothing about the sound.
+
 ### 0.7.0 (2026-11-24)
 
 - New: the limiter can be soft instead of a brickwall (parameter "Limiter Soft"): it then reacts at the speed

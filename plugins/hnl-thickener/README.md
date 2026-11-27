@@ -115,6 +115,13 @@ The zip holds the plugin as VST3
 
 ## Changelog
 
+### 0.3.0 (2026-11-27)
+
+- New: the window can be made larger and smaller. The cog at the top right lists the sizes (75 to 200 %) under the
+  looks, and where the host allows it the window can be dragged by its edge, down to three quarters of its design
+  size. It keeps its shape, everything in it is drawn anew at the size it has, and it opens next time at the size
+  it was left at. The size is kept for this plugin, not in the song, and changes nothing about the sound.
+
 ### 0.2.0 (2026-11-22)
 
 - New: three looks. Classic, the look the plugin has always had, stays the default; Hi-Fi Black and Hi-Fi Silver

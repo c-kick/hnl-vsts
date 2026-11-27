@@ -8,7 +8,7 @@
 // and the window shrinks to fit: only that arrow moves anything, so that a
 // switch or a preset never moves what is under the mouse. Thin lines in the
 // gaps between the modules show the way the sound goes. Coordinates are in
-// design pixels (kHeight high, width from layout()), scaled by the host's UI scale.
+// design pixels (kHeight high, width from layout()), drawn as large as the window is (common/ui/WindowSize.hpp).
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -18,6 +18,7 @@
 #include "DistrhoUI.hpp"
 
 #include "../../common/ui/Skin.hpp"
+#include "../../common/ui/WindowSize.hpp"
 #include "../../common/ui/Widgets.hpp"
 #include "Help.hpp"
 #include "Params.hpp"
@@ -149,6 +150,7 @@ public:
             if (kModules[m].toggle != kParamCount)
                 controls_.push_back({kModules[m].toggle, static_cast<Module>(m), 0, 15, 0, "", true});
 
+        size_.open(skin_); // the window opens at the size it was left at
         layout();
     }
 
@@ -184,12 +186,13 @@ protected:
 
     void uiIdle() override {
         if (skin_.poll()) repaint(); // another HNL window chose a look
+        if (size_.follow(skin_)) repaint(); // the window was dragged to another size
     }
 
     // ------------------------------------------------------------ drawing
 
     void onNanoDisplay() override {
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         scale(s, s);
         fontFace(NANOVG_DEJAVU_SANS_TTF);
 
@@ -242,7 +245,7 @@ protected:
 
     bool onMouse(const MouseEvent& ev) override {
         if (ev.button != 1) return false;
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
 
         if (!ev.press) {
@@ -255,7 +258,8 @@ protected:
         }
 
         presetNote_.clear();
-        if (!presetBar_.isBusy() && skin_.mouseDown(x, y) != hnl::ui::SkinMenu::kNotMine) { // the cog, or its list while it is open
+        if (const int cog = presetBar_.isBusy() ? hnl::ui::SkinMenu::kNotMine : skin_.mouseDown(x, y)) { // the cog, or its list while it is open
+            if (cog == hnl::ui::SkinMenu::kSized) size_.choose(skin_.size()); // a size from the list: the window follows at once
             help_.hide();
             repaint();
             return true;
@@ -363,7 +367,7 @@ protected:
     }
 
     bool onMotion(const MotionEvent& ev) override {
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
         if (presetBar_.isOpen()) {
             if (presetBar_.motion(x, y, list_.count())) repaint();
@@ -407,7 +411,7 @@ protected:
 
     bool onScroll(const ScrollEvent& ev) override {
         if (presetBar_.isBusy() || drag_ >= 0) return false;
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         const int hit = controlAt(static_cast<float>(ev.pos.getX()) / s, static_cast<float>(ev.pos.getY()) / s);
         if (hit < 0 || controls_[hit].toggle) return false;
         const uint32_t id = controls_[hit].id;
@@ -502,9 +506,7 @@ private:
         rects_[kModOutput] = {x, kTop, kOutputW, kBottom - kTop};
         width_ = x + kOutputW + kMargin;
 
-        const double s = getScaleFactor();
-        const uint w = static_cast<uint>(std::lround(width_ * s)), h = static_cast<uint>(std::lround(kHeight * s));
-        if (getWidth() != w || getHeight() != h) setSize(w, h);
+        size_.design(width_, kHeight); // the window follows, at the size the user chose
         presetBar_.moveTo(width_ - kPresetRight, width_);
         help_.setButton(width_ - kHelpRight, kHeaderY + 12);
         skin_.setButton(width_ - kSkinRight, kHeaderY + 12);
@@ -516,7 +518,7 @@ private:
         using hnl::ui::Box;
         help_.clear();
         help_.add(help_.buttonBox(), "HELP", help::kHelp);
-        help_.add(skin_.buttonBox(), "LOOK", hnl::ui::SkinMenu::help());
+        help_.add(skin_.buttonBox(), "LOOK AND SIZE", hnl::ui::SkinMenu::helpWithSizes());
         help_.add(presetBar_.nameBox(), "PRESETS", help::kPresets);
         const Rect& in = rects_[kModInput];
         help_.add({in.x + 16, in.y + 34, 56, 396}, "INPUT LEVEL", help::kInputMeter);
@@ -1045,6 +1047,7 @@ private:
     std::string presetNote_; // shown in place of the name until the next click
     hnl::ui::HelpTips help_;
     hnl::ui::SkinMenu skin_;
+    hnl::ui::WindowSize<MasterUI> size_{*this, "master", UI_BASE_WIDTH, UI_BASE_HEIGHT};
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MasterUI)
 };

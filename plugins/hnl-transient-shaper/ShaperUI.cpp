@@ -12,6 +12,7 @@
 #include "DistrhoUI.hpp"
 
 #include "../../common/ui/Skin.hpp"
+#include "../../common/ui/WindowSize.hpp"
 #include "../../common/ui/Widgets.hpp"
 #include "Help.hpp"
 #include "Params.hpp"
@@ -88,14 +89,13 @@ public:
     ShaperUI() : UI(UI_BASE_WIDTH, UI_BASE_HEIGHT, false) {
         for (uint32_t i = 0; i < kParamCount; ++i) values_[i] = kParams[i].def;
         loadSharedResources();
-        const double s = getScaleFactor();
-        if (s != 1.0) setSize(static_cast<uint>(std::lround(UI_BASE_WIDTH * s)), static_cast<uint>(std::lround(UI_BASE_HEIGHT * s)));
+        size_.open(skin_); // the window opens at the size it was left at
 
         // Help: wide areas first, single controls on top.
         help_.setButton(kHelpX, kHeaderY + 12);
         skin_.setButton(kSkinX, kHeaderY + 12);
         help_.add(help_.buttonBox(), "HELP", help::kHelp);
-        help_.add(skin_.buttonBox(), "LOOK", hnl::ui::SkinMenu::help());
+        help_.add(skin_.buttonBox(), "LOOK AND SIZE", hnl::ui::SkinMenu::helpWithSizes());
         help_.add(presetBar_.nameBox(), "PRESETS", help::kPresets);
         help_.add(meter_.area(), "METER DESIGN", hnl::ui::MeterSwitch::help());
         help_.add({kFace_.x, kFace_.y, kFace_.w, kFace_.h}, "GAIN CHANGE", help::kGain);
@@ -128,12 +128,13 @@ protected:
 
     void uiIdle() override {
         if (skin_.poll()) repaint(); // another HNL window chose a look
+        if (size_.follow(skin_)) repaint(); // the window was dragged to another size
     }
 
     // ------------------------------------------------------------ drawing
 
     void onNanoDisplay() override {
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         scale(s, s);
         fontFace(NANOVG_DEJAVU_SANS_TTF);
 
@@ -175,7 +176,7 @@ protected:
 
     bool onMouse(const MouseEvent& ev) override {
         if (ev.button != 1) return false;
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
 
         if (!ev.press) {
@@ -186,7 +187,8 @@ protected:
         }
 
         presetNote_.clear();
-        if (!presetBar_.isBusy() && skin_.mouseDown(x, y) != hnl::ui::SkinMenu::kNotMine) { // the cog, or its list while it is open
+        if (const int cog = presetBar_.isBusy() ? hnl::ui::SkinMenu::kNotMine : skin_.mouseDown(x, y)) { // the cog, or its list while it is open
+            if (cog == hnl::ui::SkinMenu::kSized) size_.choose(skin_.size()); // a size from the list: the window follows at once
             help_.hide();
             repaint();
             return true;
@@ -240,7 +242,7 @@ protected:
     }
 
     bool onMotion(const MotionEvent& ev) override {
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         const float x = static_cast<float>(ev.pos.getX()) / s, y = static_cast<float>(ev.pos.getY()) / s;
         if (presetBar_.isOpen()) {
             if (presetBar_.motion(x, y, list_.count())) repaint();
@@ -279,7 +281,7 @@ protected:
 
     bool onScroll(const ScrollEvent& ev) override {
         if (presetBar_.isBusy() || drag_ >= 0) return false;
-        const float s = static_cast<float>(getScaleFactor());
+        const float s = size_.zoom();
         const int hit = knobAt(static_cast<float>(ev.pos.getX()) / s, static_cast<float>(ev.pos.getY()) / s);
         if (hit < 0) return false;
         const uint32_t id = kKnobs[hit].id;
@@ -486,6 +488,7 @@ private:
     std::string presetNote_; // shown in place of the name until the next click
     hnl::ui::HelpTips help_;
     hnl::ui::SkinMenu skin_;
+    hnl::ui::WindowSize<ShaperUI> size_{*this, "transient-shaper", UI_BASE_WIDTH, UI_BASE_HEIGHT};
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ShaperUI)
 };

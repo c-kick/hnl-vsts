@@ -158,6 +158,13 @@ may do (`common/tests/HostAbuse.hpp`), and the UI class on the drawing stand-in:
 
 ## Changelog
 
+### 0.3.0 (2026-11-27)
+
+- New: the window can be made larger and smaller. The cog at the top right lists the sizes (75 to 200 %) under the
+  looks, and where the host allows it the window can be dragged by its edge, down to three quarters of its design
+  size. It keeps its shape, everything in it is drawn anew at the size it has, and it opens next time at the size
+  it was left at. The size is kept for this plugin, not in the song, and changes nothing about the sound.
+
 ### 0.2.1 (2026-11-22)
 
 - The plugin is a beta now: it has been played in a host. Nothing else changed.
