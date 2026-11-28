@@ -184,6 +184,14 @@ designs: a needle over a printed card (Classic), an arc that fills up with the r
 row of lights (LEDs). The two arrows under the meter step through them. The choice is saved with the song, and
 presets do not change it.
 
+### Protection against bad input
+
+Every plugin guards itself against the things that usually make a plugin go silent or blast noise: broken audio
+coming in, parameter values out of range, and its own filters going wrong. If something does go wrong inside,
+the plugin clears itself and carries on within a fraction of a second. Each plugin is also tested with sample
+rates from 8 to 384 kHz and with deliberately hostile input. [How the plugins stay stable](#how-the-plugins-stay-stable)
+has the details.
+
 ### Where settings are kept
 
 The look and the window sizes are in `settings.txt` in the HNL folder (`%APPDATA%\HNL\` on Windows), next to
@@ -197,7 +205,7 @@ the plugins' preset folders. Without that file a plugin shows Classic at its nor
   the DPF plugin and its NanoVG UI sit next to it, and the offline tests are in `tests/`.
 - `common/dsp/`: building blocks shared by the plugins (filters, oversampling, true-peak detection, the loudness
   filters, a small reverb), and `Safety.hpp`, the guards every plugin puts between itself and the DAW (see
-  [What a plugin must survive](#what-a-plugin-must-survive)).
+  [How the plugins stay stable](#how-the-plugins-stay-stable)).
 - `common/ui/`: UI parts shared by the plugins: preset bar, help tips, meters, the looks and the window size.
 - `common/Presets.hpp` defines factory presets, `common/UserPresets.hpp` handles the presets a user saves, and
   `common/UserSettings.hpp` the settings that apply to all plugins.
@@ -258,28 +266,26 @@ them into PNG with a Playwright Chromium. `tools/ui-preview/docs.sh <playwright 
 puts the pictures into `plugins/<name>/docs/`. Run it after changing a UI or a version number, because the version
 is in every picture.
 
-### What a plugin must survive
+### How the plugins stay stable
 
-A DAW can hand a plugin anything, and a plugin that goes wrong takes the whole song with it. Every plugin here
-therefore does the following, with a test for each in `tests/plugin_test.cpp`:
+A plugin that misbehaves can ruin a whole song: one bad number in a filter and the output is silent, or stuck at
+full scale, until the DAW is restarted. The shared code in `common/dsp/Safety.hpp` deals with the usual causes,
+and every plugin uses it the same way. Each case below has a test in the plugin's `tests/plugin_test.cpp`.
 
-- **Parameter values** are pulled into their range when they arrive. A value that is not a number becomes the
-  default (`hnl::cleanParam` in `setParameterValue`).
-- **Input samples** that are not numbers are treated as silence (`hnl::cleanInput` at the top of `run`). If the
-  output still contains one, that block is silenced and the engine restarts clean (`hnl::isClean`, then
-  `reset()`), so it does not stay broken until the DAW restarts it.
-- **Numbers too small to matter** are treated as zero while the engine runs (`hnl::ScopedNoDenormals` at the top
-  of `process`), so filters ringing out into silence do not slow the processor down.
-- **A switch never lets out old sound or jumps in level.** A stage that is switched off does not run its filters,
-  and they are cleared when it comes back (HNL Master's stages, Tape Master's path). State that a mode no longer
-  uses is handed over, not dropped (Bus Compressor's Auto release, Leveller's Opto tail).
-- **Nothing slow on the audio thread.** The piano computes a voice's waves on a separate thread and keeps playing
-  the voice it has until they are ready (`Piano::setParamsRealtime`).
+| What can go wrong | What the plugin does |
+| --- | --- |
+| The DAW sends a parameter value outside its range, or one that is not a number. | The value is pulled back into range, and a non-number becomes the default (`hnl::cleanParam` in `setParameterValue`). |
+| The incoming audio contains samples that are not numbers, for instance from a broken plugin earlier in the chain. | Those samples are treated as silence (`hnl::cleanInput` at the top of `run`). |
+| The engine still produces a non-number. | That block is silenced and the engine restarts clean (`hnl::isClean`, then `reset()`), so the plugin recovers on its own within one block. |
+| A filter rings out into silence and its numbers become so small that the processor slows down (denormals). | Such numbers are treated as zero while the engine runs (`hnl::ScopedNoDenormals` at the top of `process`). |
+| Switching a stage or a mode lets out old sound, or makes the level jump. | A stage that is off does not run its filters, and they are cleared when it comes back (HNL Master's stages, Tape Master's path). When a mode changes, the state it shares is carried over (Bus Compressor's Auto release, Leveller's Opto tail). |
+| Heavy work stalls the audio. | Slow work happens on a separate thread. The piano, for example, computes a voice's waves in the background and keeps playing the voice it has until they are ready (`Piano::setParamsRealtime`). |
 
-Checks for "is this a number" look at the bits (`hnl::isFinite`), because the compiler removes `std::isfinite`
-and `x != x` under `-ffast-math`. clang removes a plain test on the bits as well, so the bits first pass through
-`hnl::hidden`. `common/tests/run.sh` checks this with clang too when zig is available, because g++ alone does not
-show the problem.
+One detail matters if you change this code. The plugins are built with `-ffast-math`, and under that flag the
+compiler removes the usual checks for "is this a number" (`std::isfinite`, `x != x`). The checks here look at the
+bits instead (`hnl::isFinite`). clang removes even a plain test on the bits, so the bits first pass through
+`hnl::hidden`. `common/tests/run.sh` verifies this with clang as well when zig is available, because g++ alone
+does not show the problem.
 
 ### Shared UI code
 
@@ -299,7 +305,7 @@ show the problem.
 
 Create `plugins/<name>/` with a `Makefile` that includes `../../dpf/Makefile.plugins.mk` (copy the one from
 `hnl-master`), a `DistrhoPluginInfo.h` with its own `DISTRHO_PLUGIN_UNIQUE_ID`, and `tests/run.sh`. Copy the
-guards described above from an existing plugin, with their tests. `build.sh` and `test.sh` pick the plugin up by
+guards described under [How the plugins stay stable](#how-the-plugins-stay-stable) from an existing plugin, with their tests. `build.sh` and `test.sh` pick the plugin up by
 its folder name.
 
 A plugin with a window has all three looks from its first version:
