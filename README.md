@@ -124,7 +124,7 @@ Every plugin shows its version behind its title, so a screenshot tells which bui
     <th align="left"><a href="plugins/hnl-sampler">HNL Sampler</a></th>
   </tr>
   <tr>
-    <td valign="top">Sampler in eight parts: WAV, AIFF, FLAC, SFZ and SoundFont sounds over keys and velocities, loops with crossfade, unison, an oscillator, a filter and saturation for every note, envelopes, LFOs, a modulation matrix with eight macros, MPE, tunings, eight stereo outputs. Comes with three demo instruments: a drum kit, strings and a pipe organ<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Sampler-win64.zip"><b>Download</b></a> · <!-- version:hnl-sampler -->v0.5.0<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Sampler in eight parts: WAV, AIFF, FLAC, SFZ and SoundFont sounds over keys and velocities, loops with crossfade, unison, an oscillator, a filter and saturation for every note, envelopes, LFOs, a modulation matrix with eight macros, MPE, tunings, eight stereo outputs. Comes with three demo instruments: a drum kit, strings and a pipe organ<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Sampler-win64.zip"><b>Download</b></a> · <!-- version:hnl-sampler -->v0.6.0<!-- /version --> · beta · Windows 64-bit, VST3 and CLAP</td>
   </tr>
 </table>
 
