@@ -12,6 +12,13 @@
 //   - calls choose(menu.size()) when SkinMenu::mouseDown() answers kSized
 //   - calls follow() from uiIdle(), and repaints when it says true
 //   - calls design() when the size it was designed at changes (a window whose width depends on what is in it)
+//
+// The size the UI goes by (getWidth() of the widget) is told to it by the window, and that can
+// fail to happen: on Windows a window is made at the design size times the host's scale (a
+// display set to 125 %), reports that size before the UI exists to hear it, and never reports it
+// again because it never changes. The UI then believes it has its design size, the picture is
+// stretched over the larger window, and every click is read 1.25 times too far right and down.
+// settle() sets that right, when the window opens and from follow() ever after.
 #pragma once
 
 #include <algorithm>
@@ -63,13 +70,14 @@ public:
      * True when the list of sizes changed and the window is to be drawn again.
      */
     bool follow(SkinMenu& menu) {
+        const bool settled = settle();
         const unsigned w = ui_.getWidth();
         if (w != seen_) {
             seen_ = w;
             still_ = 0;
-            return false;
+            return settled;
         }
-        if (w == kept_ || ++still_ < SkinMenu::kPollEvery) return false;
+        if (w == kept_ || ++still_ < SkinMenu::kPollEvery) return settled;
         const int size = cleanSize(static_cast<int>(std::lround(100.0 * w / (width_ * hostScale()))));
         percent_ = size;
         menu.offerSizes(size);
@@ -94,6 +102,17 @@ private:
         const double s = hostScale() * cleanSize(percent) / 100.0;
         const unsigned w = static_cast<unsigned>(std::lround(width_ * s)), h = static_cast<unsigned>(std::lround(height_ * s));
         if (w != ui_.getWidth() || h != ui_.getHeight()) ui_.setSize(w, h);
+        settle();
+    }
+    /**
+     * The UI goes by the size its window really has. A window that changes size says so itself; this is for
+     * the size it did not say (see the top of this file). True when the UI had another size than its window.
+     */
+    bool settle() {
+        const unsigned w = ui_.getWindow().getWidth(), h = ui_.getWindow().getHeight();
+        if (w < 2 || h < 2 || (w == ui_.getWidth() && h == ui_.getHeight())) return false;
+        ui_.Widget::setSize(w, h); // the UI alone: its window has this size already
+        return true;
     }
     void keep(int percent) {
         storeSize(plugin_, percent); // when it cannot be written, the size still holds for this window

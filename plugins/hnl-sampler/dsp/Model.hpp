@@ -70,6 +70,7 @@ inline double syncBeats(int choice) {
 static const char* const kRetrigNames[] = {"Free", "Note"};
 static const char* const kLoopNames[] = {"Off", "Forward", "Ping-pong", "Backward"};
 static const char* const kTriggerNames[] = {"Attack", "Release"};
+static const char* const kFadeCurveNames[] = {"Power", "Linear"};
 static const char* const kChannelNames[] = {"All", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
 static const char* const kOutputNames[] = {"1-2", "3-4", "5-6", "7-8", "9-10", "11-12", "13-14", "15-16"};
 
@@ -213,7 +214,7 @@ enum ZoneParam : int {
     kZLoKey, kZHiKey, kZLoVel, kZHiVel, kZRoot, kZTune, kZKeyTrack, kZGain, kZPan,
     kZStart, kZEnd, kZLoop, kZLoopStart, kZLoopEnd, kZCrossfade, kZLoopRelease, kZReverse, kZOneShot,
     kZTrigger, kZGroup, kZOffBy, kZSeqLength, kZSeqPosition,
-    kZFadeLoKey, kZFadeHiKey, kZFadeLoVel, kZFadeHiVel,
+    kZFadeLoKey, kZFadeHiKey, kZFadeLoVel, kZFadeHiVel, kZFadeCurve,
     kZoneParamCount
 };
 /** Positions (start, end, loop) are in frames of the sound; an end of 0 means its last frame. */
@@ -249,6 +250,9 @@ inline const std::vector<Info>& zoneInfo() {
         {"Fade high keys", "fade_hikey", "", 0, 127, 0, kInteger, nullptr},
         {"Fade low velocity", "fade_lovel", "", 0, 126, 0, kInteger, nullptr},
         {"Fade high velocity", "fade_hivel", "", 0, 126, 0, kInteger, nullptr},
+        // The shape of those fades. Power: two zones that cross keep their power, for sounds that have nothing
+        // to do with each other. Linear: their levels add up to one, for sounds that move alike.
+        {"Fade curve", "fade_curve", "", 0, 1, 0, kChoice, kFadeCurveNames},
     };
     return table;
 }
@@ -256,12 +260,15 @@ inline const std::vector<Info>& zoneInfo() {
 /**
  * How loud a zone is on a key at a velocity, by its fades: 1 where it has none. A fade of n rises over
  * the n keys (or velocities) at that end of the range, in n + 1 steps, so that a zone that fades out over
- * the same keys as its neighbour fades in gives the two together the same power on every key.
+ * the same keys as its neighbour fades in gives the two together the same power on every key (curve
+ * Power), or levels that add up to one (curve Linear).
  */
 inline float zoneFade(const double* z, int key, int velocity) {
-    const auto side = [](double from, double fade) { // `from`: how far inside the range, 0 at its end
+    const bool linear = z[kZFadeCurve] >= 0.5;
+    const auto side = [linear](double from, double fade) { // `from`: how far inside the range, 0 at its end
         if (fade < 0.5 || from >= fade) return 1.0;
-        return std::sin(1.5707963267948966 * (from + 1.0) / (fade + 1.0));
+        const double along = (from + 1.0) / (fade + 1.0);
+        return linear ? along : std::sin(1.5707963267948966 * along);
     };
     return static_cast<float>(side(key - z[kZLoKey], z[kZFadeLoKey]) * side(z[kZHiKey] - key, z[kZFadeHiKey]) *
                               side(velocity - z[kZLoVel], z[kZFadeLoVel]) * side(z[kZHiVel] - velocity, z[kZFadeHiVel]));

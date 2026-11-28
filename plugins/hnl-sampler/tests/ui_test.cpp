@@ -200,7 +200,7 @@ int main(int argc, char** argv) {
     check(zone0().v[kZHiKey] == 60 && zone0().v[kZHiVel] == 40 && zone0().v[kZLoKey] == 12, "in the MAP view a corner of a zone changes its keys and its velocities together", zone0().v[kZHiVel]);
     drag(mapX + 61 * mapKey - 2, velY(40) + 2, mapX + 72.5 * mapKey, velY(64));
     // Zones on top of each other: each click on them chooses the next one, so that every zone can be reached.
-    click(264 + 10 + 5 * 74 + 8 + 34, 86 + 356 + 80 + 11); // COPY: a second zone in exactly the same place, and the chosen one
+    click(264 + 10 + 6 * 74 + 8 + 34, 86 + 356 + 80 + 11); // COPY: a second zone in exactly the same place, and the chosen one
     page(1);
     const bool copyChosen = shows(">2 of 2 ");
     page(0);
@@ -212,8 +212,63 @@ int main(int argc, char** argv) {
     page(1);
     check(copyChosen && otherChosen && shows(">2 of 2 "), "where two zones lie on top of each other, a click chooses the other one, and the next click the first again");
     page(0);
-    click(264 + 10 + 5 * 74 + 8 + 74 + 34, 86 + 356 + 80 + 11); // DELETE
+    // FOLLOW: the zone a key plays becomes the chosen one. The engine says which zone the part's newest note plays.
+    const int firstId = sampler.document()->parts[0].zones[0].id, copyId = sampler.document()->parts[0].zones[1].id;
+    sampler.engine.meters.partZone[0].store(firstId);
+    ui->uiIdle();
+    page(1);
+    const bool stays = shows(">2 of 2 ");
+    page(0);
+    check(stays && shows(">FOLLOW<"), "without FOLLOW a note leaves the chosen zone alone");
+    sampler.engine.meters.partZone[0].store(0);
+    ui->uiIdle();
+    click(264 + 3 * 84 + 16 + 40, 86 + 10); // FOLLOW, beside the views
+    sampler.engine.meters.partZone[0].store(firstId);
+    ui->uiIdle();
+    page(1);
+    const bool followed = shows(">1 of 2 ");
+    sampler.engine.meters.partZone[0].store(copyId);
+    ui->uiIdle();
+    check(followed && shows(">2 of 2 "), "with FOLLOW on, the zone the part plays becomes the chosen one, on SAMPLE as well");
+    sampler.engine.meters.partZone[1].store(firstId); // another part plays: not this part's business
+    sampler.engine.meters.partZone[0].store(0);
+    ui->uiIdle();
+    check(shows(">2 of 2 "), "and stays chosen when the note ends");
+    page(0);
+    click(264 + 3 * 84 + 16 + 40, 86 + 10); // off again
+    sampler.engine.meters.partZone[0].store(firstId);
+    ui->uiIdle();
+    page(1);
+    check(shows(">2 of 2 "), "switched off, it follows no more");
+    sampler.engine.meters.partZone[0].store(0);
+    sampler.engine.meters.partZone[1].store(0);
+    page(0);
+    click(264 + 10 + 6 * 74 + 8 + 74 + 34, 86 + 356 + 80 + 11); // DELETE
     check(sampler.document()->parts[0].zones.size() == 1, "DELETE removes the chosen zone", sampler.document()->parts[0].zones.size());
+    // Fades in the MAP view: the chosen zone has a handle half way along each side. The zone covers C0 to C5, velocities 1 to 64.
+    const double loKey = zone0().v[kZLoKey], hiKey = zone0().v[kZHiKey], hiVel = zone0().v[kZHiVel];
+    sampler.edit([](Instrument& doc) { Zone& z = doc.parts[0].zones[0]; z.v[kZFadeLoKey] = z.v[kZFadeHiKey] = z.v[kZFadeLoVel] = z.v[kZFadeHiVel] = 0; });
+    ui->uiIdle();
+    drag(mapX + loKey * mapKey, velY(hiVel / 2), mapX + (loKey + 8) * mapKey, velY(hiVel / 2));
+    check(zone0().v[kZFadeLoKey] == 8 && zone0().v[kZLoKey] == loKey && zone0().v[kZHiKey] == hiKey, "in the MAP view the handle on a zone's side sets its fade over the keys, and leaves its range", zone0().v[kZFadeLoKey]);
+    drag(mapX + (hiKey + 1) * mapKey, velY(hiVel / 2), mapX + (hiKey + 1 - 5) * mapKey, velY(hiVel / 2));
+    check(zone0().v[kZFadeHiKey] == 5 && zone0().v[kZHiKey] == hiKey, "also at its high end", zone0().v[kZFadeHiKey]);
+    const double midX = mapX + (loKey + hiKey + 1) / 2 * mapKey;
+    drag(midX, velY(hiVel) + 2, midX, velY(hiVel - 10)); // just inside the zone: its top edge is not a whole pixel
+    check(zone0().v[kZFadeHiVel] == 10 && zone0().v[kZHiVel] == hiVel, "the handle on its top sets the fade over the velocities", zone0().v[kZFadeHiVel]);
+    drag(midX, velY(0), midX, velY(12));
+    check(zone0().v[kZFadeLoVel] == 12 && zone0().v[kZLoVel] == 1, "and the one on its bottom the fade at the soft end", zone0().v[kZFadeLoVel]);
+    drag(mapX + loKey * mapKey + 2, velY(hiVel / 2) + 30, mapX + (loKey + 2) * mapKey + 2, velY(hiVel / 2) + 30);
+    check(zone0().v[kZLoKey] == loKey + 2 && zone0().v[kZFadeLoKey] == 8, "beside the handle the side itself is still what changes the range", zone0().v[kZLoKey]);
+    drag(mapX + (loKey + 2) * mapKey + 2, velY(hiVel / 2) + 30, mapX + loKey * mapKey + 2, velY(hiVel / 2) + 30);
+    // Fade curve: Power as it always was, or Linear.
+    check(zone0().v[kZFadeCurve] == 0, "a zone's fades keep the power unless told otherwise", zone0().v[kZFadeCurve]);
+    click(264 + 10 + 5 * 74 + 30, 86 + 356 + 82 + 8);
+    const bool offered = shows(">Power<") && shows(">Linear<");
+    click(264 + 10 + 5 * 74 + 10, 86 + 356 + 82 + 20 + 3 + 18 + 9);
+    check(offered && zone0().v[kZFadeCurve] == 1, "Fade curve offers Power and Linear", zone0().v[kZFadeCurve]);
+    sampler.edit([](Instrument& doc) { Zone& z = doc.parts[0].zones[0]; z.v[kZFadeLoKey] = z.v[kZFadeHiKey] = z.v[kZFadeLoVel] = z.v[kZFadeHiVel] = z.v[kZFadeCurve] = 0; });
+    ui->uiIdle();
     view(0);
 
     // SAMPLE: the end marker dragged to the middle of the sound; a loop found by the tool.

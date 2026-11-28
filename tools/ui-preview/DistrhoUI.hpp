@@ -54,6 +54,9 @@ struct FileBrowserOptions {
     const char* title = nullptr;
 };
 struct Window {
+    uint w = 0, h = 0; // the size the window really has, which the UI is told only when it changes
+    uint getWidth() const { return w; }
+    uint getHeight() const { return h; }
     bool focused = false;
     void focus() { focused = true; }
     int cursor = 0; // the shape the UI last gave the mouse
@@ -63,13 +66,33 @@ struct Window {
 };
 enum { kModifierShift = 1, kModifierControl = 2 };
 
-class UI {
+/** The UI as a widget: the size it goes by, which need not be its window's. */
+struct Widget {
+    uint w_ = 0, h_ = 0;
+    void setSize(uint w, uint h) { w_ = w; h_ = h; }
+};
+
+class UI : public Widget {
 public:
     enum { ALIGN_LEFT = 1, ALIGN_CENTER = 2, ALIGN_RIGHT = 4, ALIGN_TOP = 8, ALIGN_MIDDLE = 16 };
     enum Winding { CCW = 1, CW = 2 };
     enum LineCap { BUTT, ROUND };
 
-    UI(uint w, uint h, bool) : w_(w), h_(h) {}
+    /**
+     * As DPF makes a window on Windows: at the design size times the host's scale, while the UI itself is
+     * given the design size and hears of the window's size only when that changes.
+     */
+    UI(uint w, uint h, bool) {
+        w_ = w;
+        h_ = h;
+        window.w = static_cast<uint>(std::lround(w * hostScale()));
+        window.h = static_cast<uint>(std::lround(h * hostScale()));
+    }
+    /** The host's scale for windows, for the UIs made from now on: a test sets it. */
+    static double& hostScale() {
+        static double scale = 1.0;
+        return scale;
+    }
     virtual ~UI() {}
 
     virtual void parameterChanged(uint32_t, float) {}
@@ -103,12 +126,18 @@ public:
     Window& getWindow() { return window; }
 
     bool loadSharedResources() { return true; }
-    double getScaleFactor() const { return 1.0; }
+    double getScaleFactor() const { return hostScale(); }
     double getSampleRate() const { return 48000.0; }
     void repaint() {}
     uint getWidth() const { return w_; }
     uint getHeight() const { return h_; }
-    void setSize(uint w, uint h) { w_ = w; h_ = h; }
+    /** The window takes the size, and tells the UI when that is another size than it had. */
+    void setSize(uint w, uint h) {
+        if (w == window.w && h == window.h) return;
+        window.w = w;
+        window.h = h;
+        Widget::setSize(w, h);
+    }
     // What the UI asked of a window that can be dragged larger and smaller, for the tests.
     uint leastWidth = 0, leastHeight = 0;
     bool keepsShape = false;
@@ -231,7 +260,6 @@ private:
     }
     int gradients_ = 0;
     float lineHeight_ = 1.2f;
-    uint w_, h_;
     template <typename... A> void add(const char* fmt, A... a) {
         char s[200];
         std::snprintf(s, sizeof(s), fmt, a...);

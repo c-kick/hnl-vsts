@@ -70,7 +70,8 @@ enum View { kViewKeys, kViewVelocity, kViewMap, kViewCount }; // of the zones
 const char* const kViewNames[kViewCount] = {"KEYS", "VELOCITY", "MAP"};
 Box viewTab(int v) { return {kWork.x + v * 84.0f, kWork.y, 80, 20}; }
 // What of a zone the mouse holds: nothing of these moves it as a whole.
-enum Grab { kGrabNone = -1, kGrabMove = 0, kGrabLow = 1, kGrabHigh = 2, kGrabTop = 4, kGrabBottom = 8, kGrabFadeLow = 16, kGrabFadeHigh = 32, kGrabListen = 64 };
+enum Grab { kGrabNone = -1, kGrabMove = 0, kGrabLow = 1, kGrabHigh = 2, kGrabTop = 4, kGrabBottom = 8, kGrabFadeLow = 16, kGrabFadeHigh = 32, kGrabListen = 64,
+            kGrabFadeBottom = 128, kGrabFadeTop = 256 }; // the fades over the velocities, in the MAP view
 
 enum Scope { kHost, kOfPart, kOfZone, kShared };
 enum Style { kKnob, kChoiceBox, kToggleBox, kNumber };
@@ -226,7 +227,7 @@ protected:
     void uiIdle() override {
         sampler_->idle();
         if (size_.follow(skin_)) repaint(); // dragged by its edge
-        const bool look = skin_.poll(); // another HNL window chose a look
+        const bool look = skin_.poll() || followPlayed(); // another HNL window chose a look; a key chose a zone
         const uint64_t now = sampler_->revision();
         const int zone = sampler_->engine.meters.zone.load(std::memory_order_relaxed);
         uint32_t keys = 0;
@@ -600,6 +601,30 @@ private:
         repaint();
     }
 
+    /** FOLLOW on the ZONES page: whether the zone a key plays becomes the chosen one. Kept for as long as the host runs. */
+    static bool& follows() {
+        static bool on = false;
+        return on;
+    }
+    /** The zone the chosen part played last becomes the chosen one. True when that chose another zone. */
+    bool followPlayed() {
+        if (!follows()) return false;
+        const int played = sampler_->engine.meters.partZone[part_].load(std::memory_order_relaxed);
+        if (played == followed_) return false;
+        followed_ = played;
+        if (played == 0 || drag_ >= 0 || area_ != kAreaNone || !menu_.items.empty()) return false; // not from under the mouse
+        const std::vector<Zone>& zones = part().zones;
+        for (size_t i = 0; i < zones.size(); ++i) {
+            if (zones[i].id != played) continue;
+            if (static_cast<int>(i) == zone_) return false;
+            zone_ = static_cast<int>(i);
+            showChosen();
+            layout();
+            return true;
+        }
+        return false;
+    }
+
     void editZone(const std::function<void(Zone&, Instrument&)>& change) {
         const int p = part_, z = zone_;
         sampler_->edit([&](Instrument& doc) {
@@ -776,10 +801,13 @@ private:
             help_.add(zp, "ZONE", help::kZone);
             static const int kUpper[13] = {kZLoKey, kZHiKey, kZFadeLoKey, kZFadeHiKey, kZLoVel, kZHiVel, kZFadeLoVel, kZFadeHiVel, kZRoot, kZTune, kZKeyTrack, kZGain, kZPan};
             for (int i = 0; i < 13; ++i) add(kOfZone, kUpper[i], N, px + 10 + i * 74.0f, py + 40, 68);
-            static const int kLower[5] = {kZGroup, kZOffBy, kZSeqLength, kZSeqPosition, kZTrigger};
-            for (int i = 0; i < 5; ++i) add(kOfZone, kLower[i], kLower[i] == kZTrigger ? C : N, px + 10 + i * 74.0f, py + 82, 68);
+            static const int kLower[6] = {kZGroup, kZOffBy, kZSeqLength, kZSeqPosition, kZTrigger, kZFadeCurve};
+            for (int i = 0; i < 6; ++i) add(kOfZone, kLower[i], kLower[i] == kZTrigger || kLower[i] == kZFadeCurve ? C : N, px + 10 + i * 74.0f, py + 82, 68);
             const bool any = zone() != nullptr;
-            buttons_.push_back({{px + 10 + 5 * 74.0f + 8, py + 80, 68, 22}, "COPY", [this] {
+            // The zone a key plays becomes the chosen one, here and on SAMPLE.
+            buttons_.push_back({followBox(), "FOLLOW", [this] { follows() = !follows(); followed_ = 0; }, true, follows()});
+            help_.add(followBox(), "FOLLOW", help::kFollow);
+            buttons_.push_back({{px + 10 + 6 * 74.0f + 8, py + 80, 68, 22}, "COPY", [this] {
                 const int p = part_, z = zone_;
                 sampler_->edit([=](Instrument& doc) {
                     std::vector<Zone>& zones = doc.parts[p].zones;
@@ -792,7 +820,7 @@ private:
                 zone_ = std::max(0, static_cast<int>(part().zones.size()) - 1);
                 showChosen();
             }, any});
-            buttons_.push_back({{px + 10 + 5 * 74.0f + 8 + 74, py + 80, 68, 22}, "DELETE", [this] {
+            buttons_.push_back({{px + 10 + 6 * 74.0f + 8 + 74, py + 80, 68, 22}, "DELETE", [this] {
                 const int p = part_, z = zone_;
                 sampler_->edit([=](Instrument& doc) {
                     if (z < static_cast<int>(doc.parts[p].zones.size())) doc.parts[p].zones.erase(doc.parts[p].zones.begin() + z);
@@ -859,6 +887,7 @@ private:
     Box waveBox() const { return {kWork.x, kWork.y, kWork.w, 344}; }
     Box soundPanel() const { return {kWork.x, kWork.y + 350, kWork.w, 130}; }
     Box chooserBox() const { return {kWork.x + 108, kWork.y + 350, 600, 22}; }
+    Box followBox() const { return {viewTab(kViewCount - 1).x + 84 + 16, kWork.y, 80, 20}; } // beside the views
 
     // ------------------------------------------------------------- drawing
 
@@ -1135,8 +1164,31 @@ private:
             if (zoneBox(zones[i]).contains(x, y)) under.push_back(static_cast<int>(i));
         return under;
     }
-    /** Which part of a zone of the MAP view the mouse holds: an edge, a corner, or the middle to move it. */
-    static int pictureGrab(const Box& b, float x, float y) {
+    /** In the MAP view, where the fades of a zone end inside it: across for the keys, up and down for the velocities. */
+    struct Fades { float lo, hi, bottom, top; };
+    Fades fadesIn(const Zone& z) const {
+        const Box b = zoneBox(z), m = editBox();
+        const float kw = m.w / 128.0f, vh = m.h / 127.0f;
+        return {std::min(b.x + b.w, b.x + kw * static_cast<float>(z.v[kZFadeLoKey])), std::max(b.x, b.x + b.w - kw * static_cast<float>(z.v[kZFadeHiKey])),
+                std::max(b.y, b.y + b.h - vh * static_cast<float>(z.v[kZFadeLoVel])), std::min(b.y + b.h, b.y + vh * static_cast<float>(z.v[kZFadeHiVel]))};
+    }
+    /** The chosen zone has a handle for each fade: for the keys half way up, for the velocities half way across. Not on a zone too small for them. */
+    bool keyHandles(const Zone& z) const { return z.v[kZHiKey] > z.v[kZLoKey] && zoneBox(z).h >= 30; }
+    bool velHandles(const Zone& z) const { return z.v[kZHiVel] > z.v[kZLoVel] && zoneBox(z).w >= 30; }
+    /** Which part of a zone of the MAP view the mouse holds: a fade's handle (`handles`: of the chosen zone, which shows them), an edge, a corner, or the middle to move it. */
+    int pictureGrab(const Zone& z, float x, float y, bool handles) const {
+        const Box b = zoneBox(z);
+        if (handles) {
+            const Fades f = fadesIn(z);
+            if (keyHandles(z) && std::fabs(y - (b.y + b.h * 0.5f)) <= 6) {
+                const float da = std::fabs(x - f.lo), db = std::fabs(x - f.hi);
+                if (da <= 6 || db <= 6) return da < db || (da == db && x < f.lo) ? kGrabFadeLow : kGrabFadeHigh;
+            }
+            if (velHandles(z) && std::fabs(x - (b.x + b.w * 0.5f)) <= 6) {
+                const float da = std::fabs(y - f.bottom), db = std::fabs(y - f.top);
+                if (da <= 6 || db <= 6) return da < db || (da == db && y > f.bottom) ? kGrabFadeBottom : kGrabFadeTop;
+            }
+        }
         const float ex = std::min(7.0f, b.w * 0.3f), ey = std::min(7.0f, b.h * 0.3f);
         return (x < b.x + ex ? kGrabLow : (x > b.x + b.w - ex ? kGrabHigh : 0)) | (y < b.y + ey ? kGrabTop : (y > b.y + b.h - ey ? kGrabBottom : 0));
     }
@@ -1169,14 +1221,14 @@ private:
                 const std::vector<int> under = zonesUnder(x, y);
                 if (!under.empty()) {
                     index = std::find(under.begin(), under.end(), zone_) != under.end() ? zone_ : under.back();
-                    grab = pictureGrab(zoneBox(part().zones[static_cast<size_t>(index)]), x, y);
+                    grab = pictureGrab(part().zones[static_cast<size_t>(index)], x, y, index == zone_);
                 }
             } else grab = barHit(x, y, index);
         }
         int shape = DGL_NAMESPACE::kMouseCursorArrow;
         if (index >= 0 && grab == kGrabListen) shape = DGL_NAMESPACE::kMouseCursorHand;
         else if (index >= 0 && grab != kGrabNone) {
-            const bool across = (grab & (kGrabLow | kGrabHigh | kGrabFadeLow | kGrabFadeHigh)) != 0, up = (grab & (kGrabTop | kGrabBottom)) != 0;
+            const bool across = (grab & (kGrabLow | kGrabHigh | kGrabFadeLow | kGrabFadeHigh)) != 0, up = (grab & (kGrabTop | kGrabBottom | kGrabFadeTop | kGrabFadeBottom)) != 0;
             if (across && up) shape = ((grab & kGrabLow) != 0) == ((grab & kGrabTop) != 0) ? DGL_NAMESPACE::kMouseCursorUpLeftDownRight : DGL_NAMESPACE::kMouseCursorUpRightDownLeft;
             else shape = across ? DGL_NAMESPACE::kMouseCursorLeftRight : (up ? DGL_NAMESPACE::kMouseCursorUpDown : DGL_NAMESPACE::kMouseCursorHand);
         }
@@ -1309,6 +1361,7 @@ private:
             const Sample* s = doc_->findSample(zones[i].sample);
             const uint32_t colour = zoneColour(zones[i], k);
             fillBox({b.x + 0.5f, b.y + 0.5f, b.w - 1, b.h - 1}, colour, 2, chosen ? 0.55f : 0.22f);
+            drawFades(zones[i], b, chosen, k);
             edge({b.x + 0.5f, b.y + 0.5f, b.w - 1, b.h - 1}, chosen ? k.text : colour, 2, chosen ? 1.5f : 0.8f);
             if (b.w > 40 && b.h > 18 && s != nullptr) { // its sound, its keys and, when not all, its velocities: on a dark strip, so that it reads on any zone
                 std::string text = fileName(s->path) + "   " + keyName(static_cast<int>(zones[i].v[kZLoKey])) + " to " + keyName(static_cast<int>(zones[i].v[kZHiKey]));
@@ -1333,6 +1386,43 @@ private:
         }
     }
 
+    /** MAP: where a zone fades it grows darker towards that end; the chosen zone has a line where each fade ends, with a handle to drag. */
+    void drawFades(const Zone& z, const Box& b, bool chosen, const hnl::ui::Skin& k) {
+        const Fades f = fadesIn(z);
+        const int kBands = 6;
+        const auto shade = [&](float from, float to, bool across) { // from the zone's end inward, in bands
+            if (std::fabs(to - from) < 1.0f) return;
+            for (int i = 0; i < kBands; ++i) {
+                const float a = from + (to - from) * i / kBands, c = from + (to - from) * (i + 1) / kBands;
+                const Box band = across ? Box{std::min(a, c), b.y + 1, std::fabs(c - a), b.h - 2} : Box{b.x + 1, std::min(a, c), b.w - 2, std::fabs(c - a)};
+                fillBox(band, k.well, 0, 0.62f * (1.0f - (i + 0.5f) / kBands));
+            }
+        };
+        shade(b.x, f.lo, true);
+        shade(b.x + b.w, f.hi, true);
+        shade(b.y + b.h, f.bottom, false);
+        shade(b.y, f.top, false);
+        if (!chosen) return;
+        const bool hover = hoverZone_ == zone_;
+        const float cx = b.x + b.w * 0.5f, cy = b.y + b.h * 0.5f;
+        const auto handle = [&](float x, float y, int grab) {
+            const float r = hover && hoverGrab_ == grab ? 4.5f : 3.0f;
+            fillBox({x - r, y - r, 2 * r, 2 * r}, k.text, 1);
+        };
+        if (keyHandles(z)) {
+            if (f.lo > b.x + 1) line(f.lo, b.y + 2, f.lo, b.y + b.h - 2, k.text, 1.0f, 0.55f);
+            if (f.hi < b.x + b.w - 1) line(f.hi, b.y + 2, f.hi, b.y + b.h - 2, k.text, 1.0f, 0.55f);
+            handle(f.lo, cy, kGrabFadeLow);
+            handle(f.hi, cy, kGrabFadeHigh);
+        }
+        if (velHandles(z)) {
+            if (f.bottom < b.y + b.h - 1) line(b.x + 2, f.bottom, b.x + b.w - 2, f.bottom, k.text, 1.0f, 0.55f);
+            if (f.top > b.y + 1) line(b.x + 2, f.top, b.x + b.w - 2, f.top, k.text, 1.0f, 0.55f);
+            handle(cx, f.bottom, kGrabFadeBottom);
+            handle(cx, f.top, kGrabFadeTop);
+        }
+    }
+
     bool mapDown(float x, float y) {
         const std::vector<int> under = zonesUnder(x, y);
         pressX_ = x;
@@ -1342,7 +1432,7 @@ private:
         const bool was = std::find(under.begin(), under.end(), zone_) != under.end();
         if (!was) zone_ = under.back(); // the one drawn last, on top
         moved_ = !was; // a click on the chosen zone that does not drag it goes on to the next zone under the mouse
-        grab_ = pictureGrab(zoneBox(part().zones[static_cast<size_t>(zone_)]), x, y);
+        grab_ = pictureGrab(part().zones[static_cast<size_t>(zone_)], x, y, was); // a fade's handle only of the zone that showed it
         area_ = kAreaMap;
         grabUnit_ = static_cast<int>((x - editBox().x) / (editBox().w / 128.0f));
         layout();
@@ -1364,8 +1454,15 @@ private:
         if (std::fabs(x - pressX_) + std::fabs(y - pressY_) > 3) moved_ = true;
         const int grab = grab_, by = key - grabUnit_;
         if (!moved_ || (grab == kGrabMove && by == 0)) return;
+        const double atKey = (x - m.x) / (m.w / 128.0f), atVel = (1.0 - (y - m.y) / m.h) * 127.0; // in keys from the left, in velocities from the bottom
         editZone([=](Zone& z, Instrument&) {
             const double lo = z.v[kZLoKey], hi = z.v[kZHiKey];
+            // A fade: over how many keys, or velocities, from that end of the range to where the mouse is.
+            if (grab == kGrabFadeLow) z.v[kZFadeLoKey] = std::clamp(std::floor(atKey - lo + 0.5), 0.0, hi - lo);
+            if (grab == kGrabFadeHigh) z.v[kZFadeHiKey] = std::clamp(std::floor(hi + 1.0 - atKey + 0.5), 0.0, hi - lo);
+            if (grab == kGrabFadeBottom) z.v[kZFadeLoVel] = std::clamp(std::floor(atVel - (z.v[kZLoVel] - 1.0) + 0.5), 0.0, z.v[kZHiVel] - z.v[kZLoVel]);
+            if (grab == kGrabFadeTop) z.v[kZFadeHiVel] = std::clamp(std::floor(z.v[kZHiVel] - atVel + 0.5), 0.0, z.v[kZHiVel] - z.v[kZLoVel]);
+            if (grab >= kGrabFadeLow) return;
             if (grab == kGrabMove) { // moved as a whole, its root with it
                 const double shift = std::clamp(static_cast<double>(by), -lo, 127.0 - hi);
                 z.v[kZLoKey] = lo + shift; z.v[kZHiKey] = hi + shift; z.v[kZRoot] = std::clamp(z.v[kZRoot] + shift, 0.0, 127.0);
@@ -2163,6 +2260,7 @@ private:
     int page_ = kPageMap, part_ = 0, zone_ = 0;
     int view_ = kViewKeys, listScroll_ = 0;           // ZONES: which view, and the first row of the list
     int hoverZone_ = -1, hoverGrab_ = kGrabNone;      // what the mouse rests on there
+    int followed_ = 0;                                // FOLLOW: the zone the chosen part was last seen playing
     int cursor_ = 0, grabUnit_ = 0, viewSound_ = 0;   // the mouse's shape; the key or velocity a drag is at; the sound the wave view shows
     float pressX_ = 0, pressY_ = 0;
     bool moved_ = false;

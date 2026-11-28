@@ -179,6 +179,20 @@ static void fades() {
         worst = std::max(worst, std::fabs(a * a + b * b - 1.0));
     }
     check(worst < 1e-6 && zoneFade(low.v, 56, 100) == 1.0f && zoneFade(low.v, 60, 100) < zoneFade(low.v, 59, 100), "fades: a zone fading out and its neighbour fading in keep the power (worst)", "%.2g", worst);
+    // The other curve: the levels of the two add up to one, and the zones say so in a saved instrument.
+    low.v[kZFadeCurve] = high.v[kZFadeCurve] = 1;
+    double worstLinear = 0;
+    for (int key = 48; key <= 72; ++key) {
+        const double a = key <= 60 ? zoneFade(low.v, key, 100) : 0.0, b = key >= 57 ? zoneFade(high.v, key, 100) : 0.0;
+        worstLinear = std::max(worstLinear, std::fabs(a + b - 1.0));
+    }
+    check(worstLinear < 1e-6 && zoneFade(low.v, 56, 100) == 1.0f && std::fabs(zoneFade(low.v, 59, 100) - 0.4f) < 1e-6f, "fades: with the curve Linear the two levels add up to one (worst)", "%.2g", worstLinear);
+    Instrument curved, back;
+    curved.parts[0].zones.push_back(low);
+    curved.parts[0].zones.push_back(Zone());
+    const bool read = fromText(toText(curved), back) && back.parts[0].zones.size() == 2;
+    check(read && back.parts[0].zones[0].v[kZFadeCurve] == 1 && back.parts[0].zones[1].v[kZFadeCurve] == 0 && toText(Instrument()).find("fade_curve") == std::string::npos,
+          "fades: the curve is kept with the zone, and an instrument without it reads as Power", "%.0f", read ? back.parts[0].zones[0].v[kZFadeCurve] : -1.0);
     Zone plain;
     check(zoneFade(plain.v, 0, 1) == 1.0f && zoneFade(plain.v, 127, 127) == 1.0f, "fades: a zone without fades is at full level everywhere", "%.3f", zoneFade(plain.v, 0, 1));
 

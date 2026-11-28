@@ -3,7 +3,8 @@
 
 // The size of a window (common/ui/WindowSize.hpp): it opens at its design size, the cog's list
 // offers the sizes, a choice resizes the window at once and is kept for the next time, a window
-// dragged by its edge is kept once it stands still, and the host is told nothing. Runs a
+// dragged by its edge is kept once it stands still, the host is told nothing, and on a display
+// the host scales (125 %) a click lands on what is drawn. Runs a
 // plugin's UI class on the drawing stand-in in tools/ui-preview, with HNL_SETTINGS_DIR set to
 // a folder the test may empty (tests/run.sh does that).
 #include <cmath>
@@ -114,6 +115,25 @@ int main() {
     DISTRHO::UI* const plain = DISTRHO::createUI();
     check(plain->getWidth() == w && plain->getHeight() == h, "a new window opens at the design size");
     delete plain;
+
+    // A display the host scales to 125 %, as Cubase and Studio One report it on Windows: the window is made
+    // that much larger, and the UI is not told (tools/ui-preview/DistrhoUI.hpp does as DPF does there).
+    DISTRHO::UI::hostScale() = 1.25;
+    DISTRHO::UI* const scaled = DISTRHO::createUI();
+    check(scaled->getWindow().getWidth() == times(w, 1.25) && scaled->getWidth() == times(w, 1.25) && scaled->getHeight() == times(h, 1.25),
+          "on a display scaled to 125 % the UI goes by the size its window really has");
+    check(scaled->leastWidth == times(w, 1.25 * 0.75), "and can be dragged down to three quarters of that");
+    click(scaled, 1.25f * cogX, 1.25f * cogY);
+    check(listed(scaled), "a click lands on what is drawn there: the cog opens its list");
+    click(scaled, cogX, cogY); // where the cog would be in a window that is not scaled: beside the list, which closes
+    check(!listed(scaled), "and not 1.25 times further right and down");
+    for (int i = 0; i <= 2 * hnl::ui::SkinMenu::kPollEvery; ++i) scaled->uiIdle();
+    check(kept(file) == 100, "the host's scale is not taken for a size the user chose");
+    scaled->Widget::setSize(static_cast<unsigned>(w), static_cast<unsigned>(h)); // the UI loses track of its window once more
+    scaled->uiIdle();
+    check(scaled->getWidth() == times(w, 1.25), "a UI that has another size than its window finds that out by itself");
+    delete scaled;
+    DISTRHO::UI::hostScale() = 1.0;
 
     fs::remove_all(dir);
     std::printf("%s\n", failures == 0 ? "ALL PASS" : "FAILED");

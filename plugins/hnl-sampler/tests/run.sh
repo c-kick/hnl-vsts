@@ -11,6 +11,7 @@
 #   abuse_test      the same, by a host that does everything a host may do (common/tests/HostAbuse.hpp)
 #   ui_test         the UI class itself, clicked and dragged, on the drawing stand-in of tools/ui-preview
 #   ui_skin_test    the choice of look, shared by all plugins (common/tests/ui_skin_test.cpp)
+#   ui_size_test    the size of the window, also on a display the host scales (common/tests/ui_size_test.cpp)
 set -e
 cd "$(dirname "$0")/.."
 ROOT=../..
@@ -47,3 +48,6 @@ HNL_PRESET_DIR="$PWD/$OUT/ui/presets" HOME="$PWD/$OUT/ui" USERPROFILE="$PWD/$OUT
 # The choice of look, shared by all plugins (common/tests/ui_skin_test.cpp).
 g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_skin_test" $ROOT/common/tests/ui_skin_test.cpp SamplerUI.cpp -lpthread
 HNL_PRESET_DIR="$PWD/$OUT/ui/presets" HOME="$PWD/$OUT/ui" USERPROFILE="$PWD/$OUT/ui" "$OUT/ui_skin_test"
+# The size of the window, shared by all plugins (common/tests/ui_size_test.cpp).
+g++ -std=gnu++17 -O1 -Wall -Wextra -I$ROOT/tools/ui-preview -I. -o "$OUT/ui_size_test" $ROOT/common/tests/ui_size_test.cpp SamplerUI.cpp FactoryData.cpp -lpthread
+HNL_PRESET_DIR="$PWD/$OUT/ui/presets" HOME="$PWD/$OUT/ui" USERPROFILE="$PWD/$OUT/ui" "$OUT/ui_size_test"

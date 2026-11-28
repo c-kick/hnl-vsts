@@ -156,7 +156,9 @@ public:
         std::atomic<uint32_t> keys[4];   // which keys sound, a bit each
         std::atomic<int> zone{0};        // the zone of the newest voice, and how far along its sound it is (0..1)
         std::atomic<float> position{0.0f};
+        std::atomic<int> partZone[kParts]; // for each part the zone of its newest voice; 0 when it sounds none
         Meters() {
+            for (auto& z : partZone) z.store(0);
             for (auto& p : outPeak) p.store(0.0f);
             for (auto& p : partPeak) p.store(0.0f);
             for (auto& k : keys) k.store(0u);
@@ -1152,12 +1154,16 @@ private:
         uint32_t keys[4] = {0u, 0u, 0u, 0u};
         int count = 0;
         const Voice* newest = nullptr;
+        const Voice* newestOf[kParts] = {};
         for (const Voice& v : voices_) {
             if (!v.active) continue;
             ++count;
             if (!v.released) keys[(v.key >> 5) & 3] |= 1u << (v.key & 31);
-            if (v.data != nullptr && (newest == nullptr || v.order > newest->order)) newest = &v;
+            if (v.data == nullptr) continue;
+            if (newest == nullptr || v.order > newest->order) newest = &v;
+            if (v.part >= 0 && v.part < kParts && (newestOf[v.part] == nullptr || v.order > newestOf[v.part]->order)) newestOf[v.part] = &v;
         }
+        for (int p = 0; p < kParts; ++p) meters.partZone[p].store(newestOf[p] != nullptr ? newestOf[p]->zoneId : 0, std::memory_order_relaxed);
         meters.voices.store(count, std::memory_order_relaxed);
         for (int i = 0; i < 4; ++i) meters.keys[i].store(keys[i], std::memory_order_relaxed);
         meters.zone.store(newest != nullptr ? newest->zoneId : 0, std::memory_order_relaxed);
