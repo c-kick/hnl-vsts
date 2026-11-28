@@ -20,7 +20,7 @@ yourself, see [BUILDING-MACOS.md](BUILDING-MACOS.md).
     <th align="left"><a href="plugins/hnl-analyzer">HNL Analyzer</a></th>
   </tr>
   <tr>
-    <td valign="top">Mastering analysis after the chain: loudness (LUFS), true peak, PLR, loudness range, RMS statistics and histogram, spectrum and stereo figures of a whole track, captured while the host plays it; an advisor for loudness targets, and comparison with a reference: a sound file, a saved analysis or the capture before. Does not change the sound<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Analyzer-win64.zip"><b>Download</b></a> · <!-- version:hnl-analyzer -->v0.1.0<!-- /version --> · alpha · Windows 64-bit, VST3 and CLAP</td>
+    <td valign="top">Mastering analysis after the chain: loudness (LUFS), true peak, PLR, loudness range, RMS statistics and histogram, spectrum and stereo figures of a whole track, captured while the host plays it; an advisor for loudness targets, and comparison with a reference: a sound file, a saved analysis or the capture before. Finds HNL Master in the same song, shows its meters, and sets its limiter by the advice in one click. Does not change the sound<br><br><a href="https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Analyzer-win64.zip"><b>Download</b></a> · <!-- version:hnl-analyzer -->v0.1.0<!-- /version --> · alpha · Windows 64-bit, VST3 and CLAP</td>
   </tr>
   <tr>
     <td rowspan="2" width="380"><a href="plugins/hnl-channel-spacer"><img src="plugins/hnl-channel-spacer/docs/preview.png" alt="HNL Channel Spacer" width="360"></a></td>
