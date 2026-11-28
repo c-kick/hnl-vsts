@@ -403,11 +403,16 @@ public:
         return true;
     }
 
-    /** Plays a sound file as it is, to hear it before using it. An empty path stops it. */
-    void preview(const std::string& path) {
+    /**
+     * Plays a sound file as it is, to hear it before using it, or the stretch of it a zone plays: from frame
+     * `from` up to `to` (0: its end). An empty path stops it.
+     */
+    void preview(const std::string& path, long long from = 0, long long to = 0) {
         if (path.empty()) { stopPreview_.store(true, std::memory_order_release); return; }
         std::lock_guard<std::mutex> lock(jobMutex_);
         previewPath_ = path;
+        previewFrom_ = from;
+        previewTo_ = to;
         jobReady_.notify_all();
     }
 
@@ -428,7 +433,8 @@ public:
     void begin() {
         if (const Instrument* doc = pending_.exchange(nullptr, std::memory_order_acq_rel)) engine.setDocument(doc);
         if (engine.previewRoom())
-            if (const AudioData* sound = pendingPreview_.exchange(nullptr, std::memory_order_acq_rel)) engine.setPreview(sound);
+            if (const AudioData* sound = pendingPreview_.exchange(nullptr, std::memory_order_acq_rel)) // the engine keeps the stretch inside the sound, whatever it is given
+                engine.setPreview(sound, pendingFrom_.load(std::memory_order_acquire), pendingTo_.load(std::memory_order_acquire));
         if (stopPreview_.exchange(false, std::memory_order_acq_rel)) engine.stopPreview();
     }
 
@@ -526,11 +532,12 @@ private:
     void work() {
         for (;;) {
             std::string path, preview;
+            long long from = 0, to = 0;
             {
                 std::unique_lock<std::mutex> lock(jobMutex_);
                 jobReady_.wait(lock, [this] { return quit_ || !jobs_.empty() || !previewPath_.empty(); });
                 if (quit_) return;
-                if (!previewPath_.empty()) preview.swap(previewPath_); // listening comes before loading
+                if (!previewPath_.empty()) { preview.swap(previewPath_); from = previewFrom_; to = previewTo_; } // listening comes before loading
                 else { path = jobs_.front(); jobs_.pop_front(); }
             }
             std::string error;
@@ -539,6 +546,8 @@ private:
                     std::lock_guard<std::mutex> lock(docMutex_);
                     collect();
                     previews_.push_back(sound);
+                    pendingFrom_.store(from, std::memory_order_release);
+                    pendingTo_.store(to, std::memory_order_release);
                     // The one that was waiting and that the audio thread never took can go at once.
                     if (const AudioData* skipped = pendingPreview_.exchange(sound.get(), std::memory_order_acq_rel)) dropPreview(skipped);
                 }
@@ -575,6 +584,7 @@ private:
     std::vector<std::string> notes_;
     std::atomic<const Instrument*> pending_{nullptr};
     std::atomic<const AudioData*> pendingPreview_{nullptr};
+    std::atomic<long long> pendingFrom_{0}, pendingTo_{0}; // the stretch of it to play
     std::atomic<bool> stopPreview_{false};
     std::atomic<uint64_t> revision_{1};
     std::atomic<int> loading_{0};
@@ -585,6 +595,7 @@ private:
     std::condition_variable jobReady_;
     std::deque<std::string> jobs_;
     std::string previewPath_;
+    long long previewFrom_ = 0, previewTo_ = 0;
     bool quit_ = false;
     std::thread worker_;
 };

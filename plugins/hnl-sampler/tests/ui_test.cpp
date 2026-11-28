@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
     // ZONES, the KEYS view: a row with a bar that covers all keys. Its right end dragged to the middle, then the whole
     // moved up an octave, then the end of its fade line dragged ten keys inward.
     const auto zone0 = [&] { return sampler.document()->parts[0].zones[0]; };
-    const double barX = 264 + 200, barW = 976 - 210, keyU = barW / 128.0, velU = barW / 127.0, row0 = 86 + 24 + 18; // where the bars are, and the top of the first row
+    const double barX = 264 + 310, barW = 976 - 320, keyU = barW / 128.0, velU = barW / 127.0, row0 = 86 + 24 + 18; // where the bars are, and the top of the first row
     check(shows(">KEYS<") && shows(">a tone.wav<") && shows(">1 zone<"), "ZONES opens on the KEYS view: a row for the zone, with the name of its sound");
     drag(barX + barW - 2, row0 + 15, barX + 60.5 * keyU, row0 + 15);
     check(zone0().v[kZHiKey] == 60, "dragging the end of a zone's bar changes its range", zone0().v[kZHiKey]);
@@ -164,6 +164,26 @@ int main(int argc, char** argv) {
     drag(barX + 12 * keyU - 5, row0 + 15, barX + 10.5 * keyU, row0 + 15);
     check(zone0().v[kZLoKey] == 10, "the end of a bar can be taken hold of just beside it", zone0().v[kZLoKey]);
     drag(barX + 10.5 * keyU, row0 + 15, barX + 12.5 * keyU, row0 + 15);
+
+    // The loudspeaker in a row plays that zone's sound through the plugin, without a note.
+    {
+        sampler.prepare(48000.0);
+        std::vector<float> block(16 * 256, 0.0f);
+        float* outs[16];
+        for (int c = 0; c < 16; ++c) outs[c] = block.data() + c * 256;
+        double before = 0, heard = 0;
+        for (int i = 0; i < 300; ++i) sampler.process(outs, 256); // the file that was listened to before it was added plays out first
+        sampler.process(outs, 256);
+        for (int i = 0; i < 256; ++i) before = std::max(before, static_cast<double>(std::fabs(outs[0][i])));
+        click(264 + 310 - 62 + 10, row0 + 11);
+        for (int tries = 0; tries < 300 && heard < 0.01; ++tries) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            sampler.process(outs, 256);
+            for (int i = 0; i < 256; ++i) heard = std::max(heard, static_cast<double>(std::fabs(outs[0][i])));
+        }
+        check(before == 0.0 && heard > 0.01, "the loudspeaker in a zone's row plays its sound", heard);
+        sampler.reset();
+    }
 
     // The VELOCITY view: the same row, its bar now the velocities.
     view(1);

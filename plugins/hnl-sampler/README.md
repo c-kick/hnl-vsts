@@ -59,7 +59,7 @@ The row of numbers chooses the part; the pages work on that part.
 
 | Page | What is on it |
 | --- | --- |
-| ZONES | The zones of the part, in three views. KEYS and VELOCITY give every zone a row with the name of its sound and a bar for the keys or the velocities it covers: drag the middle of a bar to move it, an end to change its range, and an end of the line above it to set a fade. MAP shows all zones in one picture, keys across and velocities up; where zones lie on top of each other, each click chooses the next one. Below it the chosen zone's settings: ranges and fades, root key, tune, key track, gain, pan, group and choked by (one zone cutting off another, as a closed hi-hat does the open one), round robin, and whether it sounds on the key going down or coming up. |
+| ZONES | The zones of the part, in three views. KEYS and VELOCITY give every zone a row with the name of its sound, a small loudspeaker that plays what the zone plays of it, and a bar for the keys or the velocities it covers: drag the middle of a bar to move it, an end to change its range, and an end of the line above it to set a fade. MAP shows all zones in one picture, keys across and velocities up; where zones lie on top of each other, each click chooses the next one. Below it the chosen zone's settings: ranges and fades, root key, tune, key track, gain, pan, group and choked by (one zone cutting off another, as a closed hi-hat does the open one), round robin, and whether it sounds on the key going down or coming up. |
 | SAMPLE | The chosen zone's sound, with markers to drag for start, end and loop, a ruler in seconds, and every place shown in samples and as time. The arrows and the list above the settings choose which zone is shown. Other zones that play from the same sound, such as the slices of a drum loop, are marked in the wave with their keys; a click in one chooses it. Loop forward, back and forth or backward, with a crossfade; reverse; one shot. Tools: find a loop without a bump, detect the pitch, normalise, and cut a drum loop into a zone per hit. |
 | SYNTH | Oscillator (sine, triangle, sawtooth, square, pulse) and noise, playing along with the sample or alone; a modulation oscillator for FM, AM and ring modulation of sample and oscillator; unison of up to eight and chords of up to four notes inside one voice; saturation and a filter for every note on its own; three envelopes. |
 | MOD | Three LFOs, a row of sixteen steps, the eight macros (click a name to type another), and the matrix: twelve rows of source, via, target and amount. |
@@ -150,6 +150,14 @@ everything a host may do (`common/tests/HostAbuse.hpp`), and the UI class clicke
 stand-in (`ui_test`).
 
 ## Changelog
+
+### 0.5.0 (2026-11-28)
+
+- New: every row of the zone list has a small loudspeaker. A click plays what that zone plays of its sound, from its
+  start to its end, as it is on disk: without the zone's tuning and level and without the part's filter and envelopes.
+  It is the quickest way to tell slices and layers apart.
+- Changed: the names in the zone list have half as much room again (310 pixels, it was 200), so that long file names
+  are no longer cut. The bars are that much narrower.
 
 ### 0.4.0 (2026-11-27)
 

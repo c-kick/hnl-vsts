@@ -220,11 +220,16 @@ public:
         return released_[--releasedCount_];
     }
 
-    /** Plays a sound as it is, apart from the document, for listening to a file before using it. Null stops it. */
-    void setPreview(const AudioData* data) {
+    /**
+     * Plays a sound as it is, apart from the document, for listening to a file before using it or to the
+     * stretch of it that a zone plays: from frame `from` up to `to` (0 or less: its end). Null stops it.
+     */
+    void setPreview(const AudioData* data, long long from = 0, long long to = 0) {
         releasePreview();
         preview_.data = data;
-        preview_.pos = 0.0;
+        const long long frames = data != nullptr ? static_cast<long long>(data->frames()) : 0;
+        preview_.end = to > 0 && to < frames ? to : frames;
+        preview_.pos = static_cast<double>(std::clamp(from, 0LL, std::max(0LL, preview_.end - 1)));
         preview_.gain = 1.0f;
         preview_.stopping = false;
     }
@@ -384,6 +389,7 @@ private:
     struct Preview {
         const AudioData* data = nullptr;
         double pos = 0.0;
+        long long end = 0; // the frame it plays up to
         float gain = 1.0f;
         bool stopping = false;
     };
@@ -1125,8 +1131,11 @@ private:
         ReadWindow w;
         w.hi = frames;
         const float fade = static_cast<float>(1.0 / (0.005 * fs_));
+        // A stretch that stops before the sound does is faded out over its last 5 ms, so that it does not end in a click.
+        const double fadeFrom = preview_.end < frames ? static_cast<double>(preview_.end) - 0.005 * fs_ * inc : static_cast<double>(frames);
         for (int i = 0; i < n; ++i) {
-            if (preview_.pos >= static_cast<double>(frames) || preview_.gain <= 0.0f) {
+            if (preview_.pos >= fadeFrom) preview_.stopping = true;
+            if (preview_.pos >= static_cast<double>(preview_.end) || preview_.gain <= 0.0f) {
                 releasePreview();
                 return;
             }

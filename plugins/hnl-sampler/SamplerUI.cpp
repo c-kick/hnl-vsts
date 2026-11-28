@@ -70,7 +70,7 @@ enum View { kViewKeys, kViewVelocity, kViewMap, kViewCount }; // of the zones
 const char* const kViewNames[kViewCount] = {"KEYS", "VELOCITY", "MAP"};
 Box viewTab(int v) { return {kWork.x + v * 84.0f, kWork.y, 80, 20}; }
 // What of a zone the mouse holds: nothing of these moves it as a whole.
-enum Grab { kGrabNone = -1, kGrabMove = 0, kGrabLow = 1, kGrabHigh = 2, kGrabTop = 4, kGrabBottom = 8, kGrabFadeLow = 16, kGrabFadeHigh = 32 };
+enum Grab { kGrabNone = -1, kGrabMove = 0, kGrabLow = 1, kGrabHigh = 2, kGrabTop = 4, kGrabBottom = 8, kGrabFadeLow = 16, kGrabFadeHigh = 32, kGrabListen = 64 };
 
 enum Scope { kHost, kOfPart, kOfZone, kShared };
 enum Style { kKnob, kChoiceBox, kToggleBox, kNumber };
@@ -1072,12 +1072,20 @@ private:
 
     // --------------------------------------------------------------- zones
 
-    static constexpr float kNameW = 200, kRulerH = 18, kBarRow = 22; // KEYS and VELOCITY: a row for every zone, its name and its bar
+    static constexpr float kNameW = 310, kRulerH = 18, kBarRow = 22; // KEYS and VELOCITY: a row for every zone, its name and its bar
     Box barsBox() const {
         const Box e = editBox();
         return {e.x + kNameW, e.y + kRulerH, e.w - kNameW - 10, e.h - kRulerH};
     }
     int barRows() const { return static_cast<int>(barsBox().h / kBarRow); }
+    /** In a row of the list, between the name and the root key: the button that lets the zone's sound be heard. */
+    Box listenBox(int row) const { return {editBox().x + kNameW - 62, barsBox().y + row * kBarRow + 4, 20, 14}; }
+    /** Plays what a zone plays of its sound, as it is on disk: without the zone's tuning, level or the part's filter. */
+    void listenTo(const Zone& z) {
+        const Sample* s = doc_->findSample(z.sample);
+        if (s == nullptr || s->missing) return;
+        sampler_->preview(s->path, static_cast<long long>(z.v[kZStart]), static_cast<long long>(z.v[kZEnd]));
+    }
     float barUnit() const { return barsBox().w / (view_ == kViewKeys ? 128.0f : 127.0f); }
     /** Where a zone's bar begins and ends, and where its fades end inside it. */
     struct Span { float a, b, fa, fb; };
@@ -1140,6 +1148,7 @@ private:
         const int row = static_cast<int>((y - r.y) / kBarRow), i = listScroll_ + row;
         if (row >= barRows() || i < 0 || i >= static_cast<int>(part().zones.size())) return kGrabNone;
         index = i;
+        if (listenBox(row).contains(x, y)) return kGrabListen;
         if (x < r.x - 6) return kGrabNone; // on its name
         const Span s = span(part().zones[static_cast<size_t>(i)]);
         if (y < r.y + row * kBarRow + 9) { // the line above the bar: its fades
@@ -1165,7 +1174,8 @@ private:
             } else grab = barHit(x, y, index);
         }
         int shape = DGL_NAMESPACE::kMouseCursorArrow;
-        if (index >= 0 && grab != kGrabNone) {
+        if (index >= 0 && grab == kGrabListen) shape = DGL_NAMESPACE::kMouseCursorHand;
+        else if (index >= 0 && grab != kGrabNone) {
             const bool across = (grab & (kGrabLow | kGrabHigh | kGrabFadeLow | kGrabFadeHigh)) != 0, up = (grab & (kGrabTop | kGrabBottom)) != 0;
             if (across && up) shape = ((grab & kGrabLow) != 0) == ((grab & kGrabTop) != 0) ? DGL_NAMESPACE::kMouseCursorUpLeftDownRight : DGL_NAMESPACE::kMouseCursorUpRightDownLeft;
             else shape = across ? DGL_NAMESPACE::kMouseCursorLeftRight : (up ? DGL_NAMESPACE::kMouseCursorUpDown : DGL_NAMESPACE::kMouseCursorHand);
@@ -1240,7 +1250,24 @@ private:
             const Sample* s = doc_->findSample(z.sample);
             const uint32_t colour = zoneColour(z, k);
             const std::string name = s != nullptr ? fileName(s->path) : "No sound";
-            fitted(name, e.x + 10, y + 11, 9.5f, kNameW - 50, rgb(s != nullptr && s->missing ? k.red : k.text, chosen ? 1.0f : 0.78f));
+            fitted(name, e.x + 10, y + 11, 9.5f, kNameW - 80, rgb(s != nullptr && s->missing ? k.red : k.text, chosen ? 1.0f : 0.78f));
+            if (s != nullptr && !s->missing) { // a small loudspeaker: a click plays what this zone plays of its sound
+                const Box b = listenBox(row);
+                const bool lit = hover && hoverGrab_ == kGrabListen;
+                fillBox(b, lit ? k.accent : k.track, 3);
+                const Color ink = rgb(lit ? inkOn(k) : k.text);
+                const float cx = b.x + 7, cy = b.y + b.h * 0.5f;
+                beginPath();
+                rect(cx - 3, cy - 2, 3, 4);
+                fillColor(ink);
+                UI::fill();
+                hnl::ui::triangle(*this, cx - 1, cy, cx + 3, cy - 4.5f, cx + 3, cy + 4.5f, ink);
+                beginPath();
+                arc(cx + 3.5f, cy, 4, -0.9f, 0.9f, CW);
+                strokeColor(ink);
+                strokeWidth(1.2f);
+                stroke();
+            }
             label(keyName(static_cast<int>(z.v[kZRoot])).c_str(), e.x + kNameW - 8, y + 11, kSmall, rgb(k.dim), ALIGN_RIGHT | ALIGN_MIDDLE);
             const Span sp = span(z);
             float fa = sp.fa, fb = sp.fb;
@@ -1358,7 +1385,8 @@ private:
         if (index < 0) return true;
         zone_ = index;
         grab_ = grab;
-        if (grab != kGrabNone) {
+        if (grab == kGrabListen) listenTo(part().zones[static_cast<size_t>(index)]);
+        else if (grab != kGrabNone) {
             area_ = kAreaMap;
             grabUnit_ = static_cast<int>(std::floor((x - barsBox().x) / barUnit()));
         }

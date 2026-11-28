@@ -213,6 +213,23 @@ static void fades() {
     check(std::fabs(20 * std::log10(got[1] / got[0] / soft)) < 0.1, "fades: and so does a soft note inside a fade over velocities", "%.2f dB", 20 * std::log10(got[1] / got[0]));
 }
 
+/** Listening to the stretch of a sound that a zone plays. */
+static void listening() {
+    Rig r;
+    auto d = sine(440.0, 1.0, 0.1);
+    for (size_t i = 24000; i < 48000; ++i) d->samples[0][i] *= 5.0f; // the second half is the loud one
+    r.engine->setPreview(d.get(), 24000, 36000);
+    r.run(0.5);
+    const double loud = rms(r.out[0], 1200, 10800), after = peak(r.out[0], 12100, 24000), step = largestStep(r.out[0], 11000, 12100);
+    check(std::fabs(loud / (0.7 * 0.5 / std::sqrt(2.0)) - 1.0) < 0.02 && after == 0.0 && step < 0.05,
+          "listening: a stretch of a sound plays from its start to its end, and ends without a click", "%.3f rms, %.3f after, %.3f step", loud, after, step);
+    while (r.engine->takeReleasedPreview() != nullptr) {}
+    r.clear();
+    r.engine->setPreview(d.get(), 900000, -5); // a stretch that is not in the sound
+    r.run(0.1);
+    check(peak(r.out[0]) == peak(r.out[0]) && peak(r.out[0]) <= 0.5, "listening: a stretch outside the sound does no harm", "%.3f", peak(r.out[0]));
+}
+
 static void pitchAndLevel() {
     for (double fs : {44100.0, 48000.0, 96000.0}) {
         Rig r(fs);
@@ -1205,6 +1222,7 @@ int main() {
     documentAsText();
     pitchAndLevel();
     fades();
+    listening();
     interpolation();
     loops();
     reverseAndStart();
