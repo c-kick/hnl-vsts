@@ -164,7 +164,32 @@ With more than one HNL Master (one on a bus, one on the master) those in this ho
 *1 of 2*, and a click on it steps to the next. Which one it is shows in *Master to here*: 0.0 for the one whose
 sound arrives here. That choice is not kept with the song yet.
 
-This only reads. Nothing in HNL Master is changed from here.
+The strip only reads. What does change HNL Master is the key below.
+
+### APPLY TO MASTER
+
+The key beside the advisor's title sets HNL Master's limiter by the advice, in one click:
+
+- its **ceiling** goes to the maximum true peak,
+- its **gain** goes up or down by the required gain,
+- and the limiter is switched **on** if it was off (its gain then becomes the required gain alone).
+
+The key is off until an HNL Master (0.10 or later) is found. The line beside the advice says where it stands:
+**MASTER DETECTED** when there is one, **NO MASTER FOUND** when there is not, and otherwise why there is nothing
+to send: *NEEDS MASTER 0.10*, *MASTER BYPASSED*, *MASTER: MATCH ON*, *CAPTURE RUNNING*, *CAPTURE A TRACK* (what
+is shown was read from a file, or is the continuous meter), *KNOB AT ITS END* (the gain is as high or as low as
+it goes).
+
+It works on a track capture that has ended, and that capture must have been measured behind HNL Master: this
+plugin on the master, after it. The limiter then holds the peaks that the gain pushes up, which costs a little of
+the loudness, so one click seldom lands exactly. After a click the line says **SET: PLAY AGAIN**: play the track
+once more, and click again if the advice still asks for something. Two rounds are usually enough. One capture is
+sent once, also when the window was closed in between, so a second click cannot add the gain twice.
+
+HNL Master takes the new values with its next block of audio and tells the host, so that its own window follows
+and the song is saved with them. When it does not answer within a second and a half (the host does not run it),
+the line says **NO ANSWER** and nothing counts as sent. The host's undo does not know about the change: the
+strip shows the limiter's gain and ceiling, should you want to note them before a click.
 
 How it works: every HNL Master writes its meters into a small block of memory that the system keeps under a name
 (`common/Link.hpp`), and this window reads it thirty times a second. The audio thread of neither plugin waits for
@@ -278,6 +303,10 @@ Both engine tests run twice: plainly, and with the flags the plugin is built wit
 
 ### What is not checked yet
 
+- **APPLY TO MASTER, in a host.** The tests above cover what is sent and that HNL Master sets its knobs and
+  tells the host. Whether each host then moves the knobs in HNL Master's window and in its own automation lanes
+  has had one run in Reason (28 November 2026), where it worked; other hosts are not tried. As CLAP the host is not told at all (DPF's CLAP wrapper does not pass it on): the sound and the
+  saved song are right, HNL Master's window shows the old values until it is opened again.
 - **Finding HNL Master, beyond a first run.** The tests above run on Linux. The Windows half of
   `common/Link.hpp` (a named file mapping instead of POSIX shared memory) has had one run in Reason
   (28 November 2026), in which HNL Master was detected and its figures shown. Not tried: other hosts, and a host
@@ -334,6 +363,13 @@ The parameters the host sees: Mode, Follow Transport, RMS Window, RMS Reference,
 meters it can read (momentary, short-term and integrated loudness, true peak, PLR, LRA).
 
 ## Changelog
+
+### 0.3.0 (2026-11-28)
+
+- New: APPLY TO MASTER in the advisor sets the limiter of HNL Master (0.10 or later) by the advice: the ceiling
+  to the maximum true peak, the gain by the required gain, the limiter on. The key is off until an HNL Master is
+  found, and the line beside the advice says MASTER DETECTED, or why there is nothing to send. One capture is
+  sent once; play the track again to see where it landed.
 
 ### 0.2.0 (2026-11-28)
 

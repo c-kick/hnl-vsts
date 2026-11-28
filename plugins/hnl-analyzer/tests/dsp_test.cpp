@@ -392,6 +392,28 @@ static void advisor() {
     const Advice wide = advise(true, -20.0, -3.0, t), tight = advise(true, -8.0, -2.0, t);
     check(std::string(adviceText(wide, t)).find("more dynamic") != std::string::npos && std::string(adviceText(tight, t)).find("more limited") != std::string::npos,
           "a PLR far from the preferred one is remarked on, either way", "%+.1f and %+.1f dB", wide.plrFromPreferred, tight.plrFromPreferred);
+
+    // What APPLY TO MASTER sets the limiter of HNL Master to.
+    const Targets m = {-14.0, -1.0, 13.0};
+    LimiterChange c = changeFor(advise(true, -16.57, -3.0, m), m, {3.4, -2.1, true});
+    check(c.any && c.reaches && std::fabs(c.gain - 6.0) < 1e-9 && std::fabs(c.ceiling + 1.0) < 1e-9, "too quiet: the limiter's gain up by the required gain, the ceiling to the true-peak target", "gain %.2f, ceiling %.2f",
+          c.gain, c.ceiling);
+    c = changeFor(advise(true, -13.32, -2.11, m), m, {3.4, -2.1, true});
+    check(c.any && c.reaches && std::fabs(c.gain - 2.7) < 1e-9 && std::fabs(c.ceiling + 1.0) < 1e-9, "too loud: the gain down", "gain %.2f", c.gain);
+    c = changeFor(advise(true, -13.32, -2.11, m), m, {0.3, -1.0, true});
+    check(c.any && !c.reaches && c.gain == 0.0, "further down than the knob goes: as far as it goes, and said not to reach", "gain %.2f", c.gain);
+    c = changeFor(advise(true, -40.0, -30.0, m), m, {20.0, -1.0, true});
+    check(c.any && !c.reaches && c.gain == 24.0, "and the same upwards", "gain %.2f", c.gain);
+    c = changeFor(advise(true, -40.0, -30.0, m), m, {24.0, -1.0, true});
+    check(!c.any && !c.reaches, "with the knob at its end already there is nothing to set", "gain %.2f", c.gain);
+    c = changeFor(advise(true, -16.0, -3.0, m), m, {9.0, -0.5, false});
+    check(c.any && std::fabs(c.gain - 2.0) < 1e-9, "a limiter that is off added nothing: its gain becomes the required gain alone", "gain %.2f", c.gain);
+    c = changeFor(advise(true, -14.0, 0.2, m), m, {5.0, 0.0, true});
+    check(c.any && std::fabs(c.gain - 5.0) < 1e-9 && std::fabs(c.ceiling + 1.0) < 1e-9, "loud enough but over the ceiling: the ceiling alone", "ceiling %.2f", c.ceiling);
+    c = changeFor(advise(true, -14.02, -1.3, m), m, {5.0, -0.2, true});
+    check(!c.any && c.gain == 5.0 && c.ceiling == -0.2, "on target: nothing to set, whatever the knobs stand at", "gain %.2f", c.gain);
+    c = changeFor(advise(false, 0, 0, m), m, {5.0, -0.2, true});
+    check(!c.any, "nothing measured: nothing to set", "");
 }
 
 static void referenceRows() {

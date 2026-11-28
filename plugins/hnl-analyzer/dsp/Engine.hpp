@@ -161,6 +161,8 @@ public:
 
     // What the host may read as output parameters: the meter of the moment.
     std::atomic<float> lufsM{-100.0f}, lufsS{-100.0f}, lufsI{-100.0f}, truePeak{-100.0f}, plrNow{0.0f}, lra{0.0f};
+    /** The capture (its id) whose advice the window sent to HNL Master: that one is not sent a second time. Kept here so that it outlives the window. */
+    std::atomic<uint32_t> applied{0};
 
     // ------------------------------------------------- the keys of a window
 

@@ -52,6 +52,7 @@ static const Spot kTargetKnob = {664, 476}, kPlrKnob = {848, 476};
 static const Spot kRefPrev = {929, 455}, kRefNext = {1167, 455}, kMatchNone = {960, 482}, kMatchLoud = {1048, 482}, kMatchTp = {1134, 482};
 static const Spot kSave = {950, 689}, kAddFile = {1015, 689}, kExport = {1080, 689}, kDelete = {1145, 689};
 static const Spot kMasterStrip = {600, 746};
+static const Spot kApplyKey = {832, 431};
 static const Spot kHelpButton = {UI_BASE_WIDTH - 52, 26};
 
 static void press(DISTRHO::UI* ui, Spot at, bool down = true, unsigned time = 0, unsigned mod = 0) {
@@ -441,6 +442,100 @@ int main(int argc, char** argv) {
         }
         check(shows(ui, "NOT FOUND") && !showsPart(ui, "DETECTED"), "HNL Master removed from the song: not found any more");
     }
+
+    // APPLY TO MASTER: off until an HNL Master is found, then the advice goes to its limiter, once for each capture.
+    {
+        using namespace hnl::link;
+        ui->parameterChanged(kTargetLufs, -14.0f);
+        ui->parameterChanged(kMaxTruePeak, -1.0f);
+        const Targets t = {-14.0, -1.0, 13.0};
+        Analysis quiet = demo::measured("Quiet", 0.2, 8.0);
+        quiet.capture.id = 501;
+        engine.setCompleted(quiet);
+        const Advice advice = adviceFor(quiet, t);
+        check(advice.kind != Advice::kNoMeasurement && advice.gain > 1.0 && advice.gain < 20.0, "(a quiet track to give advice on)");
+        check(shows(ui, "APPLY TO MASTER") && shows(ui, "NO MASTER FOUND"), "without HNL Master the key to apply the advice is there, and said to have nobody to send to");
+        click(ui, kApplyKey);
+        check(shows(ui, "NO MASTER FOUND"), "and a click on it does nothing");
+        {
+            Publisher old(kMaster, 9u << 8);
+            Command got;
+            check(shows(ui, "NEEDS MASTER 0.10"), "an HNL Master of before 0.10 cannot be set, and that is said");
+            click(ui, kApplyKey);
+            check(!old.take(got), "nothing is sent to it");
+        }
+        Publisher master(kMaster, 10u << 8);
+        master.set(kMasterLimiterOn, 1.0f);
+        master.set(kMasterLimiterGain, 2.0f);
+        master.set(kMasterLimiterCeiling, -0.3f);
+        master.advance(512);
+        const LimiterChange want = changeFor(advice, t, {2.0, -0.3, true});
+        check(shows(ui, "MASTER DETECTED") && shows(ui, "DETECTED  v0.10.0"), "an HNL Master that enters is said to be detected beside the advice");
+        Command got;
+        click(ui, kApplyKey);
+        check(shows(ui, "SENT"), "a click sends the advice");
+        check(master.take(got) && got.has(kAskLimiterGain) && std::fabs(got.value[kAskLimiterGain] - static_cast<float>(want.gain)) < 1e-4f &&
+                  std::fabs(got.value[kAskLimiterGain] - static_cast<float>(2.0 + advice.gain)) < 0.051f && got.has(kAskLimiterCeiling) && got.value[kAskLimiterCeiling] == -1.0f &&
+                  got.has(kAskLimiterOn) && got.value[kAskLimiterOn] == 1.0f,
+              "HNL Master gets its gain raised by the required gain, its ceiling at the true-peak target, and its limiter on");
+        master.set(kMasterLimiterGain, got.value[kAskLimiterGain]);
+        master.set(kMasterLimiterCeiling, -1.0f);
+        check(shows(ui, "SET: PLAY AGAIN") && engine.applied.load() == 501u, "once it took them the window asks for the track to be played again");
+        click(ui, kApplyKey);
+        check(!master.take(got) && shows(ui, "SET: PLAY AGAIN"), "the same capture is not sent a second time");
+        {
+            DISTRHO::UI* again = DISTRHO::createUI(); // the window closed and opened again
+            click(again, kApplyKey);
+            check(!master.take(got) && shows(again, "SET: PLAY AGAIN"), "nor from a window that was opened anew");
+            delete again;
+        }
+
+        Analysis next = demo::measured("Quiet", 0.25, 8.0); // played again: a new capture
+        next.capture.id = 502;
+        engine.setCompleted(next);
+        check(shows(ui, "MASTER DETECTED"), "a new capture can be sent again");
+        master.set(kMasterBypass, 1.0f);
+        check(shows(ui, "MASTER BYPASSED"), "not to an HNL Master that is bypassed");
+        click(ui, kApplyKey);
+        master.set(kMasterBypass, 0.0f);
+        master.set(kMasterMatch, 1.0f);
+        check(!master.take(got) && shows(ui, "MASTER: MATCH ON"), "nor to one that matches its level to its input");
+        click(ui, kApplyKey);
+        master.set(kMasterMatch, 0.0f);
+        master.set(kMasterLimiterGain, 24.0f);
+        check(!master.take(got) && shows(ui, "KNOB AT ITS END"), "nor when its gain is as high as it goes already");
+        click(ui, kApplyKey);
+        check(!master.take(got), "(nothing sent)");
+        master.set(kMasterLimiterGain, 3.0f);
+        master.set(kMasterLimiterOn, 0.0f);
+        draw(ui); // the window looks thirty times a second
+        click(ui, kApplyKey);
+        check(master.take(got) && std::fabs(got.value[kAskLimiterGain] - static_cast<float>(changeFor(adviceFor(next, t), t, {3.0, -1.0, false}).gain)) < 1e-4f &&
+                  std::fabs(got.value[kAskLimiterGain] - static_cast<float>(adviceFor(next, t).gain)) < 0.051f && got.value[kAskLimiterOn] == 1.0f,
+              "a limiter that is off is switched on, with the required gain alone");
+        check(shows(ui, "SET: PLAY AGAIN"), "(taken)");
+
+        Analysis third = demo::measured("Quiet", 0.3, 8.0);
+        third.capture.id = 503;
+        engine.setCompleted(third);
+        master.set(kMasterLimiterOn, 1.0f);
+        draw(ui);
+        click(ui, kApplyKey);
+        check(shows(ui, "SENT"), "(sent to an HNL Master that does not process)");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1700));
+        check(shows(ui, "NO ANSWER") && engine.applied.load() == 502u, "an HNL Master that does not take it within a second and a half: said, and the capture does not count as sent");
+        click(ui, kMasterStrip);
+        check(shows(ui, "MASTER DETECTED"), "after which it can be sent again");
+
+        Analysis file = third;
+        file.capture.mode = kFile;
+        file.capture.id = 504;
+        engine.setCompleted(file);
+        check(shows(ui, "CAPTURE A TRACK"), "the measurement of a file is not what HNL Master sends: nothing to apply");
+        click(ui, kApplyKey);
+        check(shows(ui, "CAPTURE A TRACK"), "(nothing sent)");
+    }
+    check(shows(ui, "NO MASTER FOUND"), "HNL Master gone: the key is off again");
 
     // The size of the window: from the cog's list, by dragging its edge, and kept for the next time it opens.
     {

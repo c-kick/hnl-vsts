@@ -76,6 +76,7 @@ const Rect kWaveBox = {22, 212, 1156, 182};
 const Rect kStatBox = {22, 444, 280, 206}, kWindowBox = {72, 656, 230, 20}, kRefKindBox = {172, 682, 130, 20};
 const Rect kHistBox = {334, 444, 260, 102}, kSpecBox = {334, 596, 260, 102};
 const Rect kAdvBox = {626, 524, 260, 174};
+const Rect kApplyBox = {778, 422, 108, 18}; // APPLY TO MASTER, beside the advisor's title
 const Rect kRefPrev = {918, 444, 22, 22}, kRefName = {944, 444, 208, 22}, kRefNext = {1156, 444, 22, 22};
 const Rect kMatchBox = {918, 472, 260, 20}, kRefBox = {918, 498, 260, 172};
 const Rect kRefKeys = {918, 678, 260, 22}; // + TRACK, + FILE, EXPORT, DELETE
@@ -369,6 +370,7 @@ protected:
 
         presetNote_.clear();
         note_.clear();
+        unanswered_ = false;
         const bool wasSure = sure_;
         sure_ = false;
         if (name_.editing) { // a click anywhere takes the name as it stands
@@ -457,6 +459,12 @@ protected:
         }
         if (keyAt(kRefKeys, 4, x, y, part)) {
             referenceKey(part, wasSure);
+            repaint();
+            return true;
+        }
+        if (kApplyBox.contains(x, y)) { // the advice, to HNL Master's limiter
+            apply();
+            pollLink();
             repaint();
             return true;
         }
@@ -643,9 +651,86 @@ private:
                 v.warnPath = std::fabs(path) > kPathSlack;
             }
         }
-        if (v == linkShown_) return false;
+        // What was asked of HNL Master: answered when it took it with its next block of audio.
+        bool changed = false;
+        if (asked_ != 0) {
+            if (link_.answered(askedOf_, asked_)) {
+                if (engine_ != nullptr) engine_->applied.store(askedFor_, std::memory_order_relaxed);
+                asked_ = 0;
+                changed = true;
+            } else if (std::chrono::steady_clock::now() - askedAt_ > std::chrono::milliseconds(1500)) {
+                asked_ = 0;
+                unanswered_ = true;
+                changed = true;
+            }
+        }
+        const Apply ap = applyState();
+        if (ap.can != applyCan_ || ap.notice != applyNotice_) {
+            applyCan_ = ap.can;
+            applyNotice_ = ap.notice;
+            changed = true;
+        }
+        if (v == linkShown_) return changed;
         linkShown_ = v;
         return true;
+    }
+
+    /** Whether the advice can be sent to HNL Master now, what it would set, and what stands beside the advice about it. */
+    struct Apply {
+        bool can = false;
+        int tone = 0; // 0 nothing to send to, 1 good, 2 to be looked at
+        const char* notice = "NO MASTER FOUND";
+        LimiterChange change;
+    };
+
+    /**
+     * The key is off until an HNL Master is found. Then it is on when there is something to send: the advice
+     * of a track capture that has ended and was not sent before, to a Master that is neither bypassed nor
+     * matching its level to its input.
+     */
+    Apply applyState() const {
+        Apply ap;
+        const hnl::link::Peer* m = master();
+        if (m == nullptr) return ap;
+        const auto say = [&ap](int tone, const char* notice) {
+            ap.tone = tone;
+            ap.notice = notice;
+            return ap;
+        };
+        if (m->version < (10u << 8)) return say(2, "NEEDS MASTER 0.10");
+        if (asked_ != 0) return say(1, "SENT");
+        if (unanswered_) return say(2, "NO ANSWER");
+        const float* f = m->values;
+        if (f[hnl::link::kMasterBypass] > 0.5f) return say(2, "MASTER BYPASSED");
+        if (f[hnl::link::kMasterMatch] > 0.5f) return say(2, "MASTER: MATCH ON");
+        const Analysis& a = shown_->track;
+        if (a.capture.status == kRunning) return say(1, a.capture.mode == kTrackMode ? "CAPTURE RUNNING" : "TRACK MODE ONLY");
+        if (a.capture.mode != kTrackMode) return say(1, "CAPTURE A TRACK");
+        const Targets t = targets();
+        const Advice advice = adviceFor(a, t);
+        if (advice.kind == Advice::kNoMeasurement) return say(1, "MASTER DETECTED");
+        if (engine_ != nullptr && a.capture.id != 0 && engine_->applied.load(std::memory_order_relaxed) == a.capture.id) return say(1, "SET: PLAY AGAIN");
+        if (advice.kind == Advice::kAchieved) return say(1, "MASTER DETECTED");
+        ap.change = changeFor(advice, t, {f[hnl::link::kMasterLimiterGain], f[hnl::link::kMasterLimiterCeiling], f[hnl::link::kMasterLimiterOn] > 0.5f});
+        if (!ap.change.any) return say(2, "KNOB AT ITS END");
+        ap.can = true;
+        return say(1, "MASTER DETECTED");
+    }
+
+    /** APPLY TO MASTER was clicked. */
+    void apply() {
+        const Apply ap = applyState();
+        const hnl::link::Peer* m = master();
+        if (!ap.can || m == nullptr) return;
+        hnl::link::Command c;
+        c.set(hnl::link::kAskLimiterGain, static_cast<float>(ap.change.gain));
+        c.set(hnl::link::kAskLimiterCeiling, static_cast<float>(ap.change.ceiling));
+        c.set(hnl::link::kAskLimiterOn, 1.0f);
+        asked_ = link_.ask(m->id, c);
+        askedOf_ = m->id;
+        askedFor_ = shown_->track.capture.id;
+        askedAt_ = std::chrono::steady_clock::now();
+        unanswered_ = asked_ == 0;
     }
 
     /** The reference in use: the capture before this one, a saved one, or none. */
@@ -843,6 +928,7 @@ private:
         help_.add(kAdvPanel, "MASTERING ADVISOR", help::kAdvisor);
         help_.add(kRefPanel, "REFERENCE", help::kReference);
         help_.add(kLinkPanel, "HNL MASTER", help::kLink);
+        help_.add(kApplyBox, "APPLY TO MASTER", help::kApply);
         help_.add(help_.buttonBox(), "HELP", help::kHelp);
         help_.add(skin_.buttonBox(), "LOOK AND SIZE", hnl::ui::SkinMenu::helpWithSizes());
         help_.add(presetBar_.nameBox(), "TARGETS", help::kPresets);
@@ -1361,6 +1447,9 @@ private:
         const hnl::ui::Skin k = skin();
         const Analysis& a = shown_->track;
         panel(kAdvPanel, "MASTERING ADVISOR");
+        const Apply ap = applyState();
+        static const char* const kApplyName[1] = {"APPLY TO MASTER"};
+        keys(kApplyBox, kApplyName, 1, ap.can ? 0 : -1, ap.can);
         static const char* const kUnits[3] = {"LUFS", "dBTP", "dB"};
         for (int i = 0; i < 3; ++i) {
             const Knob& c = kKnobs[i];
@@ -1389,6 +1478,7 @@ private:
         line(kAdvBox.x + 8, y - 4, kAdvBox.x + kAdvBox.w - 8, y - 4, rgb(k.dim, 0.25f));
         const uint32_t tone = advice.kind == Advice::kAchieved ? k.green : (advice.kind == Advice::kGain ? k.accent : (advice.kind == Advice::kNoMeasurement ? k.dim : k.yellow));
         label(adviceTitle(advice), nameX, y + 8, 10, rgb(tone), ALIGN_LEFT | ALIGN_MIDDLE);
+        label(ap.notice, valueX, y + 8, 8.5f, rgb(ap.tone == 2 ? k.yellow : (ap.tone == 1 ? k.green : k.dim)), ALIGN_RIGHT | ALIGN_MIDDLE);
         fontSize(9.5f);
         textAlign(ALIGN_LEFT | ALIGN_TOP);
         textLineHeight(1.3f);
@@ -1499,6 +1589,13 @@ private:
     uint64_t masterSeen_ = 0, masterFrames_ = 0;
     std::chrono::steady_clock::time_point masterMoved_;
     LinkView linkShown_;
+    uint32_t asked_ = 0;     // the count of what was asked of HNL Master and is not answered yet
+    uint64_t askedOf_ = 0;   // which one
+    uint32_t askedFor_ = 0;  // the capture whose advice it was
+    std::chrono::steady_clock::time_point askedAt_;
+    bool unanswered_ = false; // it did not take it: shown until the next click
+    bool applyCan_ = false;
+    const char* applyNotice_ = "";
 
     int drag_ = -1, lastClick_ = -1;
     uint lastClickTime_ = 0;

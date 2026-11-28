@@ -4,7 +4,7 @@
 // How HNL plugins in one song find each other and read each other's figures: a small block of
 // memory that every instance maps under the same name, with a place ("slot") for each instance
 // that wants to be found. HNL Master enters itself and writes its meters there; HNL Analyzer
-// looks who is there and shows them.
+// looks who is there and shows them, and can ask a Master to set a few of its knobs.
 //
 // Every plugin is a library of its own, so they share nothing in the host's process but what
 // the system gives by name. Shared memory also holds when a host runs plugins in processes of
@@ -24,7 +24,10 @@
 //     thread of the plugin's library (not from the audio thread, which a host may stop). A slot
 //     that was not written for ten seconds belongs to a process that is gone and may be taken;
 //   - every figure is an atomic of its own. A reader may see figures of two successive blocks
-//     beside each other; they are meters, so that does not matter.
+//     beside each other; they are meters, so that does not matter;
+//   - what one instance asks of another (a Command) is written in the other's slot under a count
+//     that is odd while it is being written. The other takes it from its audio thread when the
+//     count is even and new, and answers by writing the count back.
 //
 // When the block cannot be made (a sandbox that forbids it) everything here does nothing, and
 // a reader finds nobody. No DPF or drawing code here.
@@ -86,6 +89,33 @@ enum MasterValue {
 };
 static_assert(kMasterValueCount <= kValues, "HNL Master's figures fit in a slot");
 
+/** What can be asked of HNL Master (0.10 or later): each a value of a Command. It keeps them within the range of the knob. */
+enum MasterAsk {
+    kAskLimiterGain,    // dB
+    kAskLimiterCeiling, // dBTP
+    kAskLimiterOn,      // 0 or 1
+    kAskCount
+};
+
+constexpr int kAskValues = 8;
+
+/** What one instance asks of another: which of the values count (a bit each), and the values. */
+struct Command {
+    uint32_t what = 0;
+    float value[kAskValues] = {};
+
+    bool has(int index) const { return index >= 0 && index < kAskValues && (what & (1u << index)) != 0; }
+    void set(int index, float v) {
+        if (index < 0 || index >= kAskValues) return;
+        what |= 1u << index;
+        value[index] = v;
+    }
+};
+static_assert(kAskCount <= kAskValues, "what can be asked of HNL Master fits in a command");
+
+/** Where a command stands in `reserved` of the slot of the one it is for. */
+enum CommandField { kCmdCount = 0, kCmdAnswered = 1, kCmdWhat = 2, kCmdValues = 3 };
+
 struct Slot {
     std::atomic<uint64_t> owner;   // 0: free. Otherwise the token of the instance that has it
     std::atomic<int64_t> beat;     // when it last said it was alive, in milliseconds of now()
@@ -95,7 +125,7 @@ struct Slot {
     std::atomic<uint32_t> pid;     // the process it lives in
     std::atomic<uint64_t> frames;  // samples it has processed since it entered: stands still when the host does not run it
     std::atomic<float> values[kValues];
-    std::atomic<uint32_t> reserved[70]; // zero. Room for what one instance asks of another
+    std::atomic<uint32_t> reserved[70]; // what another instance asks of this one (CommandField); the rest zero
 };
 
 struct Block {
@@ -237,6 +267,17 @@ inline bool fresh(const Slot& s, int64_t at) {
     return age < kFreshMs && age > -kFreshMs;
 }
 
+inline uint32_t bitsOf(float v) {
+    uint32_t bits;
+    std::memcpy(&bits, &v, sizeof(bits));
+    return bits;
+}
+inline float floatOf(uint32_t bits) {
+    float v;
+    std::memcpy(&v, &bits, sizeof(v));
+    return v;
+}
+
 } // namespace detail
 
 /**
@@ -278,6 +319,23 @@ public:
         if (Slot* s = slot_.load(std::memory_order_acquire)) s->frames.store(total, std::memory_order_relaxed);
     }
 
+    /**
+     * What another instance asked of this one since the last call, if anything. For the audio thread:
+     * a few loads and a store. A command that is being written just then is there at the next call.
+     */
+    bool take(Command& c) {
+        Slot* s = slot_.load(std::memory_order_acquire);
+        if (s == nullptr) return false;
+        const uint32_t count = s->reserved[kCmdCount].load(std::memory_order_acquire);
+        if (count == 0 || (count & 1u) != 0 || count == taken_.load(std::memory_order_relaxed)) return false;
+        c.what = s->reserved[kCmdWhat].load(std::memory_order_relaxed);
+        for (int i = 0; i < kAskValues; ++i) c.value[i] = detail::floatOf(s->reserved[kCmdValues + i].load(std::memory_order_relaxed));
+        if (s->reserved[kCmdCount].load(std::memory_order_acquire) != count) return false;
+        taken_.store(count, std::memory_order_relaxed);
+        s->reserved[kCmdAnswered].store(count, std::memory_order_release);
+        return true;
+    }
+
     bool entered() const { return slot_.load(std::memory_order_acquire) != nullptr; }
     /** What others know this instance by. */
     uint64_t id() const { return token_; }
@@ -299,6 +357,7 @@ private:
             fill(s);
             for (int v = 0; v < kValues; ++v) s.values[v].store(last_[v].load(std::memory_order_relaxed), std::memory_order_relaxed);
             for (auto& r : s.reserved) r.store(0, std::memory_order_relaxed);
+            taken_.store(0, std::memory_order_relaxed);
             s.ready.store(1, std::memory_order_release);
             slot_.store(&s, std::memory_order_release);
             return;
@@ -381,6 +440,7 @@ private:
     std::shared_ptr<detail::Mapping> mapping_;
     std::atomic<Slot*> slot_{nullptr};
     std::atomic<uint64_t> frames_{0};
+    std::atomic<uint32_t> taken_{0}; // the count of the last command taken
     std::atomic<float> last_[kValues];
 };
 
@@ -432,7 +492,43 @@ public:
         return here;
     }
 
+    /**
+     * Asks something of the instance with this id. Returns the count the command went under, to ask
+     * answered() with, or 0 when that instance is not there. Two who ask the same instance in the
+     * same moment may leave it a mix of both commands; whoever takes one keeps each value within
+     * its range, so that is the worst of it.
+     */
+    uint32_t ask(uint64_t id, const Command& c) {
+        Slot* s = slotOf(id);
+        if (s == nullptr) return 0;
+        const uint32_t before = s->reserved[kCmdCount].load(std::memory_order_acquire);
+        uint32_t count = (before | 1u) + 1u; // the next even one
+        if (count == 0) count = 2;
+        s->reserved[kCmdCount].store(count - 1u, std::memory_order_release); // odd: being written
+        s->reserved[kCmdWhat].store(c.what, std::memory_order_relaxed);
+        for (int i = 0; i < kAskValues; ++i) s->reserved[kCmdValues + i].store(detail::bitsOf(c.value[i]), std::memory_order_relaxed);
+        s->reserved[kCmdCount].store(count, std::memory_order_release);
+        return s->owner.load(std::memory_order_acquire) == id ? count : 0;
+    }
+    /** Whether the instance took the command that went under this count. */
+    bool answered(uint64_t id, uint32_t count) {
+        const Slot* s = slotOf(id);
+        return s != nullptr && count != 0 && s->reserved[kCmdAnswered].load(std::memory_order_acquire) == count;
+    }
+
 private:
+    /** The slot of a living instance, or null. */
+    Slot* slotOf(uint64_t id) {
+        if (mapping_ == nullptr || id == 0) return nullptr;
+        Block* block = mapping_->block();
+        const int64_t at = detail::now();
+        for (int i = 0; i < kSlots; ++i) {
+            Slot& s = block->slots[i];
+            if (s.owner.load(std::memory_order_acquire) == id && s.ready.load(std::memory_order_acquire) != 0 && detail::fresh(s, at)) return &s;
+        }
+        return nullptr;
+    }
+
     std::shared_ptr<detail::Mapping> mapping_;
     bool tried_ = false;
     int64_t lastTry_ = 0;

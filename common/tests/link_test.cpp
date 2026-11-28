@@ -150,6 +150,40 @@ int main() {
         check(found.size() == 2 && first.entered() && thief.entered(), "an instance whose slot was taken takes another, and both are found");
     }
 
+    // One asks something of another: it is there for the other to take, once, and the answer is seen.
+    {
+        Publisher master(kMaster, 1);
+        Command got;
+        check(!master.take(got), "nothing asked: nothing to take");
+        Command c;
+        c.set(kAskLimiterGain, 4.5f);
+        c.set(kAskLimiterOn, 1.0f);
+        const uint32_t count = reader.ask(master.id(), c);
+        check(count != 0 && !reader.answered(master.id(), count), "something asked of an instance waits for it");
+        check(master.take(got) && got.has(kAskLimiterGain) && got.value[kAskLimiterGain] == 4.5f && got.has(kAskLimiterOn) && !got.has(kAskLimiterCeiling),
+              "the instance takes it as it was asked");
+        check(reader.answered(master.id(), count), "and the one who asked sees that");
+        check(!master.take(got), "it is taken once");
+        Command d;
+        d.set(kAskLimiterCeiling, -1.5f);
+        const uint32_t next = reader.ask(master.id(), d);
+        check(next != 0 && next != count && !reader.answered(master.id(), next) && master.take(got) && !got.has(kAskLimiterGain) && got.value[kAskLimiterCeiling] == -1.5f &&
+                  reader.answered(master.id(), next) && !reader.answered(master.id(), count),
+              "a second command follows the first");
+        check(reader.ask(master.id() ^ 2u, c) == 0 && !reader.answered(0, 0), "nothing can be asked of an instance that is not there");
+        const uint64_t was = master.id();
+        {
+            Publisher other(kMaster, 1);
+            check(reader.ask(other.id(), c) != 0 && !master.take(got), "what is asked of one instance does not reach another");
+        }
+        check(reader.ask(was, c) != 0, "still there to be asked");
+    }
+    {
+        Publisher fresh(kMaster, 1); // in the slot the last one left with a command in it
+        Command got;
+        check(!fresh.take(got), "an instance that enters finds no command of the one before it");
+    }
+
     // Switched off. (The name is read when a process first maps the block, so nobody may hold it here.)
     held.reset();
     detail::removeBlock();

@@ -122,8 +122,13 @@ The compressor and the stereo width folded:
 From version 0.9 on, [HNL Analyzer](../hnl-analyzer) (0.2 or later) in the same song finds HNL Master by itself
 and shows its meters beside its own measurement: the input peak, the gain reduction of the three bands and of
 the limiter, the limiter's gain and ceiling, the loudness and the true peak. Nothing has to be connected, and it
-works in any host. HNL Master only shows its figures: nothing in it can be changed from outside, and its sound and
-its latency are what they were.
+works in any host. Its sound and its latency are what they were.
+
+From version 0.10 on, the APPLY TO MASTER key of HNL Analyzer (0.3 or later) sets three things here: the limiter's
+gain, its ceiling, and the limiter on. They are taken with the next block of audio, kept within the range of each
+knob, and the host is told, so that this window follows and the song is saved with them. Nothing else can be set
+from outside. As VST3 that is; as CLAP the values are set and saved, but this window shows the old ones until it is
+opened again.
 
 For this every instance writes its meters into a small block of memory that the system keeps under a name
 (`common/Link.hpp`). The audio thread stores a handful of numbers per block and never waits. `HNL_LINK_NAME=off`
@@ -147,6 +152,11 @@ The zip holds the plugin as VST3
 two. Windows 64-bit; the VST3 is tested in Reason.
 
 ## Changelog
+
+### 0.10.0 (2026-11-28)
+
+- New: HNL Analyzer (0.3 or later) can set the limiter's gain and ceiling and switch the limiter on, with its
+  APPLY TO MASTER key. Tested on Linux, and tried in Reason on Windows.
 
 ### 0.9.0 (2026-11-28)
 

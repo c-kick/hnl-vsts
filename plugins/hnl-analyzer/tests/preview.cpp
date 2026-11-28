@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
     std::unique_ptr<hnl::link::Publisher> master; // an HNL Master at work on a loud chorus
     if (mode == "master") {
         using namespace hnl::link;
-        master.reset(new Publisher(kMaster, 9u << 8));
+        master.reset(new Publisher(kMaster, 10u << 8));
         const float figures[][2] = {{kMasterInL, -5.8f}, {kMasterInR, -6.1f}, {kMasterGrLow, -1.7f}, {kMasterGrMid, -0.6f}, {kMasterGrHigh, -0.2f}, {kMasterGrLimiter, -2.4f},
                                     {kMasterLimiterOn, 1.0f}, {kMasterLimiterGain, 4.5f}, {kMasterLimiterCeiling, -1.0f}, {kMasterLufsS, -9.6f}, {kMasterTruePeak, -1.0f}};
         for (const auto& f : figures) master->set(static_cast<int>(f[0]), f[1]);

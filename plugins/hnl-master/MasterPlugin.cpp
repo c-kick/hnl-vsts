@@ -124,6 +124,7 @@ protected:
         hnl::cleanInput(outputs[0], frames);
         hnl::cleanInput(outputs[1], frames);
 
+        takeCommand();
         if (dirty_.exchange(false, std::memory_order_acquire)) pushParams();
         if (resetMeters_.exchange(false, std::memory_order_relaxed)) {
             chain_.resetIntegratedLoudness();
@@ -234,6 +235,26 @@ private:
             held = std::max(m.spectrum[b].exchange(-100.0f, std::memory_order_relaxed), std::max(held - 2.0f * peakFall, -100.0f));
         }
         publish(frames);
+    }
+
+    /**
+     * What HNL Analyzer asked for with its APPLY TO MASTER key: the limiter's gain and ceiling, and the limiter on.
+     * The knobs are set here and the host is told, so that the window follows and the song is saved with them.
+     */
+    void takeCommand() {
+        hnl::link::Command c;
+        if (link_ == nullptr || !link_->take(c)) return;
+        static const struct { int ask; uint32_t id; } kAsked[] = {
+            {hnl::link::kAskLimiterGain, kLimGain}, {hnl::link::kAskLimiterCeiling, kLimCeiling}, {hnl::link::kAskLimiterOn, kLimOn}};
+        for (const auto& a : kAsked) {
+            if (!c.has(a.ask)) continue;
+            const ParamInfo& p = kParams[a.id];
+            float v = hnl::cleanParam(c.value[a.ask], p.min, p.max, p.def);
+            if (p.kind == kToggle) v = v > 0.5f ? 1.0f : 0.0f;
+            values_[a.id].store(v, std::memory_order_relaxed);
+            requestParameterValueChange(a.id, v);
+        }
+        dirty_.store(true, std::memory_order_release);
     }
 
     /** The meters and a few of the knobs, for another HNL plugin to read (common/Link.hpp). Only stores numbers. */

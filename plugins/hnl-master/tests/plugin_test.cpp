@@ -125,10 +125,51 @@ int main() {
         }
         { // A second instance in the song is a second one to find; gone again when it is removed. Not one that the host
           // never prepares for audio: a VST3 host makes such an instance beside every real one, for the knobs alone.
-            PluginExporter other(nullptr, nullptr, nullptr, nullptr);
+            struct Told { int count = 0; float value[kInputParamCount] = {}; } told;
+            const auto tell = [](void* ptr, uint32_t index, float value) {
+                Told& t = *static_cast<Told*>(ptr);
+                ++t.count;
+                if (index < kInputParamCount) t.value[index] = value;
+                return true;
+            };
+            PluginExporter other(&told, nullptr, tell, nullptr);
             check(reader.find(kMaster).size() == 1, "an instance that is never prepared for audio is not found", reader.find(kMaster).size());
             other.activate();
             check(reader.find(kMaster).size() == 2, "a second instance is found beside it", reader.find(kMaster).size());
+
+            // What HNL Analyzer's APPLY TO MASTER key asks: taken with the next block, kept within the knobs' ranges, and the host is told.
+            uint64_t id = 0;
+            for (const Peer& p : reader.find(kMaster))
+                if (p.id != found[0].id) id = p.id;
+            other.setParameterValue(kLimOn, 0.0f);
+            Command c;
+            c.set(kAskLimiterGain, 7.5f);
+            c.set(kAskLimiterCeiling, -20.0f); // below the knob's lowest
+            c.set(kAskLimiterOn, 1.0f);
+            const uint32_t count = reader.ask(id, c);
+            check(count != 0 && !reader.answered(id, count) && other.getParameterValue(kLimGain) == 0.0f, "a command waits until the plugin processes", count);
+            std::vector<float> sl(512, 0.1f), sr(512, 0.1f);
+            const float* sin2[2] = {sl.data(), sr.data()};
+            float* sout[2] = {sl.data(), sr.data()};
+            other.run(sin2, sout, 512);
+            check(other.getParameterValue(kLimGain) == 7.5f && other.getParameterValue(kLimCeiling) == kParams[kLimCeiling].min && other.getParameterValue(kLimOn) == 1.0f,
+                  "then the limiter's gain and ceiling are set, within their ranges, and the limiter is on (gain, dB)", other.getParameterValue(kLimGain));
+            check(told.count == 3 && told.value[kLimGain] == 7.5f && told.value[kLimCeiling] == kParams[kLimCeiling].min && told.value[kLimOn] == 1.0f,
+                  "the host is told of each knob that was set", told.count);
+            check(reader.answered(id, count), "and the one who asked gets its answer", count);
+            for (const Peer& p : reader.find(kMaster))
+                if (p.id == id) check(p.values[kMasterLimiterGain] == 7.5f && p.values[kMasterLimiterOn] == 1.0f, "which it also reads in the figures (gain, dB)", p.values[kMasterLimiterGain]);
+            other.run(sin2, sout, 512);
+            check(told.count == 3 && plugin.getParameterValue(kLimGain) == 12.0f, "once, and for that instance alone", told.count);
+            Command wild;
+            wild.what = 0xffffffffu; // every bit, and values that are no numbers
+            for (float& v : wild.value) v = std::nanf("");
+            reader.ask(id, wild);
+            other.run(sin2, sout, 512);
+            bool sane = true;
+            for (uint32_t i = 0; i < kInputParamCount; ++i) sane = sane && other.getParameterValue(i) >= kParams[i].min && other.getParameterValue(i) <= kParams[i].max;
+            check(sane && other.getParameterValue(kLimGain) == kParams[kLimGain].def && hnl::isClean(sl.data(), 512), "a command of nonsense leaves every knob within its range", other.getParameterValue(kLimGain));
+
             other.deactivate();
             check(reader.find(kMaster).size() == 2, "also while it is switched off", reader.find(kMaster).size());
         }

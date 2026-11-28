@@ -25,8 +25,9 @@ plugins that have not been started.
   workstation organ. The Dance 90s voice would gain most from proper single-note references. The emulator used
   for the Stage 80s voice also holds that machine's electric pianos, harpsichord, clavi and vibraphone.
 
-- **HNL Analyzer:** now that it finds HNL Master in a song and shows its meters of the moment (0.2.0): a key
-  that sets HNL Master's limiter gain and ceiling to what the advisor says, available when one is detected;
+- **HNL Analyzer:** now that it finds HNL Master in a song, shows its meters of the moment (0.2.0) and sets its
+  limiter by the advice (0.3.0): what the limiter would do at another gain shown in HNL Master before it is set,
+  so that one click lands without playing the track twice; a key that takes the last click back;
   HNL Master's figures over the time of the track (the gain reduction of each band and of the limiter, the level
   before the chain), before and after compared at equal loudness, and those figures in the reports; the choice
   between several HNL Masters kept with the song; an MP3 reader, should code of others ever be let in;

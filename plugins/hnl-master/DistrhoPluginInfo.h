@@ -14,7 +14,7 @@
 
 // The version: reported to the host, shown behind the title, and read by package.sh.
 #define HNL_VERSION_MAJOR 0
-#define HNL_VERSION_MINOR 9
+#define HNL_VERSION_MINOR 10
 #define HNL_VERSION_PATCH 0
 
 #define DISTRHO_PLUGIN_HAS_UI       1
@@ -23,6 +23,7 @@
 #define DISTRHO_PLUGIN_NUM_OUTPUTS  2
 #define DISTRHO_PLUGIN_WANT_LATENCY 1
 #define DISTRHO_PLUGIN_WANT_STATE   1
+#define DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST 1 // HNL Analyzer sets the limiter through the plugin: the host is told
 #define DISTRHO_UI_FILE_BROWSER     0
 #define DISTRHO_UI_USER_RESIZABLE   1 // dragged by its edge, or a size from the cog's list; the drawing follows the window
 #define DISTRHO_UI_USE_NANOVG       1

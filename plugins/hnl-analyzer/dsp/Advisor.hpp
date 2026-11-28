@@ -117,5 +117,41 @@ inline std::string adviceText(const Advice& a, const Targets& t) {
     return out + s;
 }
 
+/** Where the limiter of HNL Master stands. */
+struct Limiter {
+    double gain = 0.0;     // dB
+    double ceiling = -1.0; // dBTP
+    bool on = true;
+};
+/** How far its two knobs go. */
+constexpr double kLimiterGainMin = 0.0, kLimiterGainMax = 24.0, kLimiterCeilingMin = -6.0, kLimiterCeilingMax = 0.0;
+
+/** What to set the limiter of HNL Master to, for a measurement that was made behind it. */
+struct LimiterChange {
+    bool any = false;     // there is something to set
+    bool reaches = true;  // the knobs go as far as the targets ask
+    double gain = 0.0, ceiling = -1.0;
+};
+
+/**
+ * The ceiling goes to the true-peak target and the gain changes by what the loudness is from its
+ * target, both in tenths of a decibel as the knobs show them. The limiter then holds the peaks
+ * that the gain pushes up, which costs a little of the loudness: so the track is measured again
+ * afterwards, and a second time brings it the rest of the way.
+ */
+inline LimiterChange changeFor(const Advice& a, const Targets& t, const Limiter& now) {
+    LimiterChange c;
+    c.gain = now.gain;
+    c.ceiling = now.ceiling;
+    if (a.kind == Advice::kNoMeasurement || a.kind == Advice::kAchieved) return c;
+    const auto tenths = [](double v) { return std::round(v * 10.0) / 10.0; };
+    const double gain = (now.on ? now.gain : 0.0) + a.gain; // a limiter that is off added nothing to what was measured
+    c.gain = tenths(std::clamp(gain, kLimiterGainMin, kLimiterGainMax));
+    c.ceiling = tenths(std::clamp(t.truePeak, kLimiterCeilingMin, kLimiterCeilingMax));
+    c.reaches = std::fabs(c.gain - gain) < 0.06 && std::fabs(c.ceiling - t.truePeak) < 0.06;
+    c.any = !now.on || std::fabs(c.gain - now.gain) > 0.04 || std::fabs(c.ceiling - now.ceiling) > 0.04;
+    return c;
+}
+
 } // namespace analyzer
 } // namespace hnl
