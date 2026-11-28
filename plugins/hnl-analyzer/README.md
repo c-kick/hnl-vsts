@@ -1,8 +1,9 @@
 # HNL Analyzer
 
-Mastering analysis for the end of the chain, typically after HNL Master: the loudness, peaks, RMS statistics,
-spectrum and stereo figures of a whole track, an advisor that says what it takes to reach a loudness target, and
-a comparison with a reference. The sound passes through it untouched and without delay.
+A mastering meter for the end of the chain, usually right after HNL Master. It measures a whole track while the
+host plays it: loudness, true peak, RMS statistics, spectrum and stereo figures. An advisor then tells you how far
+the track is from your loudness target and what it takes to get there, and you can hold the result against a
+reference. The sound passes through untouched and without delay.
 
 ![HNL Analyzer](docs/preview.png)
 
@@ -14,223 +15,215 @@ a comparison with a reference. The sound passes through it untouched and without
 | --- | --- | --- |
 | ![The running meter](docs/live.png) | ![A released song from its file as the reference](docs/file.png) | ![Help tip](docs/help.png) |
 
-*Rendered from the plugin's drawing code; not yet screenshots from a host.*
+*These pictures are rendered from the plugin's drawing code, not taken from a host.*
 
-**An alpha.** It passes its offline tests and has had one first run in Reason, no more: see [What is not checked yet](#what-is-not-checked-yet).
+**This is an alpha.** It passes its tests and has been used in Reason, but not for long and not in other hosts.
+[What has and has not been tried](#what-has-and-has-not-been-tried) lists the details.
 
-The window can be made larger and smaller: the cog in the corner lists the sizes (75 to 200 %) under the looks,
-and where the host allows it the window can be dragged by its edge, down to three quarters of its design size. It
-keeps its shape, everything in it is drawn anew at the size it has, and it opens next time at the size it was
-left at. That size is kept for this plugin, not in the song.
+## Why it exists
 
-It is made to replace this round trip: export from the host, open the file in an audio editor, read its amplitude
-statistics, work out by hand how much gain and how much limiting the master still needs, go back. Here the
-track is measured while the host plays it, the figures stay when it stops, and the advisor does the sum.
+Checking a master usually goes like this: export the song, open the file in an audio editor, read the amplitude
+statistics, work out by hand how much gain and limiting it still needs, go back to the host, repeat. HNL Analyzer
+does that inside the host. Play the track once and the figures are there, they stay when playback stops, and the
+advisor does the arithmetic.
 
-## Two ways to measure
+## Quick start
 
-What is measured is always the sound that passes through the plugin. The keys next to the title choose how.
+1. Put HNL Analyzer last on the master, after HNL Master or whatever you master with.
+2. Pick your targets with the preset bar (Streaming -14, Apple Music -16, and so on) or set the three knobs.
+3. Play the track from start to end. With FOLLOW TRANSPORT on, measuring starts and stops with the host.
+4. Read the advisor. It says how much gain the track needs and whether the peaks leave room for it.
+5. If HNL Master is in the song, click APPLY TO MASTER to set its limiter accordingly, then play the track again
+   to check.
+
+The question mark in the corner switches on help tips for every part of the window.
+
+## Measuring
+
+The plugin always measures the sound that passes through it. The keys next to the title choose how.
 
 | Mode | What is measured | When it starts and ends |
 | --- | --- | --- |
-| **Track** | One pass of the song, while the host plays it. The result stays after playback stops and is kept with the song. | With FOLLOW TRANSPORT on: when the host starts playing, until it stops. With it off: between START and STOP. |
-| **Continuous** | Whatever passes, all the time, whatever the transport does. The outline and the loudness history show the last three and a half minutes; the figures are of everything since RESET. | Runs until the mode is changed. |
+| **Track** | One pass of the song. The result stays after playback stops and is saved with the song. | With FOLLOW TRANSPORT on: from the moment the host starts playing until it stops. With it off: between START and STOP. |
+| **Continuous** | Everything that passes, whatever the transport does. The waveform and loudness history show the last three and a half minutes; the figures cover everything since RESET. | Runs until you change the mode. |
 
-A sound file is not a third way to measure the track: it is what the track is compared with. + FILE in the
-Reference panel takes a WAV, AIFF or FLAC file (a released song, an earlier master) and makes it the reference:
-see [Reference matching](#reference-matching). The file goes through the same meter as a capture
-(`dsp/Measure.hpp`), so a track captured while it plays and the file exported from it give the same figures: for
-the same samples, to the last digit (the tests check that).
+The dot in the status line is green for a complete result, blue while measuring and red for one that was cut
+short. Each new result pushes the one before it to *Previous capture* in the reference list, so you can always
+compare a change with what you had before.
 
-### What a capture does when things go otherwise
+A few cases worth knowing:
 
-- **A tap on play.** A capture the transport started that lasts less than three seconds is not kept: the track
-  that was measured stays on screen. A capture started with START is kept however short.
-- **A jump of the transport** (a loop, a click in the song) while capturing: the capture ends there, marked
-  *incomplete: transport jumped*, and a new one begins at the new place. A capture started by hand ignores the
-  transport and only counts the jumps.
-- **The mode or the sample rate changes** during a capture: it ends, marked incomplete.
-- **The host stops running the plugin** without stopping its transport (its audio engine is switched off, or a
-  bounce ends): after a second and a half the capture counts as ended, marked *host stopped processing*. When
-  the host comes back, that is a new capture.
-- **RESET** forgets what is shown. The capture before it stays available as a reference, and a file that is
-  being read for a reference goes on being read.
-
-The dot in the status line is green for a result that is whole, blue while measuring, red for one that was cut
-short. Every new result moves the one before it to *Previous capture* in the reference list, so that a change in
-the chain can be compared with what was there before it.
-
-### Offline rendering in Reason
-
-Not tried yet. What the plugin does is known. A capture counts
-samples, not time, so it does not matter that a render runs faster than playback; and the plugin's window need
-not be open, because the result lives in the plugin and is kept with the song. What is not known is what Reason
-tells a plugin while it exports: whether its transport reads as playing.
-
-To find out: put the plugin last on the master, leave FOLLOW TRANSPORT on, export the song, then open the
-plugin's window. If it shows *CAPTURED* with the length of the song, the export was measured. If it shows what
-was there before, Reason did not say it was playing: press START before the export instead (a capture by hand
-measures whatever passes) and STOP after it. The silence around the export then counts in the RMS figures and in
-the length, not in the integrated loudness, which leaves silence out.
+- **A quick tap on play.** A capture started by the transport that lasts under three seconds is thrown away, and
+  the track you had stays on screen. A capture you start with START is kept however short it is.
+- **The playhead jumps** (a loop, a click in the timeline). The capture ends there, marked *incomplete: transport
+  jumped*, and a new one starts at the new position. A capture started with START ignores the transport.
+- **The mode or sample rate changes** during a capture. It ends, marked incomplete.
+- **The host stops running the plugin** without stopping the transport, for instance when its audio engine is
+  switched off. After a second and a half the capture ends, marked *host stopped processing*.
+- **RESET** clears what is shown. The capture before it stays available as a reference.
 
 ## What is measured
 
 | Figure | How |
 | --- | --- |
-| Integrated loudness (LUFS-I) | ITU-R BS.1770-4 and EBU R128: K-weighted, blocks of 400 ms every 100 ms, gated at -70 LUFS and at 10 LU under the mean. |
-| Short-term and momentary loudness | The last 3 s and the last 400 ms, every 100 ms; their maxima over the track, and their course over time. |
-| Loudness range (LRA) | EBU Tech 3342: the short-term values, gated at -70 LUFS and at 20 LU under their mean, from the 10th to the 95th percentile. The two levels it lies between are shown under it. |
-| True peak, per channel | BS.1770 Annex 2 with eight times oversampling (the detector HNL Master's limiter uses). |
+| Integrated loudness (LUFS-I) | ITU-R BS.1770-4 and EBU R128: K-weighted, 400 ms blocks every 100 ms, gated at -70 LUFS and at 10 LU below the mean. |
+| Short-term and momentary loudness | The last 3 s and the last 400 ms, every 100 ms, with their maxima and their course over the track. |
+| Loudness range (LRA) | EBU Tech 3342: the short-term values, gated at -70 LUFS and at 20 LU below their mean, from the 10th to the 95th percentile. The two levels it lies between are shown under it. |
+| True peak, per channel | BS.1770 Annex 2 with eight times oversampling. This is the same detector HNL Master's limiter uses. |
 | PLR | True peak minus integrated loudness. |
-| Sample peak, lowest and highest sample, per channel | Of the samples as they are. |
+| Sample peak, lowest and highest sample, per channel | The samples as they are. |
 | Total RMS, per channel | Over the whole track. |
-| Maximum, minimum and average RMS, per channel | Of windows that follow each other without overlap. Six window lengths are measured at once (10, 25, 50, 100, 300 ms and 1 s), so the length can be changed after a capture. Average is the mean of the windows' RMS values. |
-| RMS histogram | How many windows of the chosen length had each level, in steps of half a decibel, both channels together. |
+| Maximum, minimum and average RMS, per channel | Of consecutive windows without overlap. Six window lengths are measured at once (10, 25, 50, 100, 300 ms and 1 s), so you can change the length after the capture. Average is the mean of the windows' RMS values. |
+| RMS histogram | How many windows of the chosen length had each level, in half-decibel steps, both channels together. |
 | Crest factor | Sample peak minus total RMS. |
 | DC offset | The mean of the samples, as a percentage of full scale. |
-| Clipped samples | Flat tops: two or more samples in a row at full scale (within 0.001 dB), and any sample over it. |
-| Balance, correlation, mid and side | Left against right in dB; how alike they are (+1 the same, 0 unrelated, -1 opposite); the RMS of half their sum and of half their difference. |
-| Spectrum | The mean of the whole track in third octaves from 20 Hz to 20 kHz. |
-| Outline and loudness history | The lowest and highest sample of each channel, and the loudness, over the whole track: always between 1024 and 2048 points, however long it is. |
-| Length, sample rate, kind of file | As captured, or as the file says. |
+| Clipped samples | Flat tops: two or more samples in a row at full scale (within 0.001 dB), plus any sample above it. |
+| Balance, correlation, mid and side | Left against right in dB; how alike the channels are (+1 identical, 0 unrelated, -1 opposite); the RMS of half their sum and of half their difference. |
+| Spectrum | The average of the whole track in third octaves from 20 Hz to 20 kHz. |
+| Waveform and loudness history | Lowest and highest sample per channel, and the loudness, over the whole track. |
 
-**The RMS figures as Adobe Audition shows them.** WINDOW sets the window length (Audition's is 50 ms unless told
-otherwise) and **0 dB = FULL SCALE** what counts as 0 dB: SINE, as Audition has it unless told otherwise, reads a
-sine wave at full scale as 0 dB; SQUARE reads it as -3.01 dB. Loudness and peaks do not depend on either.
+**Matching Adobe Audition's RMS figures.** WINDOW sets the window length (Audition defaults to 50 ms). **0 dB =
+FULL SCALE** sets what counts as 0 dB: SINE reads a full-scale sine wave as 0 dB, which is Audition's default,
+and SQUARE reads it as -3.01 dB. Loudness and peaks are not affected by either setting.
 
-A mono file is measured as one channel, as BS.1770 says, not as the same sound from two speakers (which would read
-3 LU higher).
-
-Everything is kept in memory of a fixed size, well under a megabyte whatever the length of the track, and the
-audio thread never waits for the window: it hands over a copy of its figures about twenty times a second when
-nobody else holds them, and tries again in the next block when somebody does.
+A mono file is measured as one channel, as BS.1770 prescribes, and not as the same sound from two speakers,
+which would read 3 LU higher.
 
 ## Mastering advisor
 
-Three targets, on the knobs: the integrated loudness to aim for, the highest true peak allowed, and the PLR that
-is usual for the kind of music. From those and the measured loudness and true peak:
+The three knobs are your targets: the integrated loudness to aim for, the highest true peak you allow, and the
+PLR that is normal for the kind of music. The advisor sets those against the measured loudness and true peak:
 
 | Line | What it is |
 | --- | --- |
 | Required gain | Target loudness minus measured loudness. |
-| Maximum gain under the ceiling | Ceiling minus measured true peak: what gain alone may add. Below zero when the peaks are over it already. |
-| Minimum peak reduction | What the required gain would push over the ceiling: the least a limiter or compressor must take off the peaks. |
-| PLR, measured / of the targets | True peak minus loudness, beside ceiling minus loudness target: the largest PLR that fits both targets. |
+| Maximum gain under the ceiling | Ceiling minus measured true peak: how much gain the peaks allow. Negative when the peaks are already over the ceiling. |
+| Minimum peak reduction | The part of the required gain that would push the peaks over the ceiling. A limiter or compressor has to take off at least this much. |
+| PLR, measured / of the targets | True peak minus loudness, next to ceiling minus loudness target. The second is the largest PLR that fits both targets. |
 
-Then one of four verdicts: **target achieved** (within 0.1 dB), **gain adjustment** (gain alone does it, up or
-down), **dynamic processing** (the gain that reaches the loudness would push the peaks over the ceiling) or
-**peaks over the ceiling** (loud enough, but the peaks must come down). The preferred PLR does not change these
-figures; the advisor only remarks on a master that lies more than 1 dB from it, either way.
+It then gives one of four verdicts:
 
-An example, with the targets at -12.5 LUFS and -2.0 dBTP:
+- **Target achieved**: within 0.1 dB.
+- **Gain adjustment**: turning the level up or down is enough.
+- **Dynamic processing**: the gain that reaches the loudness target would push the peaks over the ceiling.
+- **Peaks over the ceiling**: loud enough, but the peaks have to come down.
 
-    Measured:                 -13.54 LUFS, -1.58 dBTP, PLR 11.96 dB
-    Required gain:             +1.04 dB
+The preferred PLR does not change these figures. The advisor only mentions it when the master is more than 1 dB
+away from it.
+
+An example with the targets at -12.5 LUFS and -2.0 dBTP:
+
+    Measured:                        -13.54 LUFS, -1.58 dBTP, PLR 11.96 dB
+    Required gain:                   +1.04 dB
     Maximum gain under the ceiling:  -0.42 dB
-    Minimum peak reduction:    1.46 dB      -> dynamic processing
+    Minimum peak reduction:          1.46 dB      -> dynamic processing
 
-It is plain arithmetic on the figures above, so the same measurement always gives the same advice, and it changes
-nothing in the sound.
+The advice is plain arithmetic on the measurement, so the same measurement always gives the same advice.
 
-**Targets as presets.** The preset bar holds sets of targets: by service (Streaming -14, Apple Music -16,
-Broadcast EBU R128), by kind of music, and Save as... keeps your own, as in every HNL plugin. The figures for
-services and broadcast are the ones those publish. The ones per kind of music are where commercial masters of
-that kind tend to sit: starting points, not rules.
+**Targets as presets.** The preset bar holds sets of targets by service (Streaming -14, Apple Music -16, Broadcast
+EBU R128) and by kind of music, and *Save as...* keeps your own. The service and broadcast figures are the ones
+those services publish. The ones per genre are where commercial masters of that kind tend to sit. Treat them as
+starting points.
 
-## HNL Master in the same song
+## Working with HNL Master
 
 ![HNL Master found, its meters in the strip at the bottom](docs/master.png)
 
-The strip at the bottom of the window shows [HNL Master](../hnl-master) (version 0.9 or later) when there is one
-in the song. Nothing has to be set up or connected: the two find each other by themselves, in any host. The dot
-is green and the strip says **DETECTED** with its version; without one it says **NOT FOUND**.
+When [HNL Master](../hnl-master) (0.9 or later) is in the same song, the two plugins find each other. There is
+nothing to connect or set up. The strip at the bottom of the window then says **DETECTED** with Master's version
+and shows its meters live:
 
 | Figure | What it is |
 | --- | --- |
-| Input peak | The level before HNL Master's chain, the higher of left and right. |
-| Comp GR low, mid, high | How much each band of its compressor turns down at this moment. |
-| Limiter GR, gain, ceiling | What its limiter takes off, and how it is set. OFF when the limiter is switched off. |
-| Out short-term, true peak | What HNL Master measures at its own output: the loudness of the last three seconds, and its true-peak maximum. |
-| Master to here | The short-term loudness that arrives here minus the one HNL Master sends, while a capture runs. 0.0 when nothing stands between the two. Yellow when they lie more than 0.5 dB apart: a plugin or a fader in between changes the level, and what is measured here is then not what HNL Master puts out. |
+| Input peak | The level going into Master's chain, the higher of left and right. |
+| Comp GR low, mid, high | How much each band of its compressor is turning down right now. |
+| Limiter GR, gain, ceiling | How much its limiter takes off, and how it is set. Shows OFF when the limiter is switched off. |
+| Out short-term, true peak | What Master measures at its own output: the loudness of the last three seconds and its true-peak maximum. |
+| Master to here | The short-term loudness arriving at Analyzer minus the one Master sends, while a capture runs. It reads 0.0 when nothing sits between the two. It turns yellow beyond 0.5 dB: a plugin or fader in between is changing the level, so Analyzer is not measuring what Master puts out. |
 
-They are the meters of this moment, as HNL Master's own window shows them, not figures of the whole track; they
-are not kept with the analysis and are not in the reports.
+These are live meters, the same ones Master's own window shows. They are not saved with the analysis and do not
+appear in the reports.
 
-The strip also says what would make the measurement mean something else than it seems: **BYPASSED** when HNL
-Master's Bypass is on, **MATCH ON** when its Match is (the level is then turned down to that of the unprocessed
-sound: switch it off before measuring a master), and *not processing* when the host does not run it.
+The strip also warns about two settings that make a measurement misleading: **BYPASSED** when Master's Bypass is
+on, and **MATCH ON** when its Match is on. Match turns the output down to the level of the unprocessed sound, so
+switch it off before you measure a master. *Not processing* means the host is not running Master at the moment.
 
-With more than one HNL Master (one on a bus, one on the master) those in this host come first; the strip says
-*1 of 2*, and a click on it steps to the next. Which one it is shows in *Master to here*: 0.0 for the one whose
-sound arrives here. That choice is not kept with the song yet.
-
-The strip only reads. What does change HNL Master is the key below.
+If the song holds more than one HNL Master, the strip says *1 of 2* and a click steps to the next. The one whose
+sound reaches Analyzer is the one where *Master to here* reads 0.0. This choice is not saved with the song.
 
 ### APPLY TO MASTER
 
-The key beside the advisor's title sets HNL Master's limiter by the advice, in one click:
+The key next to the advisor's title sets Master's limiter according to the advice, in one click:
 
-- its **ceiling** goes to the maximum true peak,
-- its **gain** goes up or down by the required gain,
-- and the limiter is switched **on** if it was off (its gain then becomes the required gain alone).
+- the **ceiling** goes to your maximum true peak,
+- the **gain** goes up or down by the required gain,
+- the limiter is switched **on** if it was off.
 
-The key is off until an HNL Master (0.10 or later) is found. The line beside the advice says where it stands:
-**MASTER DETECTED** when there is one, **NO MASTER FOUND** when there is not, and otherwise why there is nothing
-to send: *NEEDS MASTER 0.10*, *MASTER BYPASSED*, *MASTER: MATCH ON*, *CAPTURE RUNNING*, *CAPTURE A TRACK* (what
-is shown was read from a file, or is the continuous meter), *KNOB AT ITS END* (the gain is as high or as low as
-it goes).
+It needs HNL Master 0.10 or later. The key stays off until a Master is found, and the line next to the advice
+tells you where things stand: **MASTER DETECTED** when the key can be used, **NO MASTER FOUND** when there is
+none. If there is a Master but nothing to send, the line gives the reason:
 
-It works on a track capture that has ended, and that capture must have been measured behind HNL Master: this
-plugin on the master, after it. The limiter then holds the peaks that the gain pushes up, which costs a little of
-the loudness, so one click seldom lands exactly. After a click the line says **SET: PLAY AGAIN**: play the track
-once more, and click again if the advice still asks for something. Two rounds are usually enough. One capture is
-sent once, also when the window was closed in between, so a second click cannot add the gain twice.
+| The line says | Meaning |
+| --- | --- |
+| NEEDS MASTER 0.10 | The Master in the song is older than 0.10. |
+| MASTER BYPASSED, MASTER: MATCH ON | Switch Bypass or Match off in Master first. |
+| CAPTURE RUNNING | Wait until the capture has ended, or stop playback. |
+| CAPTURE A TRACK | What is shown is the continuous meter or a file. APPLY needs a track capture. |
+| KNOB AT ITS END | Master's limiter gain is already as high or as low as it goes. |
+| SET: PLAY AGAIN | This capture has been applied. Play the track again for a new measurement. |
+| NO ANSWER | Master did not respond within a second and a half, usually because the host is not running it. Nothing was changed. |
 
-HNL Master takes the new values with its next block of audio and tells the host, so that its own window follows
-and the song is saved with them. When it does not answer within a second and a half (the host does not run it),
-the line says **NO ANSWER** and nothing counts as sent. The host's undo does not know about the change: the
-strip shows the limiter's gain and ceiling, should you want to note them before a click.
+How to use it: play the track with Analyzer after Master, stop, and click APPLY TO MASTER. Then play the track
+again. More gain makes the limiter work harder, and that costs a little loudness, so the first click rarely
+lands exactly on target. If the advice still asks for a change after the second pass, click again. Two rounds
+are usually enough.
 
-How it works: every HNL Master writes its meters into a small block of memory that the system keeps under a name
-(`common/Link.hpp`), and this window reads it thirty times a second. The audio thread of neither plugin waits for
-the other. `HNL_LINK_NAME=off` in the environment of the host switches it off.
+Each capture can be applied only once, also if you close and reopen the window in between. A second click can
+never add the same gain twice.
 
-## Reference matching
+Master's own window follows the change and the new values are saved with the song. The host's undo does not
+cover it, so if you may want the old settings back, note the limiter gain and ceiling from the strip before you
+click.
+
+The link between the plugins can be switched off by setting `HNL_LINK_NAME=off` in the host's environment.
+
+## Comparing with a reference
 
 A reference comes from one of three places:
 
-- **+ FILE...** takes a sound file from disk: a released song you want to sit beside, the master of the
-  previous track on the album, last week's version. It is measured much faster than it plays (the name box shows
-  how far it is; the key cancels meanwhile), saved with the references under the file's name, and compared with
-  at once. The track that is shown is not touched, and the plugin goes on measuring what passes. A file can also
-  be dropped on the window (Windows). A file that ends before its header says, or a FLAC file with a damaged
-  frame, is measured as far as it could be read and marked incomplete, with the reason.
-- **+ TRACK** keeps the analysis that is shown as a reference, under the track's name.
-- **Previous capture**: every new result moves the one before it there.
+- **+ FILE...** takes a sound file from disk: a released song you want to sit next to, the previous track on the
+  album, last week's version. It is measured much faster than it plays. The name box shows the progress, and the
+  same key cancels. The result is saved with your references under the file's name and compared with right away.
+  The track on screen is not touched. On Windows you can also drop a file on the window.
+- **+ TRACK** saves the analysis on screen as a reference, under the track's name.
+- **Previous capture** is always there: each new result moves the one before it to this place.
 
-A saved reference holds all its figures, the histograms, the spectrum and the loudness history. The arrows above
-the table step through *No reference*, *Previous capture* and the saved ones. With a reference chosen, the table shows the track, the reference and the difference
-(track minus reference), and the reference is drawn in yellow in the loudness history, the histogram and the
-spectrum.
+The arrows above the table step through *No reference*, *Previous capture* and the saved ones. With a reference
+chosen, the table shows the track, the reference and the difference (track minus reference). The reference is
+also drawn in yellow in the loudness history, the histogram and the spectrum.
 
-The keys under the name set how the two are held against each other:
+The keys under the name set how the two are compared:
 
 - **AS MEASURED**: as they are.
-- **LOUDNESS**: the reference moved to the integrated loudness of the track. The difference in level is gone,
-  and what is left is the difference in peaks, dynamics and tone.
-- **TRUE PEAK**: the reference moved to the true peak of the track: what the two would be under the same
-  ceiling.
+- **LOUDNESS**: the reference is moved to the track's integrated loudness. That takes the level difference out
+  and leaves the difference in peaks, dynamics and tone.
+- **TRUE PEAK**: the reference is moved to the track's true peak. This shows how the two would compare under the
+  same ceiling.
 
-The gain the reference is shown with stands above its column.
+The gain applied to the reference is shown above its column.
 
-A reference is one JSON file in `%APPDATA%\HNL\HNL Analyzer\References\` (beside the presets of the plugins), so
-references hold for every song and can be copied and shared. EXPORT writes the chosen one to a file anywhere,
-+ FILE... takes such a file back in (it tells a JSON reference from a sound file by its extension), DELETE
-removes the chosen one after asking once. Only the figures are kept, never the sound of the file. Which reference a song compares with, and how, is
-kept with the song.
+A file measured as a reference goes through exactly the same meter as a capture. A track captured during
+playback and the file exported from it give identical figures for the same samples.
 
-The JSON has a `summary` a person can read and a `data` part with everything as measured. A reference can also
-be typed by hand from figures noted down elsewhere; only what was noted is compared, the rest shows as `--`:
+### Where references live
+
+Each reference is a JSON file in `%APPDATA%\HNL\HNL Analyzer\References\`. They are available in every song and
+you can copy and share them. Only the figures are stored, never the audio. EXPORT writes the chosen reference to
+a file of your choice, + FILE... reads such a file back in, and DELETE removes the chosen one after asking once.
+Which reference a song uses, and how it is matched, is saved with the song.
+
+You can also type a reference by hand from figures you noted somewhere else. Only what you enter is compared;
+the rest shows as `--`:
 
 ```json
 {
@@ -262,102 +255,110 @@ Other keys a typed reference may have: `short_term_max_lufs` with `momentary_max
 
 ## Reports
 
-COPY puts the figures on the clipboard as text. TXT, MD and JSON write them to a file, plain, as Markdown or as
-data, with the advisor and, when a reference is chosen, the comparison. NAME is the name of the track in those
-reports and the name the track is saved under as a reference.
+COPY puts the figures on the clipboard as text. TXT, MD and JSON write them to a file as plain text, Markdown or
+data. A report includes the advisor and, when a reference is chosen, the comparison. NAME is the track's name in
+the reports, and the name it gets when you save it as a reference.
 
 ## Files it reads
 
-WAV (8 to 32 bit, float, RF64), AIFF and AIFF-C, and FLAC, with the readers of HNL Sampler. A WAV or AIFF file is
-read in blocks, so its length does not matter to memory; a FLAC file is read whole, up to 2 GB.
+WAV (8 to 32 bit, float, RF64), AIFF, AIFF-C and FLAC, up to 101 minutes at 44.1 kHz. Of a file with more than
+two channels, the first two are measured. A file that is cut short or damaged is measured as far as it can be
+read and marked incomplete, with the reason.
 
-There is no reader for MP3: the plugins here carry no code of others, and an MP3 decoder is too large to write
-alongside. An MP3 file is refused with a line that says so. Use the WAV or FLAC of the reference instead; an
-MP3 also has higher peaks than its source, so its figures would not be those of the master it was made from.
+MP3 is not supported. The HNL plugins contain no third-party code, and an MP3 decoder is too much to write for
+this. Use the WAV or FLAC of your reference instead. That is the better choice anyway: an MP3 has higher peaks
+than its source, so its figures are not those of the master it was made from.
 
-## How it was checked
+## The window
 
-`tests/run.sh` runs seven test programs.
+The cog in the corner lists the looks and the window sizes (75 to 200 %). Where the host allows it you can also
+drag the window by its edge. The size is remembered for this plugin, not per song.
 
-- `dsp_test`: the meter against signals whose figures are known. The test signals of **EBU Tech 3341** that can
-  be made from their description (cases 1 to 5, 9 and 12: loudness within 0.1 LU; 15 to 19: true peak within
-  +0.2 and -0.4 dB) and of **EBU Tech 3342** (cases 1 to 4: range within 1 LU); the K-weighting at 100 Hz and
-  10 kHz and at four sample rates; RMS, crest factor, DC offset, clipping, correlation, mid and side and the
-  spectrum against signals with a known answer; the same figures for blocks of 1 to 4410 frames; then the
-  advisor, the comparison, and the JSON, also on 400 damaged copies.
-- `engine_test`: the test plays the host. The transport starts, stops and jumps; captures by hand; the host
-  that stops running the plugin; a second thread reading throughout; WAV, AIFF and FLAC files of the same sound
-  giving the same figures as a capture of it; files cut short and damaged; a file read for a reference
-  while the track that is shown stays as it is.
-- `plugin_test`: the plugin in DPF's host-side wrapper: what comes out is what went in, bit for bit, in every
-  mode and with every setting; a capture driven by the host's transport; the analysis saved and given back as
-  state.
-- `abuse_test`: the host that does everything a host may do (`common/tests/HostAbuse.hpp`).
-- `ui_test`, `ui_presets_test`, `ui_skin_test`: the window itself, clicked and typed in; with an HNL Master that
-  enters, changes, gets a second one beside it and leaves.
+## Limits
 
-How the plugins find each other is tested in `common/tests/link_test.cpp`, with a second process as the other
-plugin: found, gone when it leaves, gone when its process is killed, more instances than there is room for.
+- No MP3, and no more than two channels.
+- A sound file can be a reference, but not the track. The track is always what the host plays.
+- Master's meters in the strip are live only. They are not recorded over the length of the track.
+- Dropping files on the window works on Windows only, and not in hosts that keep drops to themselves. + FILE...
+  always works.
+- When HNL Master runs as CLAP, APPLY TO MASTER sets and saves the values, but Master's window shows the old
+  ones until you reopen it. As VST3 it follows at once.
+- The host's undo does not cover APPLY TO MASTER.
 
+## What has and has not been tried
+
+Tried in Reason on Windows, as VST3:
+
+- Captures that follow the transport: they start with playback, end when it stops, and start again when the
+  playhead is moved.
+- Finding HNL Master and showing its meters.
+- APPLY TO MASTER.
+
+Not tried yet:
+
+- **Exporting (bouncing) a song.** A capture counts samples, so a render that runs faster than real time is no
+  problem in itself. If the window still shows the old result after an export, start the capture by hand: START
+  before the export, STOP after it.
+- **Other hosts**, including ones that run every plugin in its own process.
+- **In a host:** the file dialog, files as references, dropping files, the clipboard, the reports and resizing
+  the window. All of these are covered by the automated tests only.
+- **The official EBU test files with real programme material** (Tech 3341 cases 7 and 8, Tech 3342 cases 5 and
+  6). The meter is tested against the EBU cases that can be generated from their description. To check the
+  others yourself, download the "EBU Loudness test set" from tech.ebu.ch and add the files with + FILE...: cases
+  7 and 8 should read -23.0 LUFS within 0.1, the range cases 5 and 15 LU within 1.
+- **A side-by-side with Adobe Audition.** The RMS figures follow Audition's documentation, but two may differ:
+  Audition does not document whether its *Average RMS* averages the windows' RMS values (as here) or their
+  decibels, and *Possibly clipped samples* is its own count.
+
+## For developers
+
+### Tests
+
+`tests/run.sh` runs seven test programs:
+
+- `dsp_test` checks the meter against signals with known answers: the EBU Tech 3341 cases that can be generated
+  (1 to 5, 9 and 12 for loudness within 0.1 LU; 15 to 19 for true peak within +0.2 and -0.4 dB), EBU Tech 3342
+  cases 1 to 4 (range within 1 LU), the K-weighting at four sample rates, and RMS, crest factor, DC offset,
+  clipping, correlation and spectrum. It also covers the advisor, the comparison and the JSON, including 400
+  damaged copies.
+- `engine_test` plays the host: the transport starts, stops and jumps, captures are started by hand, the host
+  stops running the plugin, and a second thread reads throughout. WAV, AIFF and FLAC files of the same sound must
+  give the same figures as a capture of it.
+- `plugin_test` runs the plugin in DPF's wrapper: the output equals the input bit for bit in every mode, and the
+  analysis survives being saved and restored as state.
+- `abuse_test` does everything a host is allowed to do (`common/tests/HostAbuse.hpp`).
+- `ui_test`, `ui_presets_test` and `ui_skin_test` click and type in the window itself, including with an HNL
+  Master that appears, changes and leaves.
+
+The link between plugins is tested in `common/tests/link_test.cpp`, with a second process as the other plugin.
 Both engine tests run twice: plainly, and with the flags the plugin is built with.
 
-### What is not checked yet
+To compare with FFmpeg: `tests/measure.cpp` measures files with the plugin's code and prints the report, and
+`measure --demo <folder>` writes five test sounds.
 
-- **APPLY TO MASTER, in a host.** The tests above cover what is sent and that HNL Master sets its knobs and
-  tells the host. Whether each host then moves the knobs in HNL Master's window and in its own automation lanes
-  has had one run in Reason (28 November 2026), where it worked; other hosts are not tried. As CLAP the host is not told at all (DPF's CLAP wrapper does not pass it on): the sound and the
-  saved song are right, HNL Master's window shows the old values until it is opened again.
-- **Finding HNL Master, beyond a first run.** The tests above run on Linux. The Windows half of
-  `common/Link.hpp` (a named file mapping instead of POSIX shared memory) has had one run in Reason
-  (28 November 2026), in which HNL Master was detected and its figures shown. Not tried: other hosts, and a host
-  that runs each plugin in a process of its own.
-- **In a host.** It has had one first run in Reason (27 November 2026), in which a capture followed the transport
-  as meant: it began with playback, ended when it stopped, and began anew when the playhead was moved. Not tried
-  there yet: the system's file dialog, a sound file as reference, files dropped on the window, the clipboard,
-  the reports, the window at another size, and offline rendering (above).
-- **The official EBU test files.** The signals above were made from their description. The files with real
-  programme material (Tech 3341 cases 7 and 8, Tech 3342 cases 5 and 6) could not be fetched where this was
-  built. They are on tech.ebu.ch ("EBU Loudness test set"); add them with + FILE... and read the reference
-  column: cases 7 and 8 must read -23.0 LUFS within 0.1, the range cases 5 and 15 LU within 1.
-- **Adobe Audition.** The RMS figures follow what Audition documents: windows of a set length, 0 dB as a sine or
-  a square wave at full scale. Two of its figures may still differ. *Average RMS* is here the mean of the
-  windows' RMS values; whether Audition averages those or their decibels is not documented. *Possibly clipped
-  samples* is Audition's own count; the rule here is in the table above. A track measured in both will tell.
-- **FFmpeg.** `tests/measure.cpp` measures files with the plugin's code and prints the report; `measure --demo
-  <folder>` writes five test sounds. To compare:
+    ffmpeg -i song.wav -af ebur128=peak=true -f null -          # I, LRA, true peak
+    ffmpeg -i song.wav -af astats -f null -                     # peak, RMS, DC offset, crest factor
 
-      ffmpeg -i song.wav -af ebur128=peak=true -f null -          # I, LRA, true peak
-      ffmpeg -i song.wav -af astats -f null -                     # peak, RMS, DC offset, crest factor
+`astats` gives RMS against a square wave, so compare it with `measure --square`.
 
-  `astats` gives RMS against a square wave: compare with `measure --square`.
+### Code
 
-## What is not in it
-
-- **MP3**, and anything else compressed with loss (above).
-- **More than two channels.** Of a file with more, the first two are measured.
-- **Files dropped on the window on a Mac**, and in a host that keeps drops to itself. + FILE... always works.
-- **A sound file measured as the track.** A file is a reference here; the track is what the host plays. (The
-  `measure` tool in `tests/` prints the full report of a file.)
-- **HNL Master's own figures**: the level before the chain, the gain reduction of each band and of the limiter
-  over time, and a comparison of before and after at equal loudness. That needs the two plugins to find each
-  other in a song, which no HNL plugin does yet.
-- **Files longer than 101 minutes at 44.1 kHz** (the limit of the readers). A capture has no limit.
-
-## Code
-
-- `dsp/Measure.hpp`: the meter and what it measures. No allocation after `prepare()`.
-- `dsp/Advisor.hpp`: the advisor.
+- `dsp/Measure.hpp`: the meter. No allocation after `prepare()`.
+- `dsp/Advisor.hpp`: the advisor, and what APPLY TO MASTER sets.
 - `dsp/Report.hpp`: an analysis with its name and state, the comparison with a reference, the JSON, the reports.
-- `dsp/Engine.hpp`: when a capture begins and ends, how the figures pass from the audio thread to the others,
-  the measuring of a reference file on a thread of its own, the analysis that is kept, and the references on
-  disk.
-- `common/Link.hpp`: how HNL plugins find each other and read each other's figures.
-- `AnalyzerPlugin.cpp`, `AnalyzerUI.cpp`: the DPF plugin and its window. The window reads what was measured
-  from the plugin itself (`DISTRHO_PLUGIN_WANT_DIRECT_ACCESS`); only the settings are parameters.
-- Shared with others: the loudness filters and the correlation (`common/dsp/Metering.hpp`, moved there from HNL
-  Master), the true-peak detector (`common/dsp/Filters.hpp`), the file readers of HNL Sampler
-  (`../hnl-sampler/dsp/AudioFile.hpp`), the preset bar, help tips, looks and the size of the window
-  (`common/ui/`).
+- `dsp/Engine.hpp`: when a capture begins and ends, how figures get from the audio thread to the window, reading
+  a reference file on its own thread, and the references on disk.
+- `common/Link.hpp`: how HNL plugins find each other. Every HNL Master writes its meters into a small named
+  block of shared memory, and Analyzer's window reads it thirty times a second. Neither audio thread waits for
+  the other.
+- `AnalyzerPlugin.cpp`, `AnalyzerUI.cpp`: the DPF plugin and its window. The window reads the measurement
+  straight from the plugin (`DISTRHO_PLUGIN_WANT_DIRECT_ACCESS`); only the settings are parameters.
+- Shared with other plugins: the loudness filters and correlation (`common/dsp/Metering.hpp`), the true-peak
+  detector (`common/dsp/Filters.hpp`), HNL Sampler's file readers (`../hnl-sampler/dsp/AudioFile.hpp`), and the
+  preset bar, help tips, looks and window size (`common/ui/`).
+
+The analysis is held in a fixed amount of memory, well under a megabyte whatever the length of the track. The
+audio thread never waits for the window.
 
 The parameters the host sees: Mode, Follow Transport, RMS Window, RMS Reference, the three targets, and six
 meters it can read (momentary, short-term and integrated loudness, true peak, PLR, LRA).
