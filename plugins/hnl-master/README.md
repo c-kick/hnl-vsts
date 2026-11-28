@@ -1,6 +1,8 @@
 # HNL Master
 
-A mastering chain in one plugin, for the master bus.
+A mastering chain in one plugin, for the master bus. The sound goes through a multiband compressor, an
+equaliser, an exciter, a stereo widener, a reverb and a true-peak limiter, with meters at both ends. Each stage
+has its own switch, so you use only what the song needs.
 
 ![HNL Master](docs/preview.png)
 
@@ -8,9 +10,26 @@ A mastering chain in one plugin, for the master bus.
 | --- | --- | --- |
 | ![Help tip](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
-*Rendered from the plugin's drawing code.*
+*These pictures are rendered from the plugin's drawing code.*
 
-Signal flow, left to right:
+## Quick start
+
+1. Put HNL Master on the master bus.
+2. Pick a preset from the menu at the top right as a starting point, or start from the default.
+3. Switch the stages you want on and the others off. A stage that is off can still be set up.
+4. Set the limiter. **Gain** makes the master louder, **Ceiling** is the level the peaks are held under. The
+   loudness and true-peak figures in the output module show where you are.
+5. Switch **MATCH** on and click **BYPASS** on and off. Both sounds are now equally loud, so you hear what the
+   chain does and not only that it is louder.
+6. Before you export, switch Match, Bypass, solo and mute off, and set **DITHER** to the word length of the
+   file.
+
+The **?** button next to the presets switches on help tips. Rest the mouse on any control or meter to read what
+it does.
+
+## The chain
+
+The sound runs through the stages from left to right.
 
 | Stage | Controls |
 | --- | --- |
@@ -23,89 +42,108 @@ Signal flow, left to right:
 | Limiter | Gain, ceiling, attack and release; brickwall (look-ahead) or soft, with true-peak detection |
 | Output | Level meters, momentary / short-term / integrated loudness (LUFS), true-peak maximum; bypass with matched loudness; dither to 16 or 24 bit |
 
-The equaliser can stand before the compressor instead of after it: the box under its title chooses. After the
-compressor it shapes the tone of the result; before it, the compressor works on the equalised sound. Thin lines
-between the stages show the way the sound goes.
+The equaliser normally sits after the compressor, where it shapes the tone of the result. The box under its
+title moves it in front, and then the compressor works on the equalised sound. Thin lines between the stages
+show the route the sound takes.
 
 ![The equaliser before the compressor](docs/eq-first.png)
 
-## Linked bands, and a soft limiter
+## Compressor
 
 ![The bands linked, the limiter soft](docs/link.png)
 
-**LINK BANDS**, at the top left of the compressor, makes the three bands move together: turn a threshold, ratio,
-attack, release or gain, and the same control of the other two bands goes along by as much. The differences
-between the bands stay as they are. A band that reaches the end of its range waits there and has its difference
-back when the knob is turned back. A double click returns all three to their default. The link is kept with the
-song, not in presets, and changes nothing in the sound by itself.
+**LINK BANDS**, at the top left of the compressor, makes the three bands move together. Turn a threshold,
+ratio, attack, release or gain and the same control of the other two bands moves by the same amount, so the
+differences between the bands are kept. A band that reaches the end of its range waits there, and gets its
+difference back when you turn the knob the other way. A double click returns all three to their default. The
+link is saved with the song, not in presets, and switching it on or off does not change the sound.
 
-The limiter works in one of two ways, chosen in the box under its title:
+**S** and **M** next to the name of each band solo and mute it, which helps when you set a crossover or a
+threshold by ear. You can solo more than one band. A muted band is silent even when it is soloed. Both are for
+listening only.
 
-- **Brickwall**, as it always was: it looks ahead and turns down before a peak arrives, so nothing passes the
-  ceiling. Attack sets how far ahead it starts, from 0.5 to 5 ms; the 3 ms it starts at is what earlier versions
-  had fixed. Shorter keeps more punch, longer is smoother.
-- **Soft**: no look-ahead. It turns down at the speed of Attack (0.5 to 50 ms), so the peaks that are faster
-  pass the ceiling. That sounds more open and less held. The output can then go over the ceiling, by 12 dB at
-  most, and what comes after the plugin may clip; the true-peak figure turns red when it does.
+The **spectrum** at the top of the compressor shows what goes into it, from 20 Hz on the left to 20 kHz on the
+right, over 72 dB. The two lines are the crossovers. A band you cannot hear at the moment is drawn dark.
 
-## Hearing what the chain does
+## Equaliser
+
+- **LOW CUT** removes everything below its frequency, at 12 dB per octave, from 15 to 150 Hz. Turned all the way
+  down it is off. You hardly hear rumble, but the compressor and the limiter react to it all the same.
+- **STEREO / MID / SIDE** under the equaliser's title chooses what the equaliser works on: left and right
+  alike, only the middle of the image, or only its width. The low cut always works on everything.
+
+## Stereo width
+
+The **correlation** bar shows how alike left and right are at the output. To the right they agree. To the left,
+in red, they work against each other, and parts of the sound will be weaker or gone in mono.
+
+## Limiter
+
+The box under the limiter's title chooses between two ways of working:
+
+- **Brickwall** looks ahead and turns the level down before a peak arrives, so nothing passes the ceiling.
+  Attack sets how far ahead it starts, from 0.5 to 5 ms. The default is 3 ms, which is the fixed value that
+  versions before 0.7 used. Shorter keeps more punch, longer is smoother.
+- **Soft** does not look ahead. It turns down at the speed of Attack (0.5 to 50 ms), so peaks faster than that
+  pass the ceiling. The result sounds more open and less held back. The output can go over the ceiling, by 12 dB
+  at most, and whatever comes after the plugin may clip. The true-peak figure turns red when that happens.
+
+## Output: comparing, metering and dither
 
 ![The mid band soloed, loudness matched, dither to 16 bit](docs/compare.png)
 
-**BYPASS**, in the output module, gives the sound as it came in. It is as late as the processed sound, so
-switching does not skip, and every stage goes dim while it is on.
+**BYPASS** lets you hear the sound as it came in. The unprocessed sound is delayed by as much as the processed
+one, so switching does not skip. Every stage goes dim while Bypass is on.
 
-**MATCH** turns the processed sound to the loudness of the unprocessed one. Louder always sounds better, so
-without it a bypass tells you little: with it, switching Bypass on and off compares the sound and not the level.
-MATCH GAIN shows by how much it turns, which is how much louder the chain makes the mix. The meters show what
-leaves the plugin, so they read lower while Match is on. **Switch Match off before you export.**
+**MATCH** brings the processed sound to the loudness of the unprocessed one. Louder always sounds better, so
+without Match a bypass tells you little. With it, switching Bypass on and off compares the sound and not the
+level. MATCH GAIN shows how far Match is turning, which is how much louder the chain makes the mix. The meters
+show what leaves the plugin, so they read lower while Match is on. **Switch Match off before you export.**
 
 ![Bypass: the unprocessed sound, every stage dim](docs/bypass.png)
 
-**S** and **M** beside the name of each band of the compressor solo and mute it, to set a crossover or a
-threshold by ear. More than one band can be soloed; a muted band is silent, soloed or not. They too are for
-listening only.
+**DITHER** rounds the result to 16 or 24 bits with dither (triangular, two steps from peak to peak, no noise
+shaping). Set it to the word length you export to. Leave it off for 32 bit float, or when something else comes
+after the plugin. The unprocessed sound you hear with Bypass is never dithered.
 
-The **spectrum** at the top of the compressor shows what goes into it, from 20 Hz at the left to 20 kHz at the
-right, over 72 dB. The two lines are the crossovers. A band that is not heard is dark.
+The loudness meter shows momentary (the last 0.4 s), short-term (the last 3 s) and integrated loudness.
+**Reset meters** clears the integrated loudness and the true-peak maximum. Click it before you play the song
+through for a reading.
 
-The **correlation** bar in the stereo width module shows how alike left and right are at the output. To the
-right they agree; to the left, in red, they work against each other and parts of the sound will be weaker or
-gone in mono.
+Bypass, Match, solo, mute and dither are parameters like the others and are saved with the song, but choosing a
+preset does not change them.
 
-Bypass, Match, solo, mute and dither are parameters like the others, kept with the song, but a preset leaves
-them as they are.
+## Presets and help
 
-## Low cut, mid and side, dither
+The menu at the top right holds twelve presets. A `*` after the preset name means a control has been changed
+since you chose it. *Save as...* at the end of the list keeps your own settings under a name, for use in every
+song.
 
-- **LOW CUT** in the equaliser takes away what lies below its frequency, 12 dB per octave, 15 to 150 Hz. All the
-  way down it is off. Rumble is hardly heard, but the compressor and the limiter work on it all the same.
-- **STEREO / MID / SIDE** under the equaliser's title chooses what it works on: left and right alike, only the
-  middle of the image, or only its width. The low cut always works on everything.
-- **DITHER**, in the output module, rounds the result to 16 or 24 bits with dither (triangular, two steps from
-  peak to peak, no noise shaping). Set it to the word length you export to, and leave it off for 32 bit float or
-  when something else comes after the plugin. The unprocessed sound of Bypass is never dithered.
-
-Twelve presets are in the menu at the top right. A `*` after the preset name means a control was changed since it
-was chosen.
-
-The **?** button next to the presets switches help on: rest the mouse on any control or meter to read what it
+The **?** button next to the presets switches help on. Rest the mouse on any control or meter to read what it
 does.
 
-## Nothing moves unless you fold it
+## Knobs
 
-A stage that is switched off stays where it is and goes dim; its controls still work, so it can be set up before
-it is switched on. Switching stages and stepping through presets never moves anything in the window.
+- Drag a knob up or down. Hold Shift for fine steps. The mouse wheel also works.
+- Double-click or Ctrl-click a knob to return it to its default.
 
-The arrow next to a stage's switch folds that stage to its title bar, and the window shrinks to fit. A folded
-stage that is on keeps working. Switching a folded stage on opens it; switching it off leaves it folded. What is
-folded is kept with the song, not in presets.
+## The window
+
+A stage that is switched off stays in place and goes dim. Its controls still work, so you can set it up before
+you switch it on. Switching stages and stepping through presets never moves anything in the window.
+
+The arrow next to a stage's switch folds that stage down to its title bar, and the window shrinks to fit. A
+folded stage that is on keeps working. Switching a folded stage on opens it, and switching it off leaves it
+folded. Which stages are folded is saved with the song, not in presets.
+
+The cog at the top right lists the looks and the window sizes (75 to 200 %). Where the DAW allows it you can
+also drag the window by its edge. The size is remembered for this plugin, not per song.
 
 Everything on:
 
 ![Every stage switched on](docs/everything-on.png)
 
-As a new instance opens:
+A new instance:
 
 ![Default view](docs/default.png)
 
@@ -117,39 +155,93 @@ The compressor and the stereo width folded:
 
 ![Two stages folded](docs/folded.png)
 
-## Found by HNL Analyzer
+## Working with HNL Analyzer
 
-From version 0.9 on, [HNL Analyzer](../hnl-analyzer) (0.2 or later) in the same song finds HNL Master by itself
-and shows its meters beside its own measurement: the input peak, the gain reduction of the three bands and of
-the limiter, the limiter's gain and ceiling, the loudness and the true peak. Nothing has to be connected, and it
-works in any host. Its sound and its latency are what they were.
+When [HNL Analyzer](../hnl-analyzer) (0.2 or later) is in the same song as HNL Master 0.9 or later, the two
+plugins find each other. There is nothing to connect or set up. Analyzer then shows Master's meters next to its
+own measurement: the input peak, the gain reduction of the three compressor bands and of the limiter, the
+limiter's gain and ceiling, the loudness and the true peak. This does not change Master's sound or its latency.
 
-From version 0.10 on, the APPLY TO MASTER key of HNL Analyzer (0.3 or later) sets three things here: the limiter's
-gain, its ceiling, and the limiter on. They are taken with the next block of audio, kept within the range of each
-knob, and the host is told, so that this window follows and the song is saved with them. Nothing else can be set
-from outside. As VST3 that is; as CLAP the values are set and saved, but this window shows the old ones until it is
-opened again.
+From HNL Master 0.10, the **APPLY TO MASTER** key in Analyzer (0.3 or later) sets three things here, according
+to Analyzer's advice:
 
-For this every instance writes its meters into a small block of memory that the system keeps under a name
-(`common/Link.hpp`). The audio thread stores a handful of numbers per block and never waits. `HNL_LINK_NAME=off`
-in the environment of the host switches it off.
+- the limiter's **Ceiling** goes to your maximum true peak,
+- the limiter's **Gain** goes up or down by the required gain,
+- the limiter is switched **on** if it was off.
 
-## Using it
+The values stay within the range of each knob (0 to 24 dB for the gain, -6 to 0 dB for the ceiling). Master's
+window follows the change and the new values are saved with the song. Nothing else in Master can be set from
+outside. Analyzer will not send anything while Bypass or Match is on here, so switch those off first.
 
-- Drag a knob up or down; hold Shift for fine steps. The mouse wheel also works.
-- Double-click or Ctrl-click a knob to return it to its default.
-- Reset meters clears the integrated loudness and the true-peak maximum.
+The [Analyzer manual](../hnl-analyzer#apply-to-master) describes how to use the key.
 
-The plugin reports its latency to the host (about 6 ms: 273 samples at 44.1 kHz, 292 at 48 kHz, 532 at 96 kHz). It is
-the same in both modes of the limiter and at every attack.
+## Latency
+
+The plugin reports its latency to the DAW. It is about 6 ms: 273 samples at 44.1 kHz, 292 at 48 kHz and 532 at
+96 kHz. It is the same in both limiter modes and at every attack setting.
 
 ## Installing
 
 [Download HNL-Master-win64.zip](https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Master-win64.zip): the current build, for 64-bit Windows.
 
-The zip holds the plugin as VST3
-(copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). A host needs only one of the
-two. Windows 64-bit; the VST3 is tested in Reason.
+The zip holds the plugin as VST3 and as CLAP. Copy the `.vst3` folder to
+`C:\Program Files\Common Files\VST3\`, or the `.clap` file to `C:\Program Files\Common Files\CLAP\`. Your DAW
+needs only one of the two.
+
+## Limits
+
+- Windows 64-bit only.
+- In Soft mode the limiter lets fast peaks through, up to 12 dB over the ceiling. Use Brickwall when nothing may
+  pass the ceiling.
+- Match, Bypass, solo and mute are for listening. They are saved with the song, so check them before you export.
+- The dither has no noise shaping.
+- APPLY TO MASTER reaches the limiter's gain, ceiling and on switch only.
+- When HNL Master runs as CLAP, APPLY TO MASTER sets and saves the values, but this window shows the old ones
+  until you close and reopen it. As VST3 it follows at once.
+
+## What has and has not been tried
+
+Tried in Reason on Windows, as VST3:
+
+- The plugin itself.
+- Being found by HNL Analyzer, with its meters shown there.
+- APPLY TO MASTER from HNL Analyzer.
+
+The link with HNL Analyzer and APPLY TO MASTER are also covered by automated tests, which run on Linux.
+
+Not tried yet:
+
+- **Other DAWs.**
+- **The CLAP build** in a DAW.
+
+## For developers
+
+### Tests
+
+`tests/run.sh` builds and runs the tests:
+
+- `dsp_test` measures the audio engine. It runs twice: plainly, and with the flags the plugin is built with.
+- `plugin_test` runs the plugin in DPF's wrapper.
+- `abuse_test` does everything a DAW is allowed to do (`common/tests/HostAbuse.hpp`).
+- `ui_presets_test`, `ui_fold_test` and `ui_link_test` click in the window itself: saving, loading and deleting
+  a preset, folding stages, linking the bands and switching the limiter's mode.
+- `ui_skin_test` and `ui_size_test`, shared by all plugins, check the looks and the window sizes.
+
+### The link with HNL Analyzer
+
+Every instance of HNL Master writes its meters into a small block of memory that the system keeps under a name
+(`common/Link.hpp`). The audio thread stores a handful of numbers per block and never waits. What APPLY TO
+MASTER sends is taken up with the next block of audio, clamped to the range of each knob, and reported to the
+DAW, which is why the window follows and the song is saved with the new values.
+
+Setting `HNL_LINK_NAME=off` in the DAW's environment switches the link off.
+
+### Parameters
+
+Every control in the window is a parameter the DAW can automate, 58 in all (`Params.hpp`). The DAW can also read
+the meters: input and output level, true peak, the gain reduction of the three bands and of the limiter, the
+three loudness figures, the match gain, the correlation and the 32 bands of the spectrum. Link Bands and the
+folding of stages are saved with the song but are not parameters.
 
 ## Changelog
 

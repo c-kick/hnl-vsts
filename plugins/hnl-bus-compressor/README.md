@@ -1,7 +1,7 @@
 # HNL Bus Compressor
 
-A stereo compressor for the mix bus or a drum bus: the "glue" that makes separate tracks move together. It is
-the simple, single-band counterpart of the multiband compressor in HNL Master.
+A stereo compressor for the mix bus or a drum bus. It gives you the "glue" that makes separate tracks move
+together. It is the simple, single-band counterpart of the multiband compressor in HNL Master.
 
 ![HNL Bus Compressor](docs/preview.png)
 
@@ -13,19 +13,26 @@ the simple, single-band counterpart of the multiband compressor in HNL Master.
 | --- | --- |
 | ![Arc meter](docs/arc.png) | ![LED meter](docs/leds.png) |
 
-*Rendered from the plugin's drawing code; not yet a screenshot from a host.*
+*These pictures are rendered from the plugin's drawing code, not taken from a DAW.*
 
 ## What it does
 
-- **One gain for both channels:** the louder channel sets the reduction and both get the same, so the stereo
-  image does not shift.
-- **Soft knee that follows the ratio:** 1.5:1 and 2:1 bend in gradually over 12 and 10 dB, 4:1 over 6 dB, 10:1
-  over 3 dB.
-- **Auto release:** lets go quickly after a single peak and slowly after a long loud passage, so it does not
+- **One gain for both channels.** The louder channel sets the reduction and both channels get the same amount, so
+  the stereo image does not shift.
+- **A soft knee that follows the ratio.** 1.5:1 and 2:1 bend in gradually over 12 and 10 dB, 4:1 over 6 dB and
+  10:1 over 3 dB.
+- **Auto release.** It lets go quickly after a single peak and slowly after a long loud passage, so it does not
   pump on a dense mix.
-- **Sidechain high-pass:** keeps the bass out of the level detector, so the kick does not make the whole mix
+- **Sidechain high-pass.** It keeps the bass out of the level detector, so the kick does not make the whole mix
   duck. The sound itself is not filtered.
-- **Mix:** blends the compressed signal with the untouched one, for parallel compression.
+- **Mix.** Blends the compressed signal with the untouched one, for parallel compression.
+
+## Quick start
+
+1. Put HNL Bus Compressor on the mix bus or a drum bus.
+2. Pick a preset from the menu at the top right, or start from the default.
+3. Lower **Threshold** until the needle shows the reduction you want. 2 to 4 dB is typical for glue.
+4. Bring the level back with **Make-up**.
 
 ## Controls
 
@@ -39,34 +46,59 @@ the simple, single-band counterpart of the multiband compressor in HNL Master.
 | Sidechain high-pass | Off, or up to 300 Hz (12 dB per octave), on the detector only. |
 | Mix | 0% is the untouched signal, 100% only the compressed one. |
 
-The meter shows the gain reduction in dB. The bars show the peak level going in and coming out; the compressor
-does not limit, so with make-up gain the output can go over 0 dBFS.
+The meter shows the gain reduction in dB. The bars show the peak level going in and coming out.
 
-The two arrows under the meter step through three designs: a needle over a printed card (Classic), an arc that
-fills with the reading as a figure (Arc) and a row of lights (LEDs). The choice is kept with the song and changes
-nothing about the sound; a new instance starts on Classic.
+Drag a knob up or down. Hold Shift for fine steps, or use the mouse wheel. A double-click or Ctrl-click returns a
+knob to its default.
 
-Ten presets are in the menu at the top right. They assume a mix that peaks a few dB under 0 dBFS: set the
-threshold to your own level. The **?** button switches help on: rest the mouse on any control to read what it
-does.
+## Presets and help
 
-Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to
-its default. There is no latency.
+The menu at the top right holds ten presets. They assume a mix that peaks a few dB under 0 dBFS, so set the
+threshold to your own level. *Save as...* at the end of the list keeps your current settings under a name of
+your own, for use in every song.
 
-## About the model
+The **?** button switches help tips on. Rest the mouse on any control to read what it does.
 
-It follows the way classic VCA bus compressors are operated (stepped ratio, attack and release, an auto release
-with two time constants) and is not a copy of, or affiliated with, any of them. The attack and release times are
-time constants: the reduction covers 63% of the way in that time. The detector reads peaks, without lookahead.
-The gain element is clean: it adds no saturation of its own.
+## The window
+
+The two arrows under the meter step through three meter designs: a needle over a printed card (Classic), an arc
+that fills, with the reading as a figure (Arc), and a row of lights (LEDs). The choice is saved with the song and
+does not change the sound. A new instance starts on Classic.
+
+The cog at the top right lists the looks (Classic, Hi-Fi Black and Hi-Fi Silver) and the window sizes (75 to
+200 %). Where the DAW allows it you can also drag the window by its edge. A look applies to every HNL plugin at
+once, and the size is remembered for this plugin. Neither is saved with the song.
+
+## How it works
+
+The plugin is operated the way classic VCA bus compressors are: stepped ratio, attack and release, and an auto
+release with two time constants. It is not a copy of any of them and is not affiliated with them.
+
+The attack and release times are time constants, so the reduction covers 63% of the way in that time. The
+detector reads peaks. The gain element is clean and adds no saturation of its own. There is no latency.
+
+## Limits
+
+- The compressor does not limit. With make-up gain the output can go over 0 dBFS.
+- The detector does not look ahead.
 
 ## Installing
 
 [Download HNL-Bus-Compressor-win64.zip](https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Bus-Compressor-win64.zip): the current build, for 64-bit Windows.
 
-The zip holds the plugin as VST3
-(copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). A host needs only one of the
-two. Windows 64-bit.
+The zip holds the plugin as VST3 (copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP
+(copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). Your DAW needs only one of the two.
+
+## For developers
+
+From the repository root, `./build.sh hnl-bus-compressor` builds the plugin and `./test.sh hnl-bus-compressor`
+runs its tests (see the [main readme](../../README.md)).
+
+- `dsp/BusCompressor.hpp`: the compressor.
+- `BusCompPlugin.cpp`, `BusCompUI.cpp`: the DPF plugin and its window.
+- `Params.hpp`, `Presets.hpp`, `Help.hpp`: the parameters, the presets and the help tips.
+- `tests/run.sh`: runs `dsp_test` (plainly, and with the flags the plugin is built with), `plugin_test`,
+  `abuse_test` (`common/tests/HostAbuse.hpp`) and the window tests shared by all HNL plugins.
 
 ## Changelog
 

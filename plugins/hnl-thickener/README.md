@@ -1,8 +1,8 @@
 # HNL Thickener
 
-Thickens drums and beats, and anything else that sits in the middle. On top of the untouched signal it adds a
-copy in which one channel is a few milliseconds late, passed through a small room and, if wanted, a compressor
-and a saturator.
+Thickens drums and beats, and anything else that sits in the middle of the stereo picture. Your sound passes
+through untouched. On top of it the plugin adds a copy in which one channel is a few milliseconds late. That
+copy goes through a small room and, if you want, a compressor and a saturator.
 
 ![HNL Thickener](docs/preview.png)
 
@@ -14,49 +14,52 @@ and a saturator.
 | --- | --- | --- |
 | ![Help tip on Delay](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
-*Rendered from the plugin's drawing code; not yet a screenshot from a host.*
+*These pictures are rendered from the plugin's drawing code, not taken from a DAW.*
 
-## What it does
+## Installing
+
+[Download HNL-Thickener-win64.zip](https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Thickener-win64.zip),
+the current build for 64-bit Windows.
+
+The zip holds the plugin as VST3 and as CLAP. Your DAW needs only one of the two.
+
+- **VST3:** copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`.
+- **CLAP:** copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`.
+
+## Quick start
+
+1. Put HNL Thickener on a drum bus, a beat, or any other sound that sits in the middle.
+2. Start with the Default preset and turn **Amount** to taste.
+3. Switch **Level Match** on while you compare. More Amount is also louder, and Level Match takes that out.
+4. To keep the kick and the sub in the middle, turn up **Low Guard**.
+5. Set **Listen** to Copy to hear only what the plugin adds.
+
+The **?** button switches on help tips for every control.
+
+## How it works
 
     in ──┬────────────────────────────────────────────────────────────► + ─► match ─► output
          │                                                              ▲
          └─► tone ─► clean hit ─► late channel ─► room ─► crush ─► drive ─► × amount
 
 - **The signal itself passes untouched.** Everything the plugin does is added on top, so more Amount is also
-  louder: about 3 dB at the default settings. Level Match takes that back out for comparing.
+  louder, by about 3 dB at the default settings. Level Match takes that back out when you want to compare.
 - **One channel of the copy is late**, by 3 ms unless you change it. That is too short to hear as an echo.
-  Added to the signal it makes shallow dips in that channel, 333 Hz apart from 167 Hz up, which the other
-  channel does not have. A sound in the middle is pulled a little apart at those pitches, and that is the
-  thickening.
-- **Or both channels are late, by different amounts** (Delayed Side: Both). Each then has its dips where the
-  other has none, the two are as loud as each other, and the sound stays in the middle.
+  Added to the signal it makes shallow dips in that channel, 333 Hz apart from 167 Hz up, and the other channel
+  does not have them. A sound in the middle is pulled a little apart at those pitches. That is the thickening.
+- **Or both channels are late, by different amounts** (Delayed Side: Both). Each channel then has its dips
+  where the other has none, the two are equally loud, and the sound stays in the middle.
 - **Low Guard** keeps the lows of the copy on time, so the kick and the sub stay in the middle.
-- **Low Cut and High Cut** on the copy choose what is thickened: only the body, say, with the sub and the hats
-  left alone.
-- **Clean Hit** turns the copy down for the first moment of each hit. The attack stays as it went in; only what
-  follows it is thickened.
-- **A small room** in the copy adds a short, dark tail under the hits, and hears the two channels at different
-  times. It can be switched off.
-- **Crush** compresses the copy hard, as on a parallel drum bus: its quiet parts come up, the room with them.
-  **Drive** saturates it. Neither touches the signal itself.
-- **Safe in mono:** at the default settings the response of the two channels summed moves by about 2 dB and has
-  no deep holes. The L/R bar shows how alike the two outputs are.
-
-Measured on a kick, snare and hat loop in the middle of the stereo picture (the same on both channels):
-
-| Setting | Louder | Lows, left against right | Peak against average |
-| --- | --- | --- | --- |
-| Default | 3.1 dB | left 1.2 dB louder | 18.5 dB (17.9 going in) |
-| Delayed Side: Both | 2.8 dB | left 0.7 dB louder | 17.6 dB |
-| Low Guard 150 Hz | 3.9 dB | right 0.5 dB louder | 17.7 dB |
-| Clean Hit 100% | 1.9 dB | left 0.7 dB louder | 16.6 dB |
-| Crush 60% | 3.3 dB | left 1.2 dB louder | 18.2 dB |
-| Drive 55% | 3.4 dB | left 0.9 dB louder | 16.4 dB |
-| Parallel Crush preset | 3.2 dB | level within 0.3 dB | 16.8 dB |
-| Default with Level Match | 0.0 dB | left 1.2 dB louder | 18.5 dB |
-
-At the default settings and with a steady tone, the right channel is about 5.4 dB below the left at 167, 500 and
-833 Hz, and the two are equal at 333, 667 and 1000 Hz.
+- **Low Cut and High Cut** work on the copy and choose what is thickened. You can thicken only the body, for
+  example, and leave the sub and the hats alone.
+- **Clean Hit** turns the copy down for the first moment of each hit. The attack stays as it went in, and only
+  what follows it is thickened.
+- **A small room** in the copy adds a short, dark tail under the hits. It also hears the two channels at
+  different times. You can switch it off.
+- **Crush** compresses the copy hard, as on a parallel drum bus. The quiet parts of the copy come up, and the
+  room with them. **Drive** saturates the copy. Neither touches the signal itself.
+- **Safe in mono.** At the default settings the response of the two channels summed moves by about 2 dB and
+  has no deep holes. The L/R bar shows how alike the two outputs are.
 
 ## Controls
 
@@ -64,7 +67,7 @@ At the default settings and with a steady tone, the right channel is about 5.4 d
 | --- | --- |
 | Amount | 0 to 100%: level of the added copy. At 100% it is as loud as the signal itself. |
 | Delay | 0.1 to 20 ms: how late the delayed channel of the copy is. The first dip lies at 500 / delay Hz (167 Hz at 3 ms). |
-| Delay Mix | 0 to 100%: how much of that channel is late; the rest stays on time. |
+| Delay Mix | 0 to 100%: how much of that channel is late. The rest stays on time. |
 | Delayed Side | Left, Right or Both. With Both the left is late by 62% of the delay, the right by all of it. |
 | Low Guard | Off, or 10 to 400 Hz: below it next to nothing in the copy is late. |
 | Low Cut | Off, or up to 2 kHz: takes the lows out of the copy. |
@@ -81,37 +84,85 @@ At the default settings and with a steady tone, the right channel is about 5.4 d
 | Listen | All, or Copy: only what the plugin adds. |
 | Output | -12 to +12 dB on everything coming out. |
 
-The plot shows what the left and the right channel do to a steady tone. The room, Clean Hit, Crush and Drive are
-left out of it: they depend on the sound. Under the level bars the L/R bar shows how alike the two outputs are
-(the same at the right end, different towards the middle, cancelling each other in mono left of it), followed by
-the peak coming out, the gain Level Match applies and how far Crush turns the copy down. Nothing limits the
-output, so it can go over 0 dBFS: turn Output down, or follow with a limiter.
+Drag a knob up or down to turn it. Hold Shift for fine steps, or use the mouse wheel. A double-click or
+Ctrl-click returns a knob to its default. The plugin adds no latency.
 
-Fifteen presets are in the menu at the top right; they leave Level Match and Listen as they are. The **?**
-button switches help on: rest the mouse on any control to read what it does.
+**The plot** shows what the left and the right channel do to a steady tone. The room, Clean Hit, Crush and
+Drive are left out of it, because what they do depends on the sound.
 
-Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to
-its default. There is no latency.
+**The meters.** Under the level bars, the L/R bar shows how alike the two outputs are. At the right end they
+are the same, towards the middle they differ, and left of the middle they cancel each other in mono. Next to
+it you find the peak coming out, the gain Level Match applies and how far Crush turns the copy down.
 
-Drive is not oversampled: on very bright material it can get harsh at high settings. High Cut on the copy
-takes care of that.
+**Presets.** The menu at the top right holds fifteen presets, and *Save as...* keeps your own. Presets leave
+Level Match and Listen as they are.
+
+**Help.** The **?** button switches help on. Rest the mouse on any control to read what it does.
+
+## Measured
+
+On a kick, snare and hat loop in the middle of the stereo picture (the same on both channels):
+
+| Setting | Louder | Lows, left against right | Peak against average |
+| --- | --- | --- | --- |
+| Default | 3.1 dB | left 1.2 dB louder | 18.5 dB (17.9 going in) |
+| Delayed Side: Both | 2.8 dB | left 0.7 dB louder | 17.6 dB |
+| Low Guard 150 Hz | 3.9 dB | right 0.5 dB louder | 17.7 dB |
+| Clean Hit 100% | 1.9 dB | left 0.7 dB louder | 16.6 dB |
+| Crush 60% | 3.3 dB | left 1.2 dB louder | 18.2 dB |
+| Drive 55% | 3.4 dB | left 0.9 dB louder | 16.4 dB |
+| Parallel Crush preset | 3.2 dB | level within 0.3 dB | 16.8 dB |
+| Default with Level Match | 0.0 dB | left 1.2 dB louder | 18.5 dB |
+
+At the default settings and with a steady tone, the right channel is about 5.4 dB below the left at 167, 500 and
+833 Hz, and the two are equal at 333, 667 and 1000 Hz.
 
 ## Where it comes from
 
-The Default preset follows a rack patch built from a splitter, a delay, a small room reverb and a line mixer:
-the right channel of the split signal went through a 3 ms delay set 62% wet into the reverb (9% wet), and the
-reverb's output was mixed under the direct signal. The routing and the delay are copied exactly. The room is a
-model of our own (eight short delay lines feeding each other), not a copy of that reverb, and the level of the
-copy (60%) is an estimate of the mixer setting. Everything else (Both, Low Guard, the cuts, Clean Hit, Crush, Drive,
-Level Match) was added here and is off in the Default preset. The plugin is not affiliated with the makers of those devices.
+The Default preset follows a rack patch built from a splitter, a delay, a small room reverb and a line mixer.
+In that patch the right channel of the split signal went through a 3 ms delay, set 62% wet, into the reverb
+(9% wet), and the reverb's output was mixed under the direct signal.
 
-## Installing
+The routing and the delay are copied exactly. The room is our own model (eight short delay lines feeding each
+other) and not a copy of that reverb. The level of the copy (60%) is an estimate of the mixer setting.
+Everything else was added here and is off in the Default preset: Both, Low Guard, the cuts, Clean Hit, Crush,
+Drive and Level Match. The plugin is not affiliated with the makers of those devices.
 
-[Download HNL-Thickener-win64.zip](https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Thickener-win64.zip): the current build, for 64-bit Windows.
+## The window
 
-The zip holds the plugin as VST3
-(copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to
-`C:\Program Files\Common Files\CLAP\`). A host needs only one of the two. Windows 64-bit.
+The cog at the top right lists the looks (Classic, Hi-Fi Black and Hi-Fi Silver) and the window sizes (75 to
+200 %). Where the DAW allows it you can also drag the window by its edge. The look applies to every HNL plugin
+at once, and the size is remembered for this plugin. Neither is saved with the song or changes the sound.
+
+## Limits
+
+- Windows 64-bit only.
+- Nothing limits the output, so it can go over 0 dBFS. Turn Output down, or put a limiter after the plugin.
+- Drive is not oversampled. On very bright material it can get harsh at high settings. High Cut on the copy
+  takes care of that.
+
+## For developers
+
+### Tests
+
+`tests/run.sh` runs six test programs:
+
+- `dsp_test` measures the thickener. It runs twice: plainly, and with the flags the plugin is built with.
+- `plugin_test` runs the plugin in DPF's wrapper.
+- `abuse_test` does everything a DAW is allowed to do (`common/tests/HostAbuse.hpp`).
+- `ui_presets_test`, `ui_skin_test` and `ui_size_test` drive the window itself: saving, loading and deleting a
+  preset, the choice of look and the size of the window. These three are shared by all plugins (`common/tests/`).
+
+### Code
+
+- `dsp/Thickener.hpp`: the engine.
+- `ThickenerPlugin.cpp`, `ThickenerUI.cpp`: the DPF plugin and its window.
+- `Params.hpp`, `Presets.hpp`, `Help.hpp`: the parameters, the presets and the help texts.
+
+The parameters the DAW sees are the eighteen controls in the table above, where Decay and Damping are called
+Room Decay and Room Damping. On top of those come seven meters it can read: input and output peak left and
+right, the gain reduction of Crush, the gain of Level Match and the correlation between left and right. New
+parameters are added at the end, because DAWs store automation by position.
 
 ## Changelog
 

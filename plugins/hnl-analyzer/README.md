@@ -1,7 +1,7 @@
 # HNL Analyzer
 
 A mastering meter for the end of the chain, usually right after HNL Master. It measures a whole track while the
-host plays it: loudness, true peak, RMS statistics, spectrum and stereo figures. An advisor then tells you how far
+DAW plays it: loudness, true peak, RMS statistics, spectrum and stereo figures. An advisor then tells you how far
 the track is from your loudness target and what it takes to get there, and you can hold the result against a
 reference. The sound passes through untouched and without delay.
 
@@ -15,23 +15,23 @@ reference. The sound passes through untouched and without delay.
 | --- | --- | --- |
 | ![The running meter](docs/live.png) | ![A released song from its file as the reference](docs/file.png) | ![Help tip](docs/help.png) |
 
-*These pictures are rendered from the plugin's drawing code, not taken from a host.*
+*These pictures are rendered from the plugin's drawing code, not taken from a DAW.*
 
-**This is an alpha.** It passes its tests and has been used in Reason, but not for long and not in other hosts.
+**This is an alpha.** It passes its tests and has been used in Reason, but not for long and not in other DAWs.
 [What has and has not been tried](#what-has-and-has-not-been-tried) lists the details.
 
 ## Why it exists
 
 Checking a master usually goes like this: export the song, open the file in an audio editor, read the amplitude
-statistics, work out by hand how much gain and limiting it still needs, go back to the host, repeat. HNL Analyzer
-does that inside the host. Play the track once and the figures are there, they stay when playback stops, and the
+statistics, work out by hand how much gain and limiting it still needs, go back to the DAW, repeat. HNL Analyzer
+does that inside the DAW. Play the track once and the figures are there, they stay when playback stops, and the
 advisor does the arithmetic.
 
 ## Quick start
 
 1. Put HNL Analyzer last on the master, after HNL Master or whatever you master with.
 2. Pick your targets with the preset bar (Streaming -14, Apple Music -16, and so on) or set the three knobs.
-3. Play the track from start to end. With FOLLOW TRANSPORT on, measuring starts and stops with the host.
+3. Play the track from start to end. With FOLLOW TRANSPORT on, measuring starts and stops with the DAW.
 4. Read the advisor. It says how much gain the track needs and whether the peaks leave room for it.
 5. If HNL Master is in the song, click APPLY TO MASTER to set its limiter accordingly, then play the track again
    to check.
@@ -44,7 +44,7 @@ The plugin always measures the sound that passes through it. The keys next to th
 
 | Mode | What is measured | When it starts and ends |
 | --- | --- | --- |
-| **Track** | One pass of the song. The result stays after playback stops and is saved with the song. | With FOLLOW TRANSPORT on: from the moment the host starts playing until it stops. With it off: between START and STOP. |
+| **Track** | One pass of the song. The result stays after playback stops and is saved with the song. | With FOLLOW TRANSPORT on: from the moment the DAW starts playing until it stops. With it off: between START and STOP. |
 | **Continuous** | Everything that passes, whatever the transport does. The waveform and loudness history show the last three and a half minutes; the figures cover everything since RESET. | Runs until you change the mode. |
 
 The dot in the status line is green for a complete result, blue while measuring and red for one that was cut
@@ -58,7 +58,7 @@ A few cases worth knowing:
 - **The playhead jumps** (a loop, a click in the timeline). The capture ends there, marked *incomplete: transport
   jumped*, and a new one starts at the new position. A capture started with START ignores the transport.
 - **The mode or sample rate changes** during a capture. It ends, marked incomplete.
-- **The host stops running the plugin** without stopping the transport, for instance when its audio engine is
+- **The DAW stops running the plugin** without stopping the transport, for instance when its audio engine is
   switched off. After a second and a half the capture ends, marked *host stopped processing*.
 - **RESET** clears what is shown. The capture before it stays available as a reference.
 
@@ -146,7 +146,7 @@ appear in the reports.
 
 The strip also warns about two settings that make a measurement misleading: **BYPASSED** when Master's Bypass is
 on, and **MATCH ON** when its Match is on. Match turns the output down to the level of the unprocessed sound, so
-switch it off before you measure a master. *Not processing* means the host is not running Master at the moment.
+switch it off before you measure a master. *Not processing* means the DAW is not running Master at the moment.
 
 If the song holds more than one HNL Master, the strip says *1 of 2* and a click steps to the next. The one whose
 sound reaches Analyzer is the one where *Master to here* reads 0.0. This choice is not saved with the song.
@@ -171,7 +171,7 @@ none. If there is a Master but nothing to send, the line gives the reason:
 | CAPTURE A TRACK | What is shown is the continuous meter or a file. APPLY needs a track capture. |
 | KNOB AT ITS END | Master's limiter gain is already as high or as low as it goes. |
 | SET: PLAY AGAIN | This capture has been applied. Play the track again for a new measurement. |
-| NO ANSWER | Master did not respond within a second and a half, usually because the host is not running it. Nothing was changed. |
+| NO ANSWER | Master did not respond within a second and a half, usually because the DAW is not running it. Nothing was changed. |
 
 How to use it: play the track with Analyzer after Master, stop, and click APPLY TO MASTER. Then play the track
 again. More gain makes the limiter work harder, and that costs a little loudness, so the first click rarely
@@ -181,11 +181,11 @@ are usually enough.
 Each capture can be applied only once, also if you close and reopen the window in between. A second click can
 never add the same gain twice.
 
-Master's own window follows the change and the new values are saved with the song. The host's undo does not
+Master's own window follows the change and the new values are saved with the song. The DAW's undo does not
 cover it, so if you may want the old settings back, note the limiter gain and ceiling from the strip before you
 click.
 
-The link between the plugins can be switched off by setting `HNL_LINK_NAME=off` in the host's environment.
+The link between the plugins can be switched off by setting `HNL_LINK_NAME=off` in the DAW's environment.
 
 ## Comparing with a reference
 
@@ -271,19 +271,19 @@ than its source, so its figures are not those of the master it was made from.
 
 ## The window
 
-The cog in the corner lists the looks and the window sizes (75 to 200 %). Where the host allows it you can also
+The cog in the corner lists the looks and the window sizes (75 to 200 %). Where the DAW allows it you can also
 drag the window by its edge. The size is remembered for this plugin, not per song.
 
 ## Limits
 
 - No MP3, and no more than two channels.
-- A sound file can be a reference, but not the track. The track is always what the host plays.
+- A sound file can be a reference, but not the track. The track is always what the DAW plays.
 - Master's meters in the strip are live only. They are not recorded over the length of the track.
-- Dropping files on the window works on Windows only, and not in hosts that keep drops to themselves. + FILE...
+- Dropping files on the window works on Windows only, and not in DAWs that keep drops to themselves. + FILE...
   always works.
 - When HNL Master runs as CLAP, APPLY TO MASTER sets and saves the values, but Master's window shows the old
   ones until you reopen it. As VST3 it follows at once.
-- The host's undo does not cover APPLY TO MASTER.
+- The DAW's undo does not cover APPLY TO MASTER.
 
 ## What has and has not been tried
 
@@ -299,8 +299,8 @@ Not tried yet:
 - **Exporting (bouncing) a song.** A capture counts samples, so a render that runs faster than real time is no
   problem in itself. If the window still shows the old result after an export, start the capture by hand: START
   before the export, STOP after it.
-- **Other hosts**, including ones that run every plugin in its own process.
-- **In a host:** the file dialog, files as references, dropping files, the clipboard, the reports and resizing
+- **Other DAWs**, including ones that run every plugin in its own process.
+- **In a DAW:** the file dialog, files as references, dropping files, the clipboard, the reports and resizing
   the window. All of these are covered by the automated tests only.
 - **The official EBU test files with real programme material** (Tech 3341 cases 7 and 8, Tech 3342 cases 5 and
   6). The meter is tested against the EBU cases that can be generated from their description. To check the
@@ -321,12 +321,12 @@ Not tried yet:
   cases 1 to 4 (range within 1 LU), the K-weighting at four sample rates, and RMS, crest factor, DC offset,
   clipping, correlation and spectrum. It also covers the advisor, the comparison and the JSON, including 400
   damaged copies.
-- `engine_test` plays the host: the transport starts, stops and jumps, captures are started by hand, the host
+- `engine_test` plays the DAW: the transport starts, stops and jumps, captures are started by hand, the DAW
   stops running the plugin, and a second thread reads throughout. WAV, AIFF and FLAC files of the same sound must
   give the same figures as a capture of it.
 - `plugin_test` runs the plugin in DPF's wrapper: the output equals the input bit for bit in every mode, and the
   analysis survives being saved and restored as state.
-- `abuse_test` does everything a host is allowed to do (`common/tests/HostAbuse.hpp`).
+- `abuse_test` does everything a DAW is allowed to do (`common/tests/HostAbuse.hpp`).
 - `ui_test`, `ui_presets_test` and `ui_skin_test` click and type in the window itself, including with an HNL
   Master that appears, changes and leaves.
 
@@ -360,7 +360,7 @@ To compare with FFmpeg: `tests/measure.cpp` measures files with the plugin's cod
 The analysis is held in a fixed amount of memory, well under a megabyte whatever the length of the track. The
 audio thread never waits for the window.
 
-The parameters the host sees: Mode, Follow Transport, RMS Window, RMS Reference, the three targets, and six
+The parameters the DAW sees: Mode, Follow Transport, RMS Window, RMS Reference, the three targets, and six
 meters it can read (momentary, short-term and integrated loudness, true peak, PLR, LRA).
 
 ## Changelog

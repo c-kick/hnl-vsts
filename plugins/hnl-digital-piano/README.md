@@ -1,7 +1,7 @@
 # HNL Digital Piano
 
-An instrument with five pianos, each as its own voice, all in stereo: the digital pianos of the 1980s and
-1990s, and a concert grand.
+An instrument with five pianos in one plugin: four digital pianos from the 1980s and 1990s, and a concert grand.
+Each is a voice of its own and all five are in stereo.
 
 ![HNL Digital Piano](docs/preview.png)
 
@@ -9,110 +9,184 @@ An instrument with five pianos, each as its own voice, all in stereo: the digita
 | --- | --- | --- | --- |
 | ![Grand voice](docs/grand.png) | ![Help tip on Width](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
-*Rendered from the plugin's drawing code; not yet screenshots from a host.*
+*These pictures are rendered from the plugin's drawing code, not taken from a DAW.*
 
-## Voices
+## Installing
+
+[Download HNL-Digital-Piano-win64.zip](https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Digital-Piano-win64.zip),
+the current build for 64-bit Windows.
+
+The zip holds the plugin as VST3 and as CLAP. Your DAW needs only one of the two.
+
+- **VST3:** copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`.
+- **CLAP:** copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`.
+
+## Quick start
+
+1. Add HNL Digital Piano as an instrument. In Reason you find it under the instruments, not the effects.
+2. Choose a piano with **Voice**, or pick one of the presets from the menu at the top right.
+3. Play. The keyboard in the window plays notes too, which is handy for trying a sound without a MIDI keyboard.
+4. Shape the sound with **Tone**, **Velocity** and **Release**.
+
+The **?** button switches on help tips for every control.
+
+## The voices
 
 | Voice | What it is | Where its sound comes from |
 | --- | --- | --- |
-| Workstation | The sampled piano of late-1980s workstation keyboards: the piano of countless house records. Hard attack, strong fundamental, a tone that mellows within a second. | Fitted to recordings of single notes, a note every three keys from C1 to C7, held for six seconds; the fade after that carries on at the rate it had. Within about 1.5 dB of them. Its source answers a softer touch only by playing quieter; here soft notes are also a little darker (Velocity). The source is mono; the two sides are made here, further apart than for the other voices. |
-| FM Electric | The glassy electric piano of 1980s FM synthesizers: a bell on the attack, a body that barks when played hard, a slow shimmer from side to side. | Computed with FM synthesis. An FM patch of its own in that style; not compared with a reference. |
-| Stage 80s | The rounded, slightly artificial stage piano of the mid 1980s. Its tone changes a lot with touch. | Fitted to single notes at four velocities, a note every six keys, rendered with an emulator of the original sound engine. Within about 1.5 dB of them. |
-| Dance 90s | The thin, cutting piano of 1990s dance records. | Worked out from three recorded chords around middle C, the only reference there was. Chords it plays are within about 2.5 dB of those; the rest of the keyboard is extrapolated and the attack is blurred. The weakest of the fitted voices. |
+| Workstation | The sampled piano of late-1980s workstation keyboards, heard on countless house records. Hard attack, strong fundamental, a tone that mellows within a second. | Fitted to recordings of single notes, one every three keys from C1 to C7, each held for six seconds. After those six seconds the fade continues at the rate it had. The result is within about 1.5 dB of the recordings. The original only gets quieter when you play softer. Here soft notes are also a little darker (see Velocity). The source is mono, and the stereo is made in the plugin, wider than for the other voices. |
+| FM Electric | The glassy electric piano of 1980s FM synthesizers. A bell on the attack, a body that barks when played hard, a slow shimmer from side to side. | Computed with FM synthesis. It is a patch written for this plugin in that style, and it has not been compared with a reference. |
+| Stage 80s | The rounded, slightly artificial stage piano of the mid 1980s. Its tone changes a lot with touch. | Fitted to single notes at four velocities, one every six keys, rendered with an emulator of the original sound engine. Within about 1.5 dB of them. |
+| Dance 90s | The thin, cutting piano of 1990s dance records. | Worked out from three recorded chords around middle C, which was the only reference available. Chords it plays are within about 2.5 dB of those. The rest of the keyboard is extrapolated and the attack is blurred. This is the weakest of the fitted voices. |
 | Grand | A concert grand, from soft to loud. | Fitted in stereo to single notes of a real grand played soft, medium and loud, every third key, from the University of Iowa Musical Instrument Samples. |
 
-Switching voice affects new notes; notes already sounding keep theirs. The first time a voice is chosen, the
-plugin works out its waves, which takes around a second. It does so beside the audio, which carries on: until
-the waves are there, new notes still get the voice that was playing. A song that opens with a voice already
-chosen has it from the first note.
+A change of voice applies to new notes. Notes that are already sounding keep the voice they started with.
 
-**No audio of any instrument is stored in the plugin or in this repository.** A fitted voice holds
-measurements: for each reference note, every partial (its frequency, its starting phase, and its level at 29
-moments from the first millisecond to ten seconds) and the dull knock of the attack. `tools/fit.cpp` and
-`tools/fit_chords.cpp` make those from recordings; the data is in `dsp/*Data.hpp`. The plugin adds up sine
-waves from them and so computes one wave per measured note and velocity; as on the original machines, each wave
-serves the keys around it, played a little faster or slower. The "within about N dB" figures compare the
-plugin's output with the reference in third-octave bands over the first seconds of a note.
+The first time you choose a voice, the plugin has to work out its waves, which takes about a second. The sound
+does not stop for that. Until the waves are ready, new notes still play with the voice you had. When a song opens
+with a voice already chosen, that voice is there from the first note.
 
-The measured pianos are mono, except the grand. Their waves are made in stereo here, as if recorded with two microphones: left and
-right carry the same partials at somewhat different levels and phases. The fundamental keeps the same level on
-both sides, so no note leans by chance, and the bass stays in the middle. With Width at 0% the result is mono,
-and closest to the measured sound. All voices place low keys a little to the left and high keys to the right.
+### How a fitted voice is made
+
+**No audio of any instrument is stored in the plugin or in this repository.** A fitted voice holds measurements
+of the reference notes. For each note that is every partial (its frequency, its starting phase, and its level at
+29 moments from the first millisecond to ten seconds) and the dull knock of the attack. From those the plugin
+adds up sine waves into one wave per measured note and velocity. As on the original machines, each wave serves
+the keys around it, played a little faster or slower.
+
+The "within about N dB" figures in the table compare the plugin's output with the reference in third-octave
+bands over the first seconds of a note.
+
+### Stereo
+
+The measured pianos are mono, except the grand. The plugin makes their waves in stereo, as if they were recorded
+with two microphones: left and right carry the same partials at somewhat different levels and phases. The
+fundamental has the same level on both sides, so no note leans to one side by chance and the bass stays in the
+middle. With **Width** at 0% the result is mono, and closest to the measured sound.
+
+All voices except Grand also place low keys a little to the left and high keys a little to the right.
 
 ### FM Electric
 
-Sine waves whose phase is pushed around by other sine waves, three pairs per note. One pair has its modulator
-fourteen times above the note and makes the bell of the attack; two pairs make the body. The second body pair
-is tuned a fraction of a hertz above the first, added on the left and taken off on the right: that is the slow
-shimmer from side to side, and it disappears completely in mono, so nothing cancels there.
+This voice is made of sine waves whose phase is pushed around by other sine waves, three pairs per note. One
+pair has its modulator fourteen times above the note and makes the bell of the attack. The other two make the
+body. The second body pair is tuned a fraction of a hertz above the first, and it is added on the left and
+subtracted on the right. That gives the slow shimmer from side to side. In mono the shimmer disappears
+completely, so nothing cancels there.
 
 ### Grand
 
-Fitted to the piano recordings of the [University of Iowa Musical Instrument Samples](https://theremin.music.uiowa.edu/MIS.html),
-which are free to use: single notes at three dynamics, of which every third key was measured. The three
-dynamics became three sets of waves; in between, a filter does the rest.
+The grand is fitted to the piano recordings of the
+[University of Iowa Musical Instrument Samples](https://theremin.music.uiowa.edu/MIS.html), which are free to
+use. They are single notes at three dynamics, and every third key was measured. The three dynamics became three
+sets of waves, and a filter covers the steps in between.
 
-- Those are recordings in a room, with its noise. The fitting follows each partial only until it sinks into
-  that noise and lets it fade on from there, so the noise itself is not part of the sound.
-- **Stereo:** the recordings are stereo and both sides were measured, with the note's start and the place of
-  its partials found once for both. The two microphones stood far apart: in the recordings some notes are
-  7 dB louder on one side, and for several the sides partly cancel when summed. An instrument should not do
-  that, so the measured differences are kept within bounds: the fundamental stays nearly centred, a partial
-  leans at most 3 dB to a side, and no partial is more than a quarter turn out of step between the sides.
-  The result is the real piano's own width, with every key near the middle and at most about 3 dB lost in mono.
-  The tone lies between the two microphones. Unlike the other voices, keys are not placed left to right on
-  top of that.
-- The soft notes high up hardly rise above the noise; from about two octaves above middle C, soft playing uses
-  the medium notes with a darker filter. The top keys use the loud notes for every touch. The lowest three
-  keys borrow from the lowest C, played a little slower.
-- A real note fades fast at first (about 20 dB in the first second at middle C) and then lingers quietly for a
-  long time. That comes straight from the measurements.
-- Added on top: dampers that are slow on the bass strings, quick in the treble and absent on the top keys,
-  which ring on.
+- **Room noise.** The recordings were made in a room, with its noise. The fitting follows each partial only
+  until it sinks into that noise and lets it fade on from there, so the noise is not part of the sound.
+- **Stereo.** The recordings are stereo and both sides were measured, with the start of the note and the place
+  of its partials found once for both. The two microphones stood far apart. In the recordings some notes are
+  7 dB louder on one side, and for several notes the two sides partly cancel when summed. An instrument should
+  not do that, so the measured differences are kept within bounds: the fundamental stays nearly centred, a
+  partial leans at most 3 dB to one side, and no partial is more than a quarter turn out of step between the
+  sides. What you get is the real piano's own width, with every key near the middle and at most about 3 dB lost
+  in mono. The tone lies between the two microphones. Keys are not placed from left to right on top of that, as
+  they are for the other voices.
+- **The ends of the keyboard.** High up, the soft notes hardly rise above the noise. From about two octaves
+  above middle C, soft playing uses the medium notes with a darker filter. The top keys use the loud notes for
+  every touch. The lowest three keys borrow from the lowest C, played a little slower.
+- **The fade.** A real note fades fast at first (about 20 dB in the first second at middle C) and then lingers
+  quietly for a long time. That comes straight from the measurements.
+- **Dampers.** These are added on top of the measurements. They are slow on the bass strings, quick in the
+  treble and absent on the top keys, which ring on.
 
-Not there: strings ringing in sympathy with the pedal down, the noise of pedal and keys, and the change of tone
-when a note is struck again while it still sounds. A first version of this voice was a model written from the
-physics alone; it did not sound convincing and was replaced.
+An earlier version of this voice was a model written from the physics alone. It did not sound convincing and
+was replaced by the fitted one.
 
 ## Controls
 
 | Control | What it changes |
 | --- | --- |
 | Volume | Output level. A hard eight-note chord stays just under full scale at 0 dB. |
-| Tone | Closes or opens the filter on every note; to the right it also stays open for soft notes. On FM Electric: how hard the tone barks, from mellow to bright and bell-like. |
-| Velocity | How much playing harder adds level and brightness. At 0% every note is the same, for programmed stabs. |
-| Decay | How long a held note rings: 100% is the natural length (long in the bass, short in the treble); lower fades it sooner. |
-| Release | How long a note rings on after the key is let go: the time to fall 60 dB, 50 ms to 5 s (default 600 ms). On Grand it follows the dampers: longer in the bass, shorter in the treble. |
-| Detune | Above 0, every note sounds twice, one sharp and one flat, spread left and right (two voices per note). On FM Electric: a faster shimmer instead. |
-| Width | 100% is the full stereo image; 0% is mono. |
+| Tone | Closes or opens the filter on every note. Turned to the right, the filter also stays open for soft notes. On FM Electric it sets how hard the tone barks, from mellow to bright and bell-like. |
+| Velocity | How much playing harder adds level and brightness. At 0% every note is the same, which suits programmed stabs. |
+| Decay | How long a held note rings. 100% is the natural length (long in the bass, short in the treble). Lower values fade it sooner. |
+| Release | How long a note rings on after you let the key go: the time to fall 60 dB, from 50 ms to 5 s (default 600 ms). On Grand it follows the dampers, so it is longer in the bass and shorter in the treble. |
+| Detune | Above 0, every note sounds twice, one sharp and one flat, spread left and right. That takes two voices per note. On FM Electric it makes the shimmer faster instead. |
+| Width | 100% is the full stereo image, 0% is mono. |
 | Reverb | A touch of room. |
 | Tune | Fine tuning, a semitone either way. |
 | Octave | Shifts the keyboard by up to two octaves. |
 | Voice | Which piano plays. |
 
-Twenty-seven presets are in the menu at the top right; they leave Volume and Tune alone. The **?** button switches
-help on: rest the mouse on any control to read what it does.
+Drag a knob up or down to turn it. Hold Shift for fine steps, or use the mouse wheel. A double-click or
+Ctrl-click returns a knob to its default.
 
-The keyboard on screen plays notes for trying a sound: click a key (lower on the key is harder), drag to slide.
-Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to
-its default.
+**The keyboard** in the window plays notes for trying a sound. Click a key, lower on the key for a harder hit,
+and drag to slide over the keys. Notes from the DAW do not light up on it.
+
+**Presets.** The menu at the top right holds twenty-seven presets, and *Save as...* keeps your own. Presets
+leave Volume and Tune alone.
+
+**Help.** The **?** button switches help on. Rest the mouse on any control to read what it does.
 
 ## MIDI
 
-Notes with velocity, sustain pedal (CC 64), pitch bend (two semitones), all notes off (CC 123), all sound
-off (CC 120) and reset all controllers (CC 121: pitch bend to the middle, pedal up). 64 voices; when they run out, the quietest note makes way. No latency.
+The plugin responds to:
 
-The plugin was called HNL House Piano up to 0.3.0. It kept its identity, so songs that used it should open
-with the renamed plugin.
+- notes with velocity,
+- the sustain pedal (CC 64),
+- pitch bend, two semitones either way,
+- all notes off (CC 123) and all sound off (CC 120),
+- reset all controllers (CC 121), which puts pitch bend in the middle and lifts the pedal.
 
-## Installing
+There are 64 voices. When they run out, the quietest note makes way. The plugin adds no latency.
 
-[Download HNL-Digital-Piano-win64.zip](https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Digital-Piano-win64.zip): the current build, for 64-bit Windows.
+## The window
 
-The zip holds the plugin as VST3
-(copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). A host needs only one of the
-two. Windows 64-bit. It is an instrument: in Reason, add it from the
-instruments, not the effects.
+The cog at the top right lists the looks (Classic, Hi-Fi Black and Hi-Fi Silver) and the window sizes (75 to
+200 %). Where the DAW allows it you can also drag the window by its edge. The look applies to every HNL plugin
+at once, and the size is remembered for this plugin. Neither is saved with the song or changes the sound.
+
+## Limits
+
+- Windows 64-bit only.
+- The Grand has no strings ringing in sympathy with the pedal down, no pedal or key noise, and no change of
+  tone when you strike a note again while it still sounds.
+- Dance 90s rests on three chords around middle C. Away from there it is an extrapolation.
+- FM Electric is a patch of its own and has not been compared with a reference instrument.
+- 64 voices, and Detune uses two per note.
+
+## What has and has not been tried
+
+- **A song saved with HNL House Piano.** The plugin had that name up to 0.3.0. It kept its identity when it was
+  renamed, so a song that used HNL House Piano should open with HNL Digital Piano. This has not been tried.
+
+## For developers
+
+### Tests
+
+`tests/run.sh` runs six test programs:
+
+- `dsp_test` measures the piano engine. It runs twice: plainly, and with the flags the plugin is built with.
+- `plugin_test` runs the plugin in DPF's wrapper.
+- `abuse_test` does everything a DAW is allowed to do (`common/tests/HostAbuse.hpp`).
+- `ui_presets_test`, `ui_skin_test` and `ui_size_test` drive the window itself: saving, loading and deleting a
+  preset, the choice of look and the size of the window. These three are shared by all plugins (`common/tests/`).
+
+### Code
+
+- `dsp/Piano.hpp`: the engine, with all five voices.
+- `dsp/PianoFit.hpp`: what a fitted voice is made of.
+- `dsp/*Data.hpp`: the measurements of the fitted voices.
+- `tools/fit.cpp`, `tools/fit_chords.cpp`: the programs that make those measurements from recordings.
+- `PianoPlugin.cpp`, `PianoUI.cpp`: the DPF plugin and its window.
+- `Params.hpp`, `Presets.hpp`, `Help.hpp`: the parameters, the presets and the help texts.
+
+The waves of a voice are computed on a thread of their own, away from the audio thread.
+
+The parameters the DAW sees are the eleven controls in the table above, plus three meters it can read: the
+output peak left and right, and the number of voices sounding. New parameters are added at the end, because
+DAWs store automation by position.
 
 ## Changelog
 

@@ -1,6 +1,6 @@
 # HNL Leveller
 
-A levelling compressor for single sources such as a vocal or a bass, with two characters: a slow, smooth Opto
+A levelling compressor for single sources such as a vocal or a bass. It has two characters: a slow, smooth Opto
 and a fast, firm FET.
 
 ![HNL Leveller](docs/preview.png)
@@ -13,7 +13,7 @@ and a fast, firm FET.
 | --- | --- |
 | ![Arc meter](docs/arc.png) | ![LED meter](docs/leds.png) |
 
-*Rendered from the plugin's drawing code; not yet a screenshot from a host.*
+*These pictures are rendered from the plugin's drawing code, not taken from a DAW.*
 
 ## The two types
 
@@ -25,8 +25,15 @@ and a fast, firm FET.
 | Release | In two stages: about half goes in 20 to 180 ms, the rest fades over 0.5 to 4.5 s | One time, 50 ms to 1.1 s |
 | Colour | Mostly second harmonic (warm) | Mostly third harmonic (more edge) |
 
-The Opto's slow stage builds up while it compresses. A single short peak is let go at once; after a long loud
+The Opto's slow stage builds up while it compresses. A single short peak is let go at once. After a long loud
 passage the gain comes back slowly, so the level does not jump up in the gaps between phrases.
+
+## Quick start
+
+1. Put HNL Leveller on a single track, such as a vocal or a bass.
+2. Choose **Type**: Opto to ride the level unnoticed, FET to catch every peak.
+3. Lower **Threshold** until the needle shows the reduction you want. 3 to 6 dB evens out a vocal.
+4. Bring the level back with **Make-up**.
 
 ## Controls
 
@@ -38,36 +45,65 @@ passage the gain comes back slowly, so the level does not jump up in the gaps be
 | Attack, Release | Fast to slow within the type's range; the time is shown under the knob. |
 | Make-up | 0 to 24 dB of gain on the compressed signal. |
 | Colour | Harmonics that grow with the level: at 100% about 2% second harmonic (Opto) or 0.8% third (FET) for a signal at -12 dBFS, four times as much third at -6 dBFS. At 0 the compressor is clean. |
-| Sidechain HP | Off, or up to 300 Hz (12 dB per octave), on the detector only: keeps plosives or the lowest bass notes from pulling the level down. |
+| Sidechain HP | Off, or up to 300 Hz (12 dB per octave), on the detector only. It keeps plosives or the lowest bass notes from pulling the level down. |
 | Mix | 0% is the untouched signal, 100% only the compressed one. |
 
-The meter shows the gain reduction in dB. The bars show the peak level going in and coming out; the compressor
-does not limit, so with make-up gain the output can go over 0 dBFS. Both channels always get the same reduction.
+The meter shows the gain reduction in dB. The bars show the peak level going in and coming out. Both channels
+always get the same reduction.
 
-The two arrows under the meter step through three designs: a needle over a printed card (Classic), an arc that
-fills with the reading as a figure (Arc) and a row of lights (LEDs). The choice is kept with the song and changes
-nothing about the sound; a new instance starts on Classic.
+Drag a knob up or down. Hold Shift for fine steps, or use the mouse wheel. A double-click or Ctrl-click returns a
+knob to its default.
 
-Eleven presets are in the menu at the top right. They assume a track that peaks around -6 dBFS: set the threshold
-to your own level. The **?** button switches help on: rest the mouse on any control to read what it does.
+## Presets and help
 
-Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to
-its default. There is no latency.
+The menu at the top right holds eleven presets. They assume a track that peaks around -6 dBFS, so set the
+threshold to your own level. *Save as...* at the end of the list keeps your current settings under a name of
+your own, for use in every song.
 
-## About the model
+The **?** button switches help tips on. Rest the mouse on any control to read what it does.
 
-It follows the way classic optical and FET levelling amplifiers behave and is not a copy of, or affiliated with,
-any of them. The times are time constants: the reduction covers 63% of the way in that time. The detector reads
-peaks, without lookahead. The colour stage adds second and third harmonics only and is not oversampled; on
-material with a lot of level above 8 kHz, high Colour settings can add a little aliasing.
+## The window
+
+The two arrows under the meter step through three meter designs: a needle over a printed card (Classic), an arc
+that fills, with the reading as a figure (Arc), and a row of lights (LEDs). The choice is saved with the song and
+does not change the sound. A new instance starts on Classic.
+
+The cog at the top right lists the looks (Classic, Hi-Fi Black and Hi-Fi Silver) and the window sizes (75 to
+200 %). Where the DAW allows it you can also drag the window by its edge. A look applies to every HNL plugin at
+once, and the size is remembered for this plugin. Neither is saved with the song.
+
+## How it works
+
+The plugin behaves the way classic optical and FET levelling amplifiers do. It is not a copy of any of them and
+is not affiliated with them.
+
+The attack and release times are time constants, so the reduction covers 63% of the way in that time. The
+detector reads peaks. The colour stage adds second and third harmonics only. There is no latency.
+
+## Limits
+
+- The compressor does not limit. With make-up gain the output can go over 0 dBFS.
+- The detector does not look ahead.
+- The colour stage is not oversampled. On material with a lot of level above 8 kHz, high **Colour** settings can
+  add a little aliasing.
 
 ## Installing
 
 [Download HNL-Leveller-win64.zip](https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Leveller-win64.zip): the current build, for 64-bit Windows.
 
-The zip holds the plugin as VST3
-(copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). A host needs only one of the
-two. Windows 64-bit.
+The zip holds the plugin as VST3 (copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP
+(copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). Your DAW needs only one of the two.
+
+## For developers
+
+From the repository root, `./build.sh hnl-leveller` builds the plugin and `./test.sh hnl-leveller` runs its
+tests (see the [main readme](../../README.md)).
+
+- `dsp/Leveller.hpp`: the compressor, both types.
+- `LevellerPlugin.cpp`, `LevellerUI.cpp`: the DPF plugin and its window.
+- `Params.hpp`, `Presets.hpp`, `Help.hpp`: the parameters, the presets and the help tips.
+- `tests/run.sh`: runs `dsp_test` (plainly, and with the flags the plugin is built with), `plugin_test`,
+  `abuse_test` (`common/tests/HostAbuse.hpp`) and the window tests shared by all HNL plugins.
 
 ## Changelog
 

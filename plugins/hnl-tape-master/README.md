@@ -1,7 +1,7 @@
 # HNL Tape Master
 
-A two-track mastering tape machine for the master bus or a mix bus: the sound of recording onto half-inch tape
-and playing it back.
+A two-track mastering tape machine for the master bus or a mix bus. It gives you the sound of recording onto
+half-inch tape and playing it back.
 
 ![HNL Tape Master](docs/preview.png)
 
@@ -13,18 +13,26 @@ and playing it back.
 | --- | --- |
 | ![Arc meter](docs/arc.png) | ![LED meter](docs/leds.png) |
 
-*Rendered from the plugin's drawing code; not yet a screenshot from a host.*
+*These pictures are rendered from the plugin's drawing code, not taken from a DAW.*
 
 ## What it does
 
-- **Tape saturation:** almost purely odd harmonics. Each formula reaches 3% third harmonic at its own level.
-- **Tape compression:** loud peaks are rounded off; the further over 0 VU, the more.
-- **High-frequency behaviour:** the top saturates before the rest, most on slow tape, and falls off earlier at
+- **Tape saturation.** Almost purely odd harmonics. Each formula reaches 3% third harmonic at its own level.
+- **Tape compression.** Loud peaks are rounded off, and more so the further they go over 0 VU.
+- **High-frequency behaviour.** The top saturates before the rest, most on slow tape, and falls off earlier at
   lower speeds.
-- **Low-frequency behaviour:** the head bump (a lift of 1 to 3 dB) with a roll-off below it. Both move up with
+- **Low-frequency behaviour.** The head bump (a lift of 1 to 3 dB) with a roll-off below it. Both move up with
   the tape speed.
-- **Wow and flutter:** slow and fast pitch movement from the transport, the same for both channels.
-- **Hiss:** tape noise, off by default.
+- **Wow and flutter.** Slow and fast pitch movement from the transport, the same for both channels.
+- **Hiss.** Tape noise, off by default.
+
+## Quick start
+
+1. Put HNL Tape Master on the master bus or a mix bus.
+2. Watch the VU needles with **Record** at 0. If they sit pinned in the red, raise **Calibration**. If they
+   barely move, lower it.
+3. Choose a **Speed** and a **Tape formula**, or pick a preset. Presets leave Calibration alone.
+4. Turn **Record** up for more saturation and tape compression. With **Link** on, the volume stays the same.
 
 ## Controls
 
@@ -42,30 +50,56 @@ and playing it back.
 | Wow, Flutter | 10% is a well-kept machine (about 0.04% pitch movement); 100% is a tired one (about 0.3%). |
 | Noise | 0 is off, 50% is the level of real tape, 100% is 20 dB more. |
 
-The two arrows under the VU meters step through three designs: a needle over a printed card (Classic), an arc that
-fills with the reading as a figure (Arc) and a row of lights (LEDs). The choice is kept with the song and changes
-nothing about the sound; a new instance starts on Classic.
+Drag a knob up or down. Hold Shift for fine steps, or use the mouse wheel. A double-click or Ctrl-click returns a
+knob to its default.
 
-Eleven presets are in the menu at the top right; they leave Calibration alone. The **?** button switches help on:
-rest the mouse on any control to read what it does.
+## Presets and help
 
-Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to
-its default. Latency is about 1.8 ms and is reported to the host.
+The menu at the top right holds eleven presets. They leave Calibration alone. *Save as...* at the end of the
+list keeps your current settings under a name of your own, for use in every song.
 
-## About the model
+The **?** button switches help tips on. Rest the mouse on any control to read what it does.
 
-It is built from the documented behaviour of professional half-track mastering machines and tape stock, not
-measured from one machine, and it is not affiliated with any tape machine or tape manufacturer. The saturation
-is a memoryless curve between pre- and de-emphasis, 4x oversampled; magnetic hysteresis, crosstalk and hum are
-not modelled.
+## The window
+
+The two arrows under the VU meters step through three meter designs: a needle over a printed card (Classic), an
+arc that fills, with the reading as a figure (Arc), and a row of lights (LEDs). The choice is saved with the song
+and does not change the sound. A new instance starts on Classic.
+
+The cog at the top right lists the looks (Classic, Hi-Fi Black and Hi-Fi Silver) and the window sizes (75 to
+200 %). Where the DAW allows it you can also drag the window by its edge. A look applies to every HNL plugin at
+once, and the size is remembered for this plugin. Neither is saved with the song.
+
+## How it works
+
+The plugin is built from the documented behaviour of professional half-track mastering machines and tape stock,
+not measured from one machine. It is not affiliated with any tape machine or tape manufacturer.
+
+The saturation is a memoryless curve between pre-emphasis and de-emphasis, four times oversampled.
+
+## Limits
+
+- Magnetic hysteresis, crosstalk and hum are not modelled.
+- The tape rounds peaks off but does not limit. Keep an eye on the output level, or follow with a limiter.
+- Latency is about 1.8 ms. It is reported to the DAW.
 
 ## Installing
 
 [Download HNL-Tape-Master-win64.zip](https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Tape-Master-win64.zip): the current build, for 64-bit Windows.
 
-The zip holds the plugin as VST3
-(copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). A host needs only one of the
-two. Windows 64-bit.
+The zip holds the plugin as VST3 (copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP
+(copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). Your DAW needs only one of the two.
+
+## For developers
+
+From the repository root, `./build.sh hnl-tape-master` builds the plugin and `./test.sh hnl-tape-master` runs
+its tests (see the [main readme](../../README.md)).
+
+- `dsp/TapeMachine.hpp`: the tape machine.
+- `TapePlugin.cpp`, `TapeUI.cpp`: the DPF plugin and its window.
+- `Params.hpp`, `Presets.hpp`, `Help.hpp`: the parameters, the presets and the help tips.
+- `tests/run.sh`: runs `dsp_test` (plainly, and with the flags the plugin is built with), `plugin_test`,
+  `abuse_test` (`common/tests/HostAbuse.hpp`) and the window tests shared by all HNL plugins.
 
 ## Changelog
 

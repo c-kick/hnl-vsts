@@ -1,7 +1,7 @@
 # HNL Transient Shaper
 
-Turns the hit of each sound up or down separately from what follows it. Made for drums: more punch, less room,
-or the other way round.
+Turns the hit of each sound up or down separately from what follows it. It is made for drums: more punch, less
+room, or the other way round.
 
 ![HNL Transient Shaper](docs/preview.png)
 
@@ -13,20 +13,27 @@ or the other way round.
 | --- | --- |
 | ![Arc meter](docs/arc.png) | ![LED meter](docs/leds.png) |
 
-*Rendered from the plugin's drawing code; not yet a screenshot from a host.*
+*These pictures are rendered from the plugin's drawing code, not taken from a DAW.*
 
 ## What it does
 
-- **No threshold:** it reacts to the shape of the sound, not its level. A quiet ghost note is shaped like a loud
-  hit, and nothing has to be set to the level of the track.
-- **Attack:** the start of each sound, up or down by up to 12 dB. A large jump in level gets the full amount, a
+- **No threshold.** It reacts to the shape of the sound, not its level. A quiet ghost note is shaped like a loud
+  hit, and you do not have to set anything to the level of the track.
+- **Attack.** The start of each sound, up or down by up to 12 dB. A large jump in level gets the full amount, a
   small one less.
-- **Sustain:** what follows the hit (the ring of a drum, the room), up or down by up to 18 dB. A level that is
+- **Sustain.** What follows the hit (the ring of a drum, the room), up or down by up to 18 dB. A level that is
   simply held is left alone.
-- **Detector range:** it can listen to only the lows, mids or highs, to shape the kick without the hats setting
-  it off, or the other way round. The whole signal is shaped either way.
-- **Steady low notes are left alone:** the detector holds the level over the gaps between the waves of a low
-  note, so a bass tone is not taken for a row of hits.
+- **Detector range.** The detector can listen to only the lows, mids or highs. That lets you shape the kick
+  without the hats setting it off, or the other way round. The whole signal is shaped either way.
+- **Steady low notes are left alone.** The detector holds the level over the gaps between the waves of a low
+  note, so it does not mistake a bass tone for a row of hits.
+
+## Quick start
+
+1. Put HNL Transient Shaper on a drum track or a drum bus.
+2. Turn **Attack** up for more punch, or down to soften the hits.
+3. Turn **Sustain** down for tight, dry drums, or up for longer, fatter ones.
+4. Watch the output bar. More attack means higher peaks, so turn **Output** down if it goes over 0 dBFS.
 
 ## Controls
 
@@ -34,40 +41,65 @@ or the other way round.
 | --- | --- |
 | Attack | -100 to +100%. Up gives punch and snap; down softens a sound and pushes it back. |
 | Sustain | -100 to +100%. Down makes drums tight and dry; up makes them longer and fatter. |
-| Length | 5 to 60 ms: how long the start of a sound counts as the hit. Short shapes only the click; long includes the body of the drum. |
+| Length | 5 to 60 ms: how much of the start of a sound is treated as the hit. Short shapes only the click; long includes the body of the drum. |
 | Detector | Full, Low (below 150 Hz), Mid (150 Hz to 2.5 kHz) or High (above 2.5 kHz). |
 | Output | -12 to +12 dB on the shaped signal. More attack means higher peaks. |
 | Mix | 0% is the untouched signal, 100% only the shaped one. |
 
-The meter shows what the shaper is doing: right when it turns the signal up, left when down. Beside the level
-bars are the largest boost and cut of the last moment. Nothing limits the output, so it can go over 0 dBFS:
-turn Output down, or follow with a limiter.
+The meter shows what the shaper is doing. It moves right when the signal is turned up and left when it is turned
+down. Beside the level bars are the largest boost and cut of the last moment.
 
-The two arrows under the meter step through three designs: a needle over a printed card (Classic), an arc that
-fills with the reading as a figure (Arc) and a row of lights (LEDs). The choice is kept with the song and changes
-nothing about the sound; a new instance starts on Classic.
+Drag a knob up or down. Hold Shift for fine steps, or use the mouse wheel. A double-click or Ctrl-click returns a
+knob to its default.
 
-Twelve presets are in the menu at the top right. The **?** button switches help on: rest the mouse on any control
-to read what it does.
+## Presets and help
 
-Drag a knob up or down (Shift for fine steps, mouse wheel also works); double-click or Ctrl-click returns it to
-its default. Latency is 1 ms and is reported to the host: the plugin looks that far ahead, so the gain is in
-place when a hit arrives.
+The menu at the top right holds twelve presets. *Save as...* at the end of the list keeps your current settings
+under a name of your own, for use in every song.
 
-## About the model
+The **?** button switches help tips on. Rest the mouse on any control to read what it does.
+
+## The window
+
+The two arrows under the meter step through three meter designs: a needle over a printed card (Classic), an arc
+that fills, with the reading as a figure (Arc), and a row of lights (LEDs). The choice is saved with the song and
+does not change the sound. A new instance starts on Classic.
+
+The cog at the top right lists the looks (Classic, Hi-Fi Black and Hi-Fi Silver) and the window sizes (75 to
+200 %). Where the DAW allows it you can also drag the window by its edge. A look applies to every HNL plugin at
+once, and the size is remembered for this plugin. Neither is saved with the song.
+
+## How it works
 
 Three envelopes follow the detector's level in dB: one almost at once, one that rises slowly and one that falls
-slowly. Where the first is above the second there is an attack; where the third is above the first there is a
-decay. The method is the well-known one of comparing envelopes; the plugin is not a copy of, or affiliated with,
-any existing unit.
+slowly. Where the first is above the second there is an attack. Where the third is above the first there is a
+decay. Comparing envelopes like this is a well-known method. The plugin is not a copy of any existing unit and
+is not affiliated with one.
+
+The plugin looks 1 ms ahead, so the gain is in place when a hit arrives.
+
+## Limits
+
+- Nothing limits the output, so it can go over 0 dBFS. Turn **Output** down, or follow with a limiter.
+- Latency is 1 ms, the time the plugin looks ahead. It is reported to the DAW.
 
 ## Installing
 
 [Download HNL-Transient-Shaper-win64.zip](https://github.com/c-kick/hnl-vsts/releases/download/downloads/HNL-Transient-Shaper-win64.zip): the current build, for 64-bit Windows.
 
-The zip holds the plugin as VST3
-(copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP (copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). A host needs only one of the
-two. Windows 64-bit.
+The zip holds the plugin as VST3 (copy the `.vst3` folder to `C:\Program Files\Common Files\VST3\`) and as CLAP
+(copy the `.clap` file to `C:\Program Files\Common Files\CLAP\`). Your DAW needs only one of the two.
+
+## For developers
+
+From the repository root, `./build.sh hnl-transient-shaper` builds the plugin and
+`./test.sh hnl-transient-shaper` runs its tests (see the [main readme](../../README.md)).
+
+- `dsp/TransientShaper.hpp`: the detector and the shaping.
+- `ShaperPlugin.cpp`, `ShaperUI.cpp`: the DPF plugin and its window.
+- `Params.hpp`, `Presets.hpp`, `Help.hpp`: the parameters, the presets and the help tips.
+- `tests/run.sh`: runs `dsp_test` (plainly, and with the flags the plugin is built with), `plugin_test`,
+  `abuse_test` (`common/tests/HostAbuse.hpp`) and the window tests shared by all HNL plugins.
 
 ## Changelog
 

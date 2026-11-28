@@ -1,16 +1,16 @@
 # HNL Patina
 
-Makes a clean sound old. Six modules in a row, each with one Amount: a gain stage, a record that does not run
-true, the surface of that record, a noise bed, a filter and a room. Three things set it apart:
+Makes a clean sound old. It has six modules in a row, each with one Amount knob: a gain stage, a record that
+does not run true, the surface of that record, a noise bed, a filter and a room. Three things set it apart:
 
-- **It listens to the music.** Every module has a React knob: crackle hides under loud notes, loud playing is
+- **It listens to the music.** Every module has a React knob. Crackle hides under loud notes, loud playing is
   driven harder, a hit drags the record's speed down for a moment. The wear plays along with the part.
 - **One record turns under all of it.** The movement comes from a turntable, not from tape. The same turning
-  record places the scratches, each of which passes the needle once a turn.
+  record places the scratches, and each of them passes the needle once a turn.
 - **Two scenes and a morph.** A preset holds two complete settings, A and B, and one dial goes from one to
   the other.
 
-There is no tape in it: HNL Tape Master and HNL Tape Echo do tape.
+There is no tape in it. HNL Tape Master and HNL Tape Echo do tape.
 
 ![HNL Patina](docs/preview.png)
 
@@ -26,11 +26,22 @@ There is no tape in it: HNL Tape Master and HNL Tape Echo do tape.
 | --- | --- | --- |
 | ![Help tip on Vinyl's React](docs/help.png) | ![Preset menu](docs/menu.png) | ![Name box after Save as...](docs/save.png) |
 
-*Rendered from the plugin's drawing code; not yet a screenshot from a host.*
+*These pictures are rendered from the plugin's drawing code, not taken from a DAW.*
 
-**A beta.** It passes its offline tests and has been tried in Reason, but it is young; expect rough edges.
+**This is a beta.** It passes its tests and has been tried in Reason, but it is young. Expect rough edges.
 
-## What it does
+## Quick start
+
+1. Put HNL Patina on the sound you want to age.
+2. Pick a preset from the preset menu. The factory presets have a mild scene A and a heavy scene B of the
+   same character.
+3. Turn **Morph** from A towards B for more of it.
+4. To change a scene, choose it with **A / B** and turn the knobs. Each module has its own on/off switch.
+5. Use **Mix** to blend the result with the untouched sound.
+
+The **?** button switches on help tips for every control.
+
+## How it works
 
     in ─┬─► drive ─► motion ─► vinyl ─► noise ─► filter ─► space ─► mix ─► output
         │               ▲         ▲        ▲        ▲                ▲
@@ -50,40 +61,65 @@ module passes its input unchanged, sample for sample, whatever else is set.
 | Filter | Tilt, Band, Ladder | How far it closes | Loud notes open it | Resonance |
 | Space | Room, Chamber, Spring, Early Digital | Level of the reverb | The tail ducks while you play | Decay, 0.2 to 4 s |
 
-- **The listener** measures each moment against the last few seconds of music, not against full scale: a
-  jump of 6 dB reads the same at -40 dBFS as at -6. React therefore needs no threshold. A sound that stays at
-  one level (a held pad, a finished mix) gives React little to follow.
-- **The record** is Motion and Vinyl together. With both off there is no record and the other modules get
+- **The listener** measures each moment against the last few seconds of music, not against full scale. A jump
+  of 6 dB reads the same at -40 dBFS as at -6, so React needs no threshold. A sound that stays at one level,
+  such as a held pad or a finished mix, gives React little to follow.
+- **The record** is Motion and Vinyl together. With both off there is no record, and the other modules get
   the sound as it came out of Drive. With Motion off and Vinyl on the record still turns, at Speed, so the
   scratches keep their rhythm.
-- **Scratched** has one to six scratches, more with Amount. Each clicks at the same place in every turn:
-  1.8 s apart at 33⅓, 1.33 s at 45, 0.77 s at 78.
-- **Noise** has no hiss. Hum and Buzz sound at the mains frequency, 50 or 60 Hz: a button in the module's
-  title row, kept with the song and not changed by presets.
+- **Scratched** has one to six scratches, more as you turn Amount up. Each clicks at the same place in every
+  turn. That is 1.8 s apart at 33⅓, 1.33 s at 45 and 0.77 s at 78.
+- **Noise** has no hiss. Hum and Buzz sound at the mains frequency, 50 or 60 Hz. You set that with a button in
+  the module's title row. It is saved with the song and presets do not change it.
 - **Space** comes last, around the worn sound. Whatever the type, the reverb is mono below 200 Hz. Early
-  Digital runs at 12 kHz with 12 bits; its tail ends abruptly, as those machines did.
-- **In Silence** says what the plugin's own sounds (crackle, rumble, the bed) do when the music stops.
-  Stop: they go on for 4 seconds and then fade out in 2, so they are there in a gap between phrases and gone
-  after the song. Keep: they go on, for crackle before the first note.
+  Digital runs at 12 kHz with 12 bits, and its tail ends abruptly, as it did on those machines.
+- **In Silence** sets what the plugin's own sounds (crackle, rumble, the bed) do when the music stops. With
+  Stop they go on for 4 seconds and then fade out in 2. They are there in a gap between phrases and gone after
+  the song. With Keep they go on, which gives you crackle before the first note.
 
 ### Scenes and Morph
 
-A scene is everything the six modules hold. **A / B** chooses which one the knobs show and change; the
-choice is kept with the song. Around each knob are two arcs, always in the same place and each in its scene's
-colour: the outer one is the knob in scene A, the inner one in scene B. The scene being edited is the stronger
-of the two. Morph has a colour of its own: a short line outside the arcs shows where Morph has the knob now,
-which is what you hear.
+A scene is everything the six modules hold. **A / B** chooses which scene the knobs show and change, and that
+choice is saved with the song.
 
-**Morph** goes from A (0%) to B (100%); at either end the sound is exactly that scene. Knobs move straight
-from one value to the other. A module that is off in one scene fades in over the whole morph, with the type
-of the scene in which it is on. Where both scenes have it on with different types, it changes over at 50%:
-the module is turned down to nothing in 25 ms, changes, and comes back in 25 ms. Morph has to come back to
-below 48% before it changes again, so a morph held at 50% does not chatter. Motion changes type without that
-dip: its movement glides from one to the other.
+Around each knob are two arcs, always in the same place and each in the colour of its scene. The outer arc is
+the knob in scene A, the inner one in scene B. The scene you are editing is drawn stronger. Morph has a colour
+of its own: a short line outside the arcs shows where Morph has the knob now, and that is what you hear.
 
-Factory presets have a mild A and a heavy B of the same character, so Morph reads as "more". **A ▸ B**,
-**B ▸ A** and **Swap** copy and exchange the scenes. **Mix** is apart from this: how much of the result is
-heard next to the untouched signal.
+**Morph** goes from A (0%) to B (100%). At either end the sound is exactly that scene. In between:
+
+- **Knobs** move straight from one value to the other.
+- **A module that is off in one scene** fades in over the whole morph, with the type of the scene in which it
+  is on.
+- **A module that is on in both scenes with different types** changes over at 50%. It is turned down to
+  nothing in 25 ms, changes type, and comes back in 25 ms. Morph then has to come back below 48% before the
+  module changes again, so a morph held at 50% does not chatter.
+- **Motion** changes type without that dip. Its movement glides from one type to the other.
+
+**A ▸ B**, **B ▸ A** and **Swap** copy and exchange the scenes. **Mix** is separate from all this. It sets how
+much of the result you hear next to the untouched signal.
+
+## Controls
+
+| Control | What it changes |
+| --- | --- |
+| Morph | 0 to 100%: from scene A to scene B. |
+| Mix | 0 to 100%: the result next to the untouched signal. With Motion on, less than 100% is a slow chorus: the sound next to a copy of itself that moves in pitch. |
+| Output | -24 to +12 dB. Not part of a preset. |
+| In Silence | Stop or Keep: whether the plugin's own sounds stop after the music. |
+| A / B | Which scene the knobs show and change. |
+| A ▸ B, B ▸ A, Swap | Copy one scene over the other, or exchange them. |
+| The switch in a module's title | The module on or off, in the scene being edited. |
+| The window under it | The module's type: click its right half for the next, its left half for the previous. |
+| Amount, React, the third knob | See the table above. Drag up and down, Shift for fine steps, double-click or Ctrl-click for the default, or use the mouse wheel. |
+| 50 Hz / 60 Hz (Noise) | The mains frequency of Hum and Buzz. Not part of a preset. |
+| Follow / Duck (Noise) | What React does to the bed. |
+| The cog | The look of the window: Classic, Hi-Fi Black or Hi-Fi Silver, for all HNL plugins at once. |
+
+**Presets.** The preset menu holds eleven presets, each with two scenes, and *Save as...* keeps your own.
+Presets leave Output and the mains frequency alone.
+
+**Help.** The **?** button switches help on. Rest the mouse on any control to read what it does.
 
 ## Measured
 
@@ -111,50 +147,46 @@ At 48 kHz, one module on at a time unless said otherwise.
 | Space under a steady tone, React 100% against 0 | 12 dB down |
 | Everything on, two heavy scenes | 4% of one processor core on the machine that ran the tests |
 
-## Controls
+## The window
 
-| Control | What it changes |
-| --- | --- |
-| Morph | 0 to 100%: from scene A to scene B. |
-| Mix | 0 to 100%: the result next to the untouched signal. With Motion on, less than 100% is a slow chorus: the sound next to a copy of itself that moves in pitch. |
-| Output | -24 to +12 dB. Not part of a preset. |
-| In Silence | Stop or Keep: whether the plugin's own sounds stop after the music. |
-| A / B | Which scene the knobs show and change. |
-| A ▸ B, B ▸ A, Swap | Copy one scene over the other, or exchange them. |
-| The switch in a module's title | The module on or off, in the scene being edited. |
-| The window under it | The module's type: click its right half for the next, its left half for the one before. |
-| Amount, React, the third knob | See the table above. Drag up and down, Shift for fine steps, double-click or Ctrl-click for the default, or use the mouse wheel. |
-| 50 Hz / 60 Hz (Noise) | The mains frequency of Hum and Buzz. Not part of a preset. |
-| Follow / Duck (Noise) | What React does to the bed. |
-| The cog | The look of the window: Classic, Hi-Fi Black or Hi-Fi Silver, for all HNL plugins at once. |
+The cog at the top right lists the looks (Classic, Hi-Fi Black and Hi-Fi Silver) and the window sizes (75 to
+200 %). Where the DAW allows it you can also drag the window by its edge. The look applies to every HNL plugin
+at once, and the size is remembered for this plugin. Neither is saved with the song or changes the sound.
 
-The plugin is 13 ms late and tells the host so. That is the price of ±50 cent on a record at 33⅓: in a
-moving delay the pitch is off by the rate at which the delay changes, and a slow swing needs a long delay.
-Someone playing keys through it live will feel it.
+## Limits
 
-## What is not in it yet
+- **Latency.** The plugin is 13 ms late and tells the DAW so. That is the price of ±50 cent on a record at
+  33⅓. In a moving delay the pitch is off by the rate at which the delay changes, and a slow swing needs a long
+  delay. If you play keys through it live, you will feel it.
+- **A change of type cuts the old type's sound in 25 ms.** For Space that cuts the old tail. Letting it ring
+  out while the new one comes in needs two reverbs running at once, and that is not built.
+- **The record's speed is not tied to the song's tempo.**
 
-- A change of type cuts the old type's sound in 25 ms. For Space that cuts the old tail; letting it ring out
-  while the new one comes in needs two reverbs running at once and is not built.
-- The record's speed is not tied to the song's tempo.
+## For developers
 
-## Code
+### Tests
+
+`tests/run.sh` runs seven test programs:
+
+- `dsp_test` measures the engine. It runs twice: plainly, and with the flags the plugin is built with.
+- `plugin_test` runs the plugin in DPF's wrapper.
+- `abuse_test` does everything a DAW is allowed to do (`common/tests/HostAbuse.hpp`).
+- `ui_presets_test`, `ui_scenes_test`, `ui_skin_test` and `ui_size_test` drive the window itself, on the
+  drawing stand-in: the presets, the scenes, the choice of look and the size of the window.
+
+### Code
 
 - `dsp/Listener.hpp`: what the plugin hears in the music. No sound passes through it.
 - `dsp/Platter.hpp`: the turning record and what it does to the length of a delay, and the table of where
   the scratches lie, which the window draws from as well.
 - `dsp/Modules.hpp`: Drive, Vinyl, Noise, Filter and Space.
-- `dsp/Patina.hpp`: the engine: scenes and Morph, what React makes of the listener, the latency, Mix.
+- `dsp/Patina.hpp`: the engine, with the scenes and Morph, what React makes of the listener, the latency and
+  Mix.
 - `dsp/Parts.hpp`: a fixed random sequence (a song renders the same every time from the same start) and
   the moving delay. The small room and the spring are shared with HNL Thickener and HNL Tape Echo:
   `common/dsp/Room.hpp` and `common/dsp/Spring.hpp`.
 - `Params.hpp`: 67 inputs (5 for the plugin, 31 for each scene) and 13 outputs for the window. Their order
   is permanent.
-
-`tests/run.sh` runs seven test programs: measurements of the engine (`dsp_test`, twice: plainly and with the
-flags the plugin is built with), the plugin in DPF's host-side wrapper, the host that does everything a host
-may do (`common/tests/HostAbuse.hpp`), and the UI class on the drawing stand-in: presets, the scenes
-(`ui_scenes_test`) and the choice of look.
 
 ## Changelog
 
