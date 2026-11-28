@@ -245,6 +245,14 @@ folding of stages are saved with the song but are not parameters.
 
 ## Changelog
 
+### 0.10.1 (2026-11-28)
+
+- Fixed: on Windows, on a display set to another scale than 100 %, clicks could land beside what was drawn, so that
+  knobs and buttons did not answer or another one did. The window was made larger for the display's scale without
+  the plugin being told, and it read every click that much too far right and down (at 125 %, a quarter). It now goes
+  by the size its window really has. Reported for HNL Sampler in Cubase and Studio One; found by reading the code
+  that makes the window, and not yet seen fixed in those DAWs themselves.
+
 ### 0.10.0 (2026-11-28)
 
 - New: HNL Analyzer (0.3 or later) can set the limiter's gain and ceiling and switch the limiter on, with its

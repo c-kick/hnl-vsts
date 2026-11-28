@@ -365,6 +365,14 @@ meters it can read (momentary, short-term and integrated loudness, true peak, PL
 
 ## Changelog
 
+### 0.3.1 (2026-11-28)
+
+- Fixed: on Windows, on a display set to another scale than 100 %, clicks could land beside what was drawn, so that
+  knobs and buttons did not answer or another one did. The window was made larger for the display's scale without
+  the plugin being told, and it read every click that much too far right and down (at 125 %, a quarter). It now goes
+  by the size its window really has. Reported for HNL Sampler in Cubase and Studio One; found by reading the code
+  that makes the window, and not yet seen fixed in those DAWs themselves.
+
 ### 0.3.0 (2026-11-28)
 
 - New: APPLY TO MASTER in the advisor sets the limiter of HNL Master (0.10 or later) by the advice: the ceiling

@@ -107,6 +107,14 @@ tests (see the [main readme](../../README.md)).
 
 ## Changelog
 
+### 0.5.1 (2026-11-28)
+
+- Fixed: on Windows, on a display set to another scale than 100 %, clicks could land beside what was drawn, so that
+  knobs and buttons did not answer or another one did. The window was made larger for the display's scale without
+  the plugin being told, and it read every click that much too far right and down (at 125 %, a quarter). It now goes
+  by the size its window really has. Reported for HNL Sampler in Cubase and Studio One; found by reading the code
+  that makes the window, and not yet seen fixed in those DAWs themselves.
+
 ### 0.5.0 (2026-11-27)
 
 - New: the window can be made larger and smaller. The cog at the top right lists the sizes (75 to 200 %) under the
