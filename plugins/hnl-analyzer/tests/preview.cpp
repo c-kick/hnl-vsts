@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 hnldesign/c_kick/Klaas Leussink
 
-// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|reference|masters|live|file|menu|size|help]
+// Writes the plugin UI as an SVG file: preview <out.svg> [default|busy|reference|masters|live|file|menu|size|help|master]
 //   default    as a new instance opens          busy     a track captured, the advisor at work
 //   reference  the track beside a saved reference, matched in loudness
 //   masters    the figures of two real masters, typed in by hand, beside each other
 //   live       the running meter                file     a file being read
 //   menu       the list of targets open         help     help on, mouse on the advisor
+//   master     as busy, with an HNL Master in the song: found, its meters in the strip at the bottom
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <memory>
 #include <string>
 
 #include "DistrhoUI.hpp"
 #include "../Params.hpp"
+#include "../../../common/Link.hpp"
 #include "Demo.hpp"
 
 int main(int argc, char** argv) {
@@ -50,8 +53,18 @@ int main(int argc, char** argv) {
         }
         if (mode != "live") engine.setCompleted(a);
     }
+    std::unique_ptr<hnl::link::Publisher> master; // an HNL Master at work on a loud chorus
+    if (mode == "master") {
+        using namespace hnl::link;
+        master.reset(new Publisher(kMaster, 9u << 8));
+        const float figures[][2] = {{kMasterInL, -5.8f}, {kMasterInR, -6.1f}, {kMasterGrLow, -1.7f}, {kMasterGrMid, -0.6f}, {kMasterGrHigh, -0.2f}, {kMasterGrLimiter, -2.4f},
+                                    {kMasterLimiterOn, 1.0f}, {kMasterLimiterGain, 4.5f}, {kMasterLimiterCeiling, -1.0f}, {kMasterLufsS, -9.6f}, {kMasterTruePeak, -1.0f}};
+        for (const auto& f : figures) master->set(static_cast<int>(f[0]), f[1]);
+        engine.lufsS.store(-9.6f);
+    }
     DISTRHO::UI* ui = DISTRHO::createUI();
-    if (mode == "busy" || mode == "help" || mode == "menu") { // targets the track does not reach with gain alone
+    if (master != nullptr) master->advance(512); // it processes
+    if (mode == "busy" || mode == "help" || mode == "menu" || mode == "master") { // targets the track does not reach with gain alone
         ui->parameterChanged(kTargetLufs, -8.0f);
         ui->parameterChanged(kMaxTruePeak, -1.0f);
         ui->parameterChanged(kPrefPlr, 7.5f);

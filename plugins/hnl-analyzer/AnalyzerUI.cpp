@@ -3,15 +3,18 @@
 
 // HNL Analyzer: user interface (NanoVG).
 //
-// Three rows. At the top the four figures a master is judged by, and the capture: its keys,
+// Three rows and a strip. At the top the four figures a master is judged by, and the capture: its keys,
 // how it stands and the reports. In the middle the whole track: its outline, left over right,
-// and under it the loudness over the same stretch of time. At the bottom the amplitude
+// and under it the loudness over the same stretch of time. Under that the amplitude
 // statistics, the histogram and the spectrum, the advisor and the comparison with a reference.
+// The strip at the bottom shows HNL Master, when there is one in the song: whether it was found
+// and what its meters read at this moment (common/Link.hpp).
 //
 // What is shown is read from the plugin itself (dsp/Engine.hpp), about thirty times a second;
 // only the settings are parameters. Coordinates are design pixels, drawn as large as the window
 // is: the host's UI scale times the size the user chose (common/ui/WindowSize.hpp).
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -21,6 +24,7 @@
 
 #include "DistrhoUI.hpp"
 
+#include "../../common/Link.hpp"
 #include "../../common/ui/Skin.hpp"
 #include "../../common/ui/Widgets.hpp"
 #include "../../common/ui/WindowSize.hpp"
@@ -60,6 +64,7 @@ const Rect kLoudPanel = {12, 52, 716, 120}, kCapPanel = {740, 52, 448, 120};
 const Rect kWavePanel = {12, 184, 1176, 220};
 const Rect kStatPanel = {12, 416, 300, 292}, kHistPanel = {324, 416, 280, 140}, kSpecPanel = {324, 568, 280, 140};
 const Rect kAdvPanel = {616, 416, 280, 292}, kRefPanel = {908, 416, 280, 292};
+const Rect kLinkPanel = {12, 720, 1176, 52};
 
 // The keys, in window coordinates.
 const Rect kModeBox = {250, 15, 200, 22};
@@ -74,6 +79,18 @@ const Rect kAdvBox = {626, 524, 260, 174};
 const Rect kRefPrev = {918, 444, 22, 22}, kRefName = {944, 444, 208, 22}, kRefNext = {1156, 444, 22, 22};
 const Rect kMatchBox = {918, 472, 260, 20}, kRefBox = {918, 498, 260, 172};
 const Rect kRefKeys = {918, 678, 260, 22}; // + TRACK, + FILE, EXPORT, DELETE
+const Rect kLinkBox = {260, 728, 918, 36};  // HNL Master's figures, beside whether it was found
+
+// HNL Master's figures in the strip: the share of the width each has, and what stands over it.
+struct LinkCell {
+    float share;
+    const char* title;
+};
+enum { kCellInput, kCellComp, kCellLimiter, kCellGain, kCellCeiling, kCellLoudness, kCellPeak, kCellPath, kLinkCells };
+const LinkCell kLinkCell[kLinkCells] = {{0.105f, "INPUT PEAK"},   {0.19f, "COMP GR  LOW  MID  HIGH"}, {0.105f, "LIMITER GR"}, {0.115f, "LIMITER GAIN"},
+                                        {0.105f, "CEILING"}, {0.125f, "OUT SHORT-TERM"},          {0.115f, "TRUE PEAK"},  {0.14f, "MASTER TO HERE"}};
+/** Further than this between what HNL Master sends and what arrives here: something in between changes the level. */
+const double kPathSlack = 0.5;
 
 struct Knob {
     uint32_t id;
@@ -235,6 +252,7 @@ public:
         size_.open(skin_); // the window opens at the size it was left at
         placeHelp();
         refresh();
+        pollLink();
     }
 
 protected:
@@ -274,7 +292,8 @@ protected:
         const std::wstring dropped = drop_.take();
         if (!dropped.empty()) openPath(std::filesystem::path(dropped));
 #endif
-        if (refresh() || shown_->fileBusy) repaint();
+        const bool linkChanged = pollLink();
+        if (refresh() || shown_->fileBusy || linkChanged) repaint();
     }
 
     /** The system's file dialog answered: a path, or null when it was closed without one. */
@@ -327,6 +346,7 @@ protected:
         drawSpectrum();
         drawAdvisor();
         drawReference();
+        drawLink();
 
         presetBar_.drawMenu(*this, theme, list_.count(), preset_, list_.factoryCount(), canSavePreset(), [this](int i) { return list_.name(i); });
         skin_.drawMenu(*this, theme);
@@ -440,6 +460,14 @@ protected:
             repaint();
             return true;
         }
+        if (kLinkPanel.contains(x, y)) { // more than one HNL Master: the next one
+            if (masters_.size() > 1) {
+                masterPick_ = masters_[static_cast<size_t>((master_ + 1) % static_cast<int>(masters_.size()))].id;
+                pollLink();
+                repaint();
+            }
+            return true;
+        }
 
         const int hit = knobAt(x, y);
         if (hit < 0) return false;
@@ -544,6 +572,80 @@ private:
             note_ = error;
         }
         return changed || outcome != 0;
+    }
+
+    // ---------------------------------------------------------- HNL Master
+
+    /** What the strip at the bottom says. Made when the link is read, so that the window is only drawn again when a text in it changed. */
+    struct LinkView {
+        std::string status, detail, cell[kLinkCells];
+        int tone = 0;         // of the dot: 0 nobody, 1 found, 2 found but to be looked at
+        bool warnPath = false; // the level changes between HNL Master and here
+        bool operator==(const LinkView& o) const {
+            if (status != o.status || detail != o.detail || tone != o.tone || warnPath != o.warnPath) return false;
+            for (int i = 0; i < kLinkCells; ++i)
+                if (cell[i] != o.cell[i]) return false;
+            return true;
+        }
+    };
+
+    /** The HNL Master whose figures are shown, or null: the one that was clicked to, else the first (those in this host come first). */
+    const hnl::link::Peer* master() const { return master_ >= 0 && master_ < static_cast<int>(masters_.size()) ? &masters_[static_cast<size_t>(master_)] : nullptr; }
+
+    /** Looks which HNL Masters there are and what the chosen one reads. True when what the strip shows changed. */
+    bool pollLink() {
+        using namespace hnl::link;
+        masters_ = link_.find(kMaster);
+        master_ = masters_.empty() ? -1 : 0;
+        for (size_t i = 0; i < masters_.size(); ++i)
+            if (masters_[i].id == masterPick_) master_ = static_cast<int>(i);
+
+        LinkView v;
+        for (std::string& c : v.cell) c = "--";
+        const Peer* m = master();
+        if (m == nullptr) {
+            v.status = "NOT FOUND";
+            v.detail = "version 0.9 or later";
+            masterSeen_ = 0;
+        } else {
+            // It processes when its count of samples moved within the last second.
+            const auto now = std::chrono::steady_clock::now();
+            if (m->id != masterSeen_) {
+                masterSeen_ = m->id;
+                masterFrames_ = m->frames;
+                masterMoved_ = now - std::chrono::seconds(2);
+            } else if (m->frames != masterFrames_) {
+                masterFrames_ = m->frames;
+                masterMoved_ = now;
+            }
+            const bool running = now - masterMoved_ < std::chrono::milliseconds(1000);
+            const float* f = m->values;
+            const bool bypass = f[kMasterBypass] > 0.5f, match = f[kMasterMatch] > 0.5f;
+            v.tone = bypass || match ? 2 : 1;
+            v.status = std::string("DETECTED") + (bypass ? ", BYPASSED" : (match ? ", MATCH ON" : "")) + "  v" + m->versionText();
+            if (masters_.size() > 1) v.detail = std::to_string(master_ + 1) + " of " + std::to_string(masters_.size()) + ": click for the next";
+            else if (!running) v.detail = "not processing";
+            else v.detail = m->sameProcess ? "in this host" : "in another process";
+
+            const auto gr = [](float db) { return number(db > -0.05f ? 0.0 : db, 1); };
+            v.cell[kCellInput] = level(std::max(f[kMasterInL], f[kMasterInR]), 1) + " dB";
+            v.cell[kCellComp] = gr(f[kMasterGrLow]) + "   " + gr(f[kMasterGrMid]) + "   " + gr(f[kMasterGrHigh]) + " dB";
+            v.cell[kCellLimiter] = f[kMasterLimiterOn] > 0.5f ? gr(f[kMasterGrLimiter]) + " dB" : std::string("OFF");
+            v.cell[kCellGain] = f[kMasterLimiterOn] > 0.5f ? number(f[kMasterLimiterGain], 1, true) + " dB" : std::string("OFF");
+            v.cell[kCellCeiling] = f[kMasterLimiterOn] > 0.5f ? number(f[kMasterLimiterCeiling], 1) + " dBTP" : std::string("OFF");
+            v.cell[kCellLoudness] = level(f[kMasterLufsS], 1) + " LUFS";
+            v.cell[kCellPeak] = level(f[kMasterTruePeak], 1) + " dBTP";
+            // The same three seconds, measured there and here: apart only when something between the two changes the level.
+            const double here = engine_ != nullptr ? engine_->lufsS.load(std::memory_order_relaxed) : kSilence;
+            if (running && here > -70.0 && f[kMasterLufsS] > -70.0f) {
+                const double path = here - f[kMasterLufsS];
+                v.cell[kCellPath] = number(std::fabs(path) < 0.05 ? 0.0 : path, 1, true) + " dB";
+                v.warnPath = std::fabs(path) > kPathSlack;
+            }
+        }
+        if (v == linkShown_) return false;
+        linkShown_ = v;
+        return true;
     }
 
     /** The reference in use: the capture before this one, a saved one, or none. */
@@ -740,6 +842,7 @@ private:
         help_.add(kSpecPanel, "SPECTRUM", help::kSpectrum);
         help_.add(kAdvPanel, "MASTERING ADVISOR", help::kAdvisor);
         help_.add(kRefPanel, "REFERENCE", help::kReference);
+        help_.add(kLinkPanel, "HNL MASTER", help::kLink);
         help_.add(help_.buttonBox(), "HELP", help::kHelp);
         help_.add(skin_.buttonBox(), "LOOK AND SIZE", hnl::ui::SkinMenu::helpWithSizes());
         help_.add(presetBar_.nameBox(), "TARGETS", help::kPresets);
@@ -1351,6 +1454,32 @@ private:
         for (int i = 0; i < 4; ++i) hnl::ui::button(*this, k, {kRefKeys.x + i * w + (i ? 2 : 0), kRefKeys.y, w - (i ? 2 : 0), kRefKeys.h}, names[i]);
     }
 
+    // ---------------------------------------------------------- HNL Master
+
+    void drawLink() {
+        const hnl::ui::Skin k = skin();
+        const LinkView& v = linkShown_;
+        panel(kLinkPanel, "HNL MASTER");
+        const float sy = kLinkPanel.y + 36;
+        beginPath();
+        circle(kLinkPanel.x + 14, sy, 3.5f);
+        fillColor(rgb(v.tone == 2 ? k.yellow : (v.tone == 1 ? k.green : k.dim)));
+        fill();
+        label(v.status, kLinkPanel.x + 24, sy, 10, rgb(v.tone == 0 ? k.plateDim : k.plateText), ALIGN_LEFT | ALIGN_MIDDLE);
+        label(v.detail, kLinkBox.x - 10, kLinkPanel.y + 15, 9, rgb(k.plateDim), ALIGN_RIGHT | ALIGN_MIDDLE);
+
+        screen(kLinkBox, false);
+        float x = kLinkBox.x;
+        for (int i = 0; i < kLinkCells; ++i) {
+            const float w = kLinkBox.w * kLinkCell[i].share;
+            if (i > 0) line(x, kLinkBox.y + 7, x, kLinkBox.y + kLinkBox.h - 7, rgb(k.dim, 0.25f));
+            label(kLinkCell[i].title, x + w * 0.5f, kLinkBox.y + 10, 8, rgb(k.dim), ALIGN_CENTER | ALIGN_MIDDLE);
+            const bool warn = i == kCellPath && v.warnPath;
+            label(v.cell[i], x + w * 0.5f, kLinkBox.y + 25, 11, rgb(warn ? k.yellow : (v.tone == 0 ? k.dim : k.text)), ALIGN_CENTER | ALIGN_MIDDLE);
+            x += w;
+        }
+    }
+
     float values_[kParamCount];
     Engine* engine_ = nullptr;
     std::unique_ptr<Engine::Shown> shown_; // what the plugin measured, as of the last look
@@ -1362,6 +1491,14 @@ private:
     bool sure_ = false;  // Delete was clicked once
     std::string note_;   // shown in place of the status until the next click
     TextField name_;
+
+    hnl::link::Reader link_;
+    std::vector<hnl::link::Peer> masters_; // the HNL Masters that are there, as of the last look
+    int master_ = -1;                      // the one that is shown, in masters_
+    uint64_t masterPick_ = 0;              // the one that was clicked to, by its id
+    uint64_t masterSeen_ = 0, masterFrames_ = 0;
+    std::chrono::steady_clock::time_point masterMoved_;
+    LinkView linkShown_;
 
     int drag_ = -1, lastClick_ = -1;
     uint lastClickTime_ = 0;

@@ -151,6 +151,8 @@ under [Looks](#looks).
 - `common/ui/`: UI parts shared by the plugins (preset bar, help tips, meters, and the looks: see "Looks");
   `common/Presets.hpp`: how factory presets are defined; `common/UserPresets.hpp`: the presets a user saves (see
   "Presets of your own"); `common/UserSettings.hpp`: the settings that hold for all plugins.
+  `common/Link.hpp`: how the plugins in one song find each other and read each other's figures (HNL Analyzer
+  shows the meters of HNL Master), through a small block of shared memory; tested by `common/tests/link_test.cpp`.
 - `dpf/`: the [DISTRHO Plugin Framework](https://github.com/DISTRHO/DPF), as a git submodule.
 - `toolchain/`: wrappers that run zig as the Windows cross-compiler.
 - `tools/ui-preview/`: a stand-in for DPF's drawing API that writes a plugin UI as SVG, to check a layout on a

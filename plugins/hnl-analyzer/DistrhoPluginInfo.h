@@ -14,7 +14,7 @@
 
 // The version: reported to the host, shown behind the title, and read by package.sh.
 #define HNL_VERSION_MAJOR 0
-#define HNL_VERSION_MINOR 1
+#define HNL_VERSION_MINOR 2
 #define HNL_VERSION_PATCH 0
 
 // It passes its offline tests and has not been in a host yet.
@@ -37,7 +37,7 @@
 #define DISTRHO_PLUGIN_CLAP_FEATURES   "audio-effect", "analyzer", "mastering", "utility", "stereo"
 
 #define UI_BASE_WIDTH  1200
-#define UI_BASE_HEIGHT 720
+#define UI_BASE_HEIGHT 784
 
 #define DISTRHO_UI_DEFAULT_WIDTH  UI_BASE_WIDTH
 #define DISTRHO_UI_DEFAULT_HEIGHT UI_BASE_HEIGHT

@@ -137,6 +137,39 @@ Broadcast EBU R128), by kind of music, and Save as... keeps your own, as in ever
 services and broadcast are the ones those publish. The ones per kind of music are where commercial masters of
 that kind tend to sit: starting points, not rules.
 
+## HNL Master in the same song
+
+![HNL Master found, its meters in the strip at the bottom](docs/master.png)
+
+The strip at the bottom of the window shows [HNL Master](../hnl-master) (version 0.9 or later) when there is one
+in the song. Nothing has to be set up or connected: the two find each other by themselves, in any host. The dot
+is green and the strip says **DETECTED** with its version; without one it says **NOT FOUND**.
+
+| Figure | What it is |
+| --- | --- |
+| Input peak | The level before HNL Master's chain, the higher of left and right. |
+| Comp GR low, mid, high | How much each band of its compressor turns down at this moment. |
+| Limiter GR, gain, ceiling | What its limiter takes off, and how it is set. OFF when the limiter is switched off. |
+| Out short-term, true peak | What HNL Master measures at its own output: the loudness of the last three seconds, and its true-peak maximum. |
+| Master to here | The short-term loudness that arrives here minus the one HNL Master sends, while a capture runs. 0.0 when nothing stands between the two. Yellow when they lie more than 0.5 dB apart: a plugin or a fader in between changes the level, and what is measured here is then not what HNL Master puts out. |
+
+They are the meters of this moment, as HNL Master's own window shows them, not figures of the whole track; they
+are not kept with the analysis and are not in the reports.
+
+The strip also says what would make the measurement mean something else than it seems: **BYPASSED** when HNL
+Master's Bypass is on, **MATCH ON** when its Match is (the level is then turned down to that of the unprocessed
+sound: switch it off before measuring a master), and *not processing* when the host does not run it.
+
+With more than one HNL Master (one on a bus, one on the master) those in this host come first; the strip says
+*1 of 2*, and a click on it steps to the next. Which one it is shows in *Master to here*: 0.0 for the one whose
+sound arrives here. That choice is not kept with the song yet.
+
+This only reads. Nothing in HNL Master is changed from here.
+
+How it works: every HNL Master writes its meters into a small block of memory that the system keeps under a name
+(`common/Link.hpp`), and this window reads it thirty times a second. The audio thread of neither plugin waits for
+the other. `HNL_LINK_NAME=off` in the environment of the host switches it off.
+
 ## Reference matching
 
 A reference comes from one of three places:
@@ -235,12 +268,20 @@ MP3 also has higher peaks than its source, so its figures would not be those of 
   mode and with every setting; a capture driven by the host's transport; the analysis saved and given back as
   state.
 - `abuse_test`: the host that does everything a host may do (`common/tests/HostAbuse.hpp`).
-- `ui_test`, `ui_presets_test`, `ui_skin_test`: the window itself, clicked and typed in.
+- `ui_test`, `ui_presets_test`, `ui_skin_test`: the window itself, clicked and typed in; with an HNL Master that
+  enters, changes, gets a second one beside it and leaves.
+
+How the plugins find each other is tested in `common/tests/link_test.cpp`, with a second process as the other
+plugin: found, gone when it leaves, gone when its process is killed, more instances than there is room for.
 
 Both engine tests run twice: plainly, and with the flags the plugin is built with.
 
 ### What is not checked yet
 
+- **Finding HNL Master, beyond a first run.** The tests above run on Linux. The Windows half of
+  `common/Link.hpp` (a named file mapping instead of POSIX shared memory) has had one run in Reason
+  (28 November 2026), in which HNL Master was detected and its figures shown. Not tried: other hosts, and a host
+  that runs each plugin in a process of its own.
 - **In a host.** It has had one first run in Reason (27 November 2026), in which a capture followed the transport
   as meant: it began with playback, ended when it stopped, and began anew when the playhead was moved. Not tried
   there yet: the system's file dialog, a sound file as reference, files dropped on the window, the clipboard,
@@ -281,6 +322,7 @@ Both engine tests run twice: plainly, and with the flags the plugin is built wit
 - `dsp/Engine.hpp`: when a capture begins and ends, how the figures pass from the audio thread to the others,
   the measuring of a reference file on a thread of its own, the analysis that is kept, and the references on
   disk.
+- `common/Link.hpp`: how HNL plugins find each other and read each other's figures.
 - `AnalyzerPlugin.cpp`, `AnalyzerUI.cpp`: the DPF plugin and its window. The window reads what was measured
   from the plugin itself (`DISTRHO_PLUGIN_WANT_DIRECT_ACCESS`); only the settings are parameters.
 - Shared with others: the loudness filters and the correlation (`common/dsp/Metering.hpp`, moved there from HNL
@@ -292,6 +334,14 @@ The parameters the host sees: Mode, Follow Transport, RMS Window, RMS Reference,
 meters it can read (momentary, short-term and integrated loudness, true peak, PLR, LRA).
 
 ## Changelog
+
+### 0.2.0 (2026-11-28)
+
+- New: HNL Master in the same song (version 0.9 or later) is found by itself, and a strip at the bottom of the
+  window shows its meters of the moment: input peak, the gain reduction of its compressor's bands and of its
+  limiter, the limiter's gain and ceiling, its loudness and true peak, and whether the level changes between
+  HNL Master and here. It only reads; nothing in HNL Master is changed. The window is 64 pixels higher for it
+  (1200 x 784).
 
 ### 0.1.0 (2026-11-27)
 

@@ -11,16 +11,19 @@ cd "$(dirname "$0")/.."
 ROOT=../..
 OUT=$ROOT/build/hnl-master-tests
 mkdir -p "$OUT"
+# The plugins under test find each other under a name of their own, not the HNL plugins in a host that happens to run (common/Link.hpp).
+export HNL_LINK_NAME="hnl-test-$$"
+trap 'rm -f "/dev/shm/$HNL_LINK_NAME"' EXIT
 g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/dsp_test" tests/dsp_test.cpp
 "$OUT/dsp_test"
 # Once more with the flags the plugin itself is built with (DPF: -O3 -ffast-math).
 g++ -std=c++17 -O3 -ffast-math -Wall -Wextra -o "$OUT/dsp_test_release" tests/dsp_test.cpp
 "$OUT/dsp_test_release"
 g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1 -o "$OUT/plugin_test" \
-    tests/plugin_test.cpp MasterPlugin.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp
+    tests/plugin_test.cpp MasterPlugin.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp -lpthread
 "$OUT/plugin_test"
 g++ -std=gnu++17 -O2 -w -I$ROOT/dpf/distrho -I. -DDISTRHO_PLUGIN_TARGET_STATIC=1 -o "$OUT/abuse_test" \
-    tests/abuse_test.cpp MasterPlugin.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp
+    tests/abuse_test.cpp MasterPlugin.cpp $ROOT/dpf/distrho/src/DistrhoPlugin.cpp -lpthread
 "$OUT/abuse_test"
 # The UI tests see the settings of a new user, not those of whoever runs them.
 export HNL_SETTINGS_DIR="$PWD/$OUT/settings"

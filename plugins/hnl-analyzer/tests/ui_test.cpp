@@ -17,6 +17,7 @@
 
 #include "DistrhoUI.hpp"
 #include "../Params.hpp"
+#include "../../../common/Link.hpp"
 #include "../../../common/UserSettings.hpp"
 #include "../../../common/ui/Skin.hpp"
 #include "Demo.hpp"
@@ -50,6 +51,7 @@ static const Spot kWindow300 = {72 + 230 * 4.5f / 6, 666}, kSquare = {270, 692};
 static const Spot kTargetKnob = {664, 476}, kPlrKnob = {848, 476};
 static const Spot kRefPrev = {929, 455}, kRefNext = {1167, 455}, kMatchNone = {960, 482}, kMatchLoud = {1048, 482}, kMatchTp = {1134, 482};
 static const Spot kSave = {950, 689}, kAddFile = {1015, 689}, kExport = {1080, 689}, kDelete = {1145, 689};
+static const Spot kMasterStrip = {600, 746};
 static const Spot kHelpButton = {UI_BASE_WIDTH - 52, 26};
 
 static void press(DISTRHO::UI* ui, Spot at, bool down = true, unsigned time = 0, unsigned mod = 0) {
@@ -376,6 +378,70 @@ int main(int argc, char** argv) {
     engine.setCompleted(silent);
     check(showsPart(ui, ">CAPTURED  0:05.0<") && shows(ui, "NO MEASUREMENT") && !showsPart(ui, "nan ") && !showsPart(ui, "nan<") && !showsPart(ui, "inf ") && !showsPart(ui, "inf<"), "five seconds of mono silence: no loudness, and no figure made up for it");
 
+    // HNL Master in the song: found by itself, and its meters shown as they read (common/Link.hpp).
+    {
+        using namespace hnl::link;
+        check(shows(ui, "HNL MASTER") && shows(ui, "NOT FOUND") && shows(ui, "version 0.9 or later"), "without HNL Master in the song the strip says it was not found");
+        {
+            Publisher master(kMaster, 9u << 8);
+            const auto figures = [](Publisher& p, float limiterGr, float gain) {
+                p.set(kMasterInL, -6.25f);
+                p.set(kMasterInR, -7.5f);
+                p.set(kMasterGrLow, -1.24f);
+                p.set(kMasterGrMid, -0.36f);
+                p.set(kMasterGrHigh, -0.01f);
+                p.set(kMasterGrLimiter, limiterGr);
+                p.set(kMasterLimiterOn, 1.0f);
+                p.set(kMasterLimiterGain, gain);
+                p.set(kMasterLimiterCeiling, -1.0f);
+                p.set(kMasterLufsS, -9.0f);
+                p.set(kMasterTruePeak, -1.02f);
+            };
+            figures(master, -2.13f, 4.0f);
+            check(shows(ui, "DETECTED  v0.9.0") && shows(ui, "not processing") && !shows(ui, "NOT FOUND"), "an HNL Master that enters is detected, and said not to process while it stands still");
+            master.advance(512);
+            check(shows(ui, "DETECTED  v0.9.0") && shows(ui, "in this host"), "once it processes, it is the one in this host");
+            check(shows(ui, "-6.3 dB") || shows(ui, "-6.2 dB"), "its input peak is shown, the higher of left and right");
+            check(shows(ui, "-1.2   -0.4   0.0 dB"), "the gain reduction of the three bands of its compressor");
+            check(shows(ui, "-2.1 dB") && shows(ui, "+4.0 dB") && shows(ui, "-1.0 dBTP") && shows(ui, "-9.0 LUFS"), "its limiter's gain reduction, gain and ceiling, its loudness and true peak");
+            check(shows(ui, "MASTER TO HERE") && !shows(ui, "+0.0 dB"), "what arrives here is not compared while nothing is measured here");
+
+            engine.lufsS.store(-9.0f); // as a capture that runs would have it
+            master.advance(512);
+            check(shows(ui, "+0.0 dB"), "while a capture runs: the loudness here beside the loudness HNL Master sends, the same");
+            engine.lufsS.store(-12.0f);
+            master.advance(512);
+            const std::string drawn = draw(ui);
+            check(drawn.find(">-3.0 dB<") != std::string::npos, "and 3 dB lower here when something in between turns it down");
+            engine.lufsS.store(-100.0f);
+
+            master.set(kMasterMatch, 1.0f);
+            check(shows(ui, "DETECTED, MATCH ON  v0.9.0"), "Match left on in HNL Master is said");
+            master.set(kMasterBypass, 1.0f);
+            check(shows(ui, "DETECTED, BYPASSED  v0.9.0"), "and so is Bypass");
+            master.set(kMasterMatch, 0.0f);
+            master.set(kMasterBypass, 0.0f);
+            master.set(kMasterLimiterOn, 0.0f);
+            check(shows(ui, "OFF") && !shows(ui, "+4.0 dB"), "a limiter that is switched off shows as off");
+            master.set(kMasterLimiterOn, 1.0f);
+
+            {
+                Publisher second(kMaster, (1u << 16) | 2u);
+                figures(second, -5.5f, 7.0f);
+                check(shows(ui, "1 of 2: click for the next") && shows(ui, "-2.1 dB"), "a second HNL Master: the first is shown, and the strip says there are two");
+                click(ui, kMasterStrip);
+                check(shows(ui, "2 of 2: click for the next") && shows(ui, "DETECTED  v1.0.2") && shows(ui, "-5.5 dB") && shows(ui, "+7.0 dB"), "a click shows the second");
+                click(ui, kMasterStrip);
+                check(shows(ui, "1 of 2: click for the next") && shows(ui, "-2.1 dB"), "and another the first again");
+                click(ui, kMasterStrip);
+            }
+            check(shows(ui, "DETECTED  v0.9.0") && shows(ui, "-2.1 dB") && !showsPart(ui, "of 2"), "the one that was chosen is removed: the other is shown");
+            click(ui, kMasterStrip);
+            check(shows(ui, "DETECTED  v0.9.0"), "a click on the strip with one HNL Master changes nothing");
+        }
+        check(shows(ui, "NOT FOUND") && !showsPart(ui, "DETECTED"), "HNL Master removed from the song: not found any more");
+    }
+
     // The size of the window: from the cog's list, by dragging its edge, and kept for the next time it opens.
     {
         const Spot cog = {UI_BASE_WIDTH - 24, 26};
@@ -383,24 +449,24 @@ int main(int argc, char** argv) {
         place.setButton(UI_BASE_WIDTH - 24, 26);
         place.offerSizes(100);
         const auto size = [&](int i, float zoom) { const hnl::ui::Box b = place.sizeBox(i); return Spot{zoom * (b.x + b.w * 0.5f), zoom * (b.y + b.h * 0.5f)}; };
-        check(ui->getWidth() == 1200 && ui->getHeight() == 720 && ui->leastWidth == 900 && ui->leastHeight == 540 && ui->keepsShape,
+        check(ui->getWidth() == 1200 && ui->getHeight() == 784 && ui->leastWidth == 900 && ui->leastHeight == 588 && ui->keepsShape,
               "the window opens at its design size, can be dragged down to three quarters of it, and keeps its shape");
         click(ui, cog);
         check(shows(ui, "SIZE") && shows(ui, "150"), "the cog's list offers the sizes under the looks");
         click(ui, size(3, 1.0f)); // 150
-        check(ui->getWidth() == 1800 && ui->getHeight() == 1080 && hnl::ui::storedSize("analyzer") == 150, "a size from the list makes the window that large at once, and is kept");
+        check(ui->getWidth() == 1800 && ui->getHeight() == 1176 && hnl::ui::storedSize("analyzer") == 150, "a size from the list makes the window that large at once, and is kept");
         click(ui, {1.5f * cog.x, 1.5f * cog.y}); // the cog again, where it is drawn now: the list closes
         ui->sentParameters.clear();
         click(ui, {1.5f * kContinuousKey.x, 1.5f * kContinuousKey.y});
         check(sent(ui, kMode, 1.0f) && !shows(ui, "SIZE"), "in the larger window a click lands on what is drawn there (the CONTINUOUS key)");
         click(ui, {1.5f * kTrackKey.x, 1.5f * kTrackKey.y});
-        ui->setSize(1500, 900); // the host, when the edge of the window is dragged
+        ui->setSize(1500, 980); // the host, when the edge of the window is dragged
         ui->uiIdle();
         check(hnl::ui::storedSize("analyzer") == 150, "while the window is being dragged nothing is written");
         for (int i = 0; i <= 2 * hnl::ui::SkinMenu::kPollEvery; ++i) ui->uiIdle();
         check(hnl::ui::storedSize("analyzer") == 125, "a second after the dragging stops, that size is kept");
         DISTRHO::UI* const again = DISTRHO::createUI();
-        check(again->getWidth() == 1500 && again->getHeight() == 900, "the window opens again at the size it was left at");
+        check(again->getWidth() == 1500 && again->getHeight() == 980, "the window opens again at the size it was left at");
         delete again;
         click(ui, {1.25f * cog.x, 1.25f * cog.y});
         click(ui, size(1, 1.25f)); // 100

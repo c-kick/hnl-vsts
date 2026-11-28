@@ -7,13 +7,16 @@
 #   engine_test  when a capture begins and ends and what is kept, the running meter, files measured for a reference
 #   plugin_test  the plugin driven through DPF's host-side wrapper
 #   abuse_test   the same, by a host that does everything a host may do (common/tests/HostAbuse.hpp)
-#   ui_test      the UI class itself, clicked and typed in, on the drawing stand-in of tools/ui-preview
+#   ui_test      the UI class itself, clicked and typed in, on the drawing stand-in of tools/ui-preview; with an HNL Master to find
 #   ui_presets_test, ui_skin_test  the presets and the choice of look, shared by all plugins
 set -e
 cd "$(dirname "$0")/.."
 ROOT=../..
 OUT=$ROOT/build/hnl-analyzer-tests
 mkdir -p "$OUT"
+# The plugins under test find each other under a name of their own, not the HNL plugins in a host that happens to run (common/Link.hpp).
+export HNL_LINK_NAME="hnl-test-$$"
+trap 'rm -f "/dev/shm/$HNL_LINK_NAME"' EXIT
 # The engine tests plainly, and once more with the flags the plugin itself is built with (DPF: -O3 -ffast-math).
 for t in dsp engine; do
     g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/${t}_test" tests/${t}_test.cpp -lpthread

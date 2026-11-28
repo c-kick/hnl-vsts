@@ -4,9 +4,11 @@
 // HNL Master: plugin side. Wraps hnl::MasterChain for DPF.
 #include <atomic>
 #include <cstring>
+#include <memory>
 
 #include "DistrhoPlugin.hpp"
 
+#include "../../common/Link.hpp"
 #include "dsp/MasterChain.hpp"
 #include "Params.hpp"
 
@@ -107,6 +109,12 @@ protected:
     void activate() override {
         pushParams();
         chain_.reset();
+        // From here on HNL Analyzer finds this instance and reads its meters (common/Link.hpp). Only an instance that
+        // the host prepares for audio enters: a VST3 host gets a second one, for the knobs alone, that never does.
+        if (link_ == nullptr && !isDummyInstance()) {
+            link_.reset(new hnl::link::Publisher(hnl::link::kMaster, d_version(HNL_VERSION_MAJOR, HNL_VERSION_MINOR, HNL_VERSION_PATCH)));
+            publish(0);
+        }
     }
 
     void run(const float** inputs, float** outputs, uint32_t frames) override {
@@ -225,6 +233,29 @@ private:
             float& held = out[kSpectrum - kInputParamCount + b];
             held = std::max(m.spectrum[b].exchange(-100.0f, std::memory_order_relaxed), std::max(held - 2.0f * peakFall, -100.0f));
         }
+        publish(frames);
+    }
+
+    /** The meters and a few of the knobs, for another HNL plugin to read (common/Link.hpp). Only stores numbers. */
+    void publish(uint32_t frames) {
+        if (link_ == nullptr) return;
+        using namespace hnl::link;
+        static_assert(kMasterInR == kMasterInL + 1 && kMasterOutL == kMasterInL + 2 && kMasterOutR == kMasterInL + 3 && kMasterTruePeak == kMasterInL + 4 &&
+                          kMasterGrLimiter == kMasterGrLow + 3 && kMasterGrLow == kMasterInL + 5 && kMeterGrLim == kMeterInL + 8,
+                      "peaks, true peak and gain reductions stand in the same order in both lists");
+        for (int i = 0; i < 9; ++i) link_->set(kMasterInL + i, meters_[i]);
+        link_->set(kMasterLufsM, meters_[kMeterLufsM - kInputParamCount]);
+        link_->set(kMasterLufsS, meters_[kMeterLufsS - kInputParamCount]);
+        link_->set(kMasterLufsI, meters_[kMeterLufsI - kInputParamCount]);
+        link_->set(kMasterMatchGain, meters_[kMeterMatch - kInputParamCount]);
+        link_->set(kMasterInputGain, values_[kInputGain].load(std::memory_order_relaxed));
+        link_->set(kMasterLimiterGain, values_[kLimGain].load(std::memory_order_relaxed));
+        link_->set(kMasterLimiterCeiling, values_[kLimCeiling].load(std::memory_order_relaxed));
+        link_->set(kMasterLimiterOn, values_[kLimOn].load(std::memory_order_relaxed) > 0.5f ? 1.0f : 0.0f);
+        link_->set(kMasterBypass, values_[kBypass].load(std::memory_order_relaxed) > 0.5f ? 1.0f : 0.0f);
+        link_->set(kMasterMatch, values_[kMatch].load(std::memory_order_relaxed) > 0.5f ? 1.0f : 0.0f);
+        link_->set(kMasterSampleRate, static_cast<float>(sampleRate_));
+        link_->advance(frames);
     }
 
     static float toDb(float lin) { return lin > 1e-5f ? 20.0f * std::log10(lin) : -100.0f; }
@@ -234,6 +265,7 @@ private:
     std::atomic<float> values_[kInputParamCount];
     std::atomic<bool> dirty_{true}, resetMeters_{false};
     float meters_[kParamCount - kInputParamCount] = {};
+    std::unique_ptr<hnl::link::Publisher> link_;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MasterPlugin)
 };

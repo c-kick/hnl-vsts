@@ -13,6 +13,7 @@
 
 #include "../Params.hpp"
 #include "../Presets.hpp"
+#include "../../../common/Link.hpp"
 
 USE_NAMESPACE_DISTRHO
 
@@ -102,6 +103,37 @@ int main() {
     const float lufs = plugin.getParameterValue(kMeterLufsI);
     check(lufs > -12.0f && lufs < -3.0f, "integrated loudness (LUFS)", lufs);
     check(plugin.getParameterValue(kMeterTruePeak) <= -0.9f, "true-peak hold (dBTP)", plugin.getParameterValue(kMeterTruePeak));
+
+    { // Another HNL plugin finds this instance and reads what its meters show (common/Link.hpp).
+        using namespace hnl::link;
+        Reader reader;
+        const std::vector<Peer> found = reader.find(kMaster);
+        check(found.size() == 1 && found[0].sameProcess && found[0].versionText() == std::to_string(HNL_VERSION_MAJOR) + "." + std::to_string(HNL_VERSION_MINOR) + "." + std::to_string(HNL_VERSION_PATCH),
+              "found by other HNL plugins, with its version", found.size());
+        if (found.size() == 1) {
+            const float* v = found[0].values;
+            bool same = v[kMasterGrLimiter] == plugin.getParameterValue(kMeterGrLim) && v[kMasterGrLow] == plugin.getParameterValue(kMeterGrLow) &&
+                        v[kMasterGrMid] == plugin.getParameterValue(kMeterGrMid) && v[kMasterGrHigh] == plugin.getParameterValue(kMeterGrHigh) &&
+                        v[kMasterInL] == plugin.getParameterValue(kMeterInL) && v[kMasterInR] == plugin.getParameterValue(kMeterInR) &&
+                        v[kMasterOutL] == plugin.getParameterValue(kMeterOutL) && v[kMasterOutR] == plugin.getParameterValue(kMeterOutR) &&
+                        v[kMasterTruePeak] == plugin.getParameterValue(kMeterTruePeak) && v[kMasterLufsI] == lufs &&
+                        v[kMasterLufsM] == plugin.getParameterValue(kMeterLufsM) && v[kMasterLufsS] == plugin.getParameterValue(kMeterLufsS);
+            check(same, "they read the figures its own meters show (limiter GR, dB)", v[kMasterGrLimiter]);
+            check(v[kMasterLimiterGain] == 12.0f && v[kMasterLimiterCeiling] == -1.0f && v[kMasterLimiterOn] == 1.0f && v[kMasterBypass] == 0.0f && v[kMasterSampleRate] == 48000.0f,
+                  "and the limiter's gain and ceiling (gain, dB)", v[kMasterLimiterGain]);
+            check(found[0].frames == 600u * 512u, "and how many samples it has processed", static_cast<double>(found[0].frames));
+        }
+        { // A second instance in the song is a second one to find; gone again when it is removed. Not one that the host
+          // never prepares for audio: a VST3 host makes such an instance beside every real one, for the knobs alone.
+            PluginExporter other(nullptr, nullptr, nullptr, nullptr);
+            check(reader.find(kMaster).size() == 1, "an instance that is never prepared for audio is not found", reader.find(kMaster).size());
+            other.activate();
+            check(reader.find(kMaster).size() == 2, "a second instance is found beside it", reader.find(kMaster).size());
+            other.deactivate();
+            check(reader.find(kMaster).size() == 2, "also while it is switched off", reader.find(kMaster).size());
+        }
+        check(reader.find(kMaster).size() == 1, "and is gone when it is removed", reader.find(kMaster).size());
+    }
 
     for (int block = 0; block < 400; ++block) {
         if (block == 20) plugin.setState("reset", ""); // after the tail has left the look-ahead delay

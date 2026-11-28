@@ -24,3 +24,7 @@ g++ -std=c++17 -O3 -ffast-math -Wall -Wextra -o "$OUT/presets_test_release" test
 "$OUT/presets_test_release"
 g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/settings_test" tests/settings_test.cpp
 "$OUT/settings_test"
+# How the plugins find each other, with a second process as the other plugin.
+g++ -std=c++17 -O2 -Wall -Wextra -o "$OUT/link_test" tests/link_test.cpp -lpthread
+"$OUT/link_test" > "$OUT/link_test.log" || { grep -v '^PASS' "$OUT/link_test.log"; exit 1; }
+echo "link: $(grep -c '^PASS' "$OUT/link_test.log") checks passed"

@@ -117,6 +117,18 @@ The compressor and the stereo width folded:
 
 ![Two stages folded](docs/folded.png)
 
+## Found by HNL Analyzer
+
+From version 0.9 on, [HNL Analyzer](../hnl-analyzer) (0.2 or later) in the same song finds HNL Master by itself
+and shows its meters beside its own measurement: the input peak, the gain reduction of the three bands and of
+the limiter, the limiter's gain and ceiling, the loudness and the true peak. Nothing has to be connected, and it
+works in any host. HNL Master only shows its figures: nothing in it can be changed from outside, and its sound and
+its latency are what they were.
+
+For this every instance writes its meters into a small block of memory that the system keeps under a name
+(`common/Link.hpp`). The audio thread stores a handful of numbers per block and never waits. `HNL_LINK_NAME=off`
+in the environment of the host switches it off.
+
 ## Using it
 
 - Drag a knob up or down; hold Shift for fine steps. The mouse wheel also works.
@@ -135,6 +147,12 @@ The zip holds the plugin as VST3
 two. Windows 64-bit; the VST3 is tested in Reason.
 
 ## Changelog
+
+### 0.9.0 (2026-11-28)
+
+- New: HNL Analyzer (0.2 or later) in the same song finds HNL Master and shows its meters and the limiter's gain
+  and ceiling. Read only; the sound is unchanged. An instance is found from the moment the host prepares it for
+  audio. Tested on Linux, and tried once in Reason on Windows.
 
 ### 0.8.0 (2026-11-27)
 

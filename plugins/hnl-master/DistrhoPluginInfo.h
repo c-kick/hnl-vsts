@@ -14,7 +14,7 @@
 
 // The version: reported to the host, shown behind the title, and read by package.sh.
 #define HNL_VERSION_MAJOR 0
-#define HNL_VERSION_MINOR 8
+#define HNL_VERSION_MINOR 9
 #define HNL_VERSION_PATCH 0
 
 #define DISTRHO_PLUGIN_HAS_UI       1
